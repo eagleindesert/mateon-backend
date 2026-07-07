@@ -1,0 +1,3 @@
+# 로그인 시 생성되는 토큰 파일 (커밋 금지)
+.auth-token.txt
+.refresh-token.txt

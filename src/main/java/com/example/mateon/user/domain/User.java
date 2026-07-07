@@ -1,0 +1,92 @@
+package com.example.mateon.user.domain;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EntityListeners(AuditingEntityListener.class)
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false, length = 100)
+    private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false, length = 50)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Campus campus;
+
+    @Column(length = 100)
+    private String college;
+
+    @Column(length = 100)
+    private String major;
+
+    @Column(length = 10)
+    private String grade;
+
+    @Column(length = 100)
+    private String interestJobPrimary;
+
+    @Column(length = 100)
+    private String interestJobSecondary;
+
+    @Column(length = 100)
+    private String interestJobTertiary;
+
+    @Column(length = 200)
+    private String tagline;
+
+    @Column(name = "dreamy_report", columnDefinition = "TEXT")
+    private String dreamyReport; // OpenAI 리포트 JSON 문자열 저장
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    public void update(String name, Campus campus, String college, String major, String grade,
+                       String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
+                       String tagline) {
+        if (name != null) this.name = name;
+        if (campus != null) this.campus = campus;
+        if (college != null) this.college = college;
+        if (major != null) this.major = major;
+        if (grade != null) this.grade = grade;
+        if (interestJobPrimary != null) this.interestJobPrimary = interestJobPrimary;
+        if (interestJobSecondary != null) this.interestJobSecondary = interestJobSecondary;
+        if (interestJobTertiary != null) this.interestJobTertiary = interestJobTertiary;
+        if (tagline != null) this.tagline = tagline;
+    }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public enum Campus {
+        JUKJEON, CHEONAN
+    }
+}
+

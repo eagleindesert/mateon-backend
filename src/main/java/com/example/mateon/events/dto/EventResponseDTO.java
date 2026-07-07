@@ -1,0 +1,43 @@
+package com.example.mateon.events.dto;
+
+import com.example.mateon.events.models.Event;
+import com.example.mateon.events.models.Event.Category;
+import com.example.mateon.events.models.Event.CampusScope;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import java.time.LocalDate;
+
+@Getter
+@NoArgsConstructor // Lombok 어노테이션을 사용하여 기본 생성자 자동 생성
+public class EventResponseDTO {
+
+    private Long id;
+    private Category category;
+    private String title;
+    private String description;
+    private String imageUrl;
+    private String detailUrl;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private CampusScope campusScope;
+    // target_colleges (JSON)
+    private String targetColleges;
+    private String summarizedDescription;
+    private String recommendedTargets; // DB JSON 타입으로 저장되지만, String으로 전달
+
+    // 엔티티를 DTO로 변환하는 생성자
+    public EventResponseDTO(Event event) {
+        this.id = event.getId();
+        this.category = event.getCategory();
+        this.title = event.getTitle();
+        this.description = event.getDescription();
+        this.imageUrl = event.getImageUrl();
+        this.detailUrl = event.getDetailUrl();
+        this.startDate = event.getStartDate();
+        this.endDate = event.getEndDate();
+        this.campusScope = event.getCampusScope();
+        this.targetColleges = event.getTarget_colleges();
+        this.summarizedDescription = event.getSummarizedDescription();
+        this.recommendedTargets = event.getRecommendedTargets();
+    }
+}
