@@ -14,6 +14,50 @@ if (-not $script:BaseUrl) {
 $script:TokenFile   = Join-Path $PSScriptRoot ".auth-token.txt"
 $script:RefreshFile = Join-Path $PSScriptRoot ".refresh-token.txt"
 
+# 테스트 결과 집계용 전역 트래커.
+# run_all.ps1 은 6개 스크립트를 같은 프로세스에서 실행하므로 $global: 로 공유한다.
+# (개별 스크립트를 단독 실행하면 새 프로세스마다 비어 있는 상태로 시작한다.)
+if (-not (Test-Path variable:global:MateonTestResults)) {
+    $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
+}
+
+# 집계 초기화 (run_all.ps1 시작 시 호출)
+function Reset-TestResults {
+    $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
+}
+
+# 성공/실패 개수와 실패 목록을 출력한다.
+function Write-TestSummary {
+    $results = $global:MateonTestResults
+    $total   = $results.Count
+    $failedItems = @($results | Where-Object { -not $_.Ok })
+    $passed  = $total - $failedItems.Count
+
+    Write-Host ""
+    Write-Host ("=" * 70) -ForegroundColor DarkGray
+    Write-Host " 테스트 요약 (Test Summary)" -ForegroundColor Magenta
+    Write-Host ("=" * 70) -ForegroundColor DarkGray
+    Write-Host ("  전체: {0}" -f $total) -ForegroundColor White
+    Write-Host ("  성공: {0}" -f $passed) -ForegroundColor Green
+    Write-Host ("  실패: {0}" -f $failedItems.Count) -ForegroundColor $(if ($failedItems.Count -gt 0) { "Red" } else { "Green" })
+
+    if ($failedItems.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  실패한 항목:" -ForegroundColor Red
+        foreach ($f in $failedItems) {
+            $statusText = if ($f.Status) { $f.Status } else { "NO_RESPONSE" }
+            Write-Host ("    - [{0}] {1}  ({2} {3}) -> Status {4}" -f `
+                $statusText, $f.Title, $f.Method, $f.Path, $statusText) -ForegroundColor Red
+        }
+    } else {
+        Write-Host ""
+        Write-Host "  모든 테스트 통과 🎉" -ForegroundColor Green
+    }
+    Write-Host ("=" * 70) -ForegroundColor DarkGray
+
+    return $failedItems.Count
+}
+
 # curl.exe 실행 파일 확인
 $script:Curl = "curl.exe"
 
@@ -126,8 +170,18 @@ function Invoke-Api {
         $bodyText = ($raw -replace "HTTP_STATUS:\d+\s*$", "").Trim()
     }
 
-    $statusColor = if ($status -and [int]$status -lt 400) { "Green" } else { "Red" }
+    $ok = [bool]($status -and [int]$status -lt 400)
+    $statusColor = if ($ok) { "Green" } else { "Red" }
     Write-Host "  Status: $status" -ForegroundColor $statusColor
+
+    # 결과 집계 (요약 출력에 사용)
+    $global:MateonTestResults.Add([pscustomobject]@{
+        Title  = if ($Title) { $Title } else { "$Method $Path" }
+        Method = $Method
+        Path   = $Path
+        Status = $status
+        Ok     = $ok
+    })
 
     # 본문을 JSON 으로 예쁘게 출력 (실패 시 원문 그대로)
     $result = $null
