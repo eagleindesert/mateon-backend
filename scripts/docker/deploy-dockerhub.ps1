@@ -23,7 +23,8 @@
     이미지 저장소명. 기본값: mateon-backend
 
 .PARAMETER Tag
-    이미지 태그. 기본값: 현재 git short SHA (없으면 'latest').
+    이미지 태그. 미지정 시 DockerHub 의 최신 semver 태그를 조회해 patch 를 +1 한
+    값으로 자동 지정합니다(예: v1.0.3 존재 → v1.0.4). 태그가 하나도 없으면 v1.0.0.
 
 .PARAMETER LatestToo
     :latest 태그도 함께 붙여 push 합니다. 기본 활성화($true).
@@ -32,20 +33,26 @@
     push 여부. $false 이면 빌드/태그만 하고 push 하지 않습니다. 기본 $true.
 
 .PARAMETER Platform
-    빌드 대상 플랫폼 (예: linux/amd64). 미지정 시 로컬 기본 플랫폼.
+    빌드 대상 플랫폼. 기본값: linux/arm64 (ARM 클라우드 배포용).
+    x86 개발 PC 에서도 buildx + QEMU 에뮬레이션으로 arm64 이미지를 크로스 빌드합니다.
+    amd64 로 빌드하려면 -Platform linux/amd64 를 명시하세요.
 
 .EXAMPLE
-    # 환경변수로 자격증명 지정 후 실행
+    # 환경변수로 자격증명 지정 후 실행 (기본 arm64 로 빌드)
     $env:DOCKERHUB_USERNAME = "myuser"
     $env:DOCKERHUB_TOKEN    = "dckr_pat_xxx"
     ./scripts/docker/deploy-dockerhub.ps1
 
 .EXAMPLE
-    # 특정 태그로, amd64 플랫폼 빌드하여 배포
-    ./scripts/docker/deploy-dockerhub.ps1 -Username myuser -Tag v1.0.0 -Platform linux/amd64
+    # 특정 태그로 배포 (arm64)
+    ./scripts/docker/deploy-dockerhub.ps1 -Username myuser -Tag v1.0.0
 
 .EXAMPLE
-    # push 없이 로컬 빌드/태그만 확인
+    # amd64 로 빌드하여 배포
+    ./scripts/docker/deploy-dockerhub.ps1 -Username myuser -Platform linux/amd64
+
+.EXAMPLE
+    # push 없이 로컬 빌드/로드만 확인
     ./scripts/docker/deploy-dockerhub.ps1 -Username myuser -Push:$false
 #>
 [CmdletBinding()]
@@ -55,7 +62,7 @@ param(
     [string]$Tag,
     [bool]$LatestToo = $true,
     [bool]$Push = $true,
-    [string]$Platform
+    [string]$Platform = "linux/arm64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,6 +71,60 @@ function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "  [OK] $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "  [!]  $msg" -ForegroundColor Yellow }
 function Fail($msg)       { Write-Host "  [X]  $msg" -ForegroundColor Red; exit 1 }
+
+# 네이티브 docker 명령을 조용히 실행하고 종료코드만 반환한다.
+# PS 5.1 은 $ErrorActionPreference='Stop' 상태에서 네이티브 stderr 출력을 종료 오류로
+# 취급해 스크립트가 중단된다. 잠시 Continue 로 낮춰 종료코드로만 판정한다.
+function Invoke-DockerQuiet {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DockerArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    docker @DockerArgs > $null 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return $code
+}
+
+# DockerHub 에 이미 올라온 semver 태그 중 최고 버전을 찾아 patch +1 한 다음 태그를 반환.
+# public 레포지토리라 인증 없이 조회 가능. 실패/미존재 시 StartVersion 으로 시작.
+# 반환: @{ Tag = "<다음 태그>"; Prev = "<직전 태그 또는 $null>" }
+function Get-NextDockerHubTag {
+    param([string]$Repo, [string]$StartVersion = "v1.0.0")
+
+    # DockerHub API 는 TLS 1.2 필요 (PS 5.1 기본값이 낮을 수 있어 명시)
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $url = "https://hub.docker.com/v2/repositories/$Repo/tags/?page_size=100"
+    try {
+        $resp = Invoke-RestMethod -Uri $url -Method Get -ErrorAction Stop
+    } catch {
+        # 404(레포지토리 없음) 또는 네트워크 오류 → 첫 버전으로 시작
+        Write-Warn "DockerHub 태그 조회 실패($($_.Exception.Message)). 첫 버전으로 시작합니다."
+        return @{ Tag = $StartVersion; Prev = $null }
+    }
+
+    # vX.Y.Z / X.Y.Z 형태의 semver 태그만 추림 (latest 등은 제외)
+    $semver = @()
+    foreach ($t in $resp.results) {
+        if ($t.name -match '^(v?)(\d+)\.(\d+)\.(\d+)$') {
+            $semver += [pscustomobject]@{
+                Name   = $t.name
+                Prefix = $matches[1]
+                Major  = [int]$matches[2]
+                Minor  = [int]$matches[3]
+                Patch  = [int]$matches[4]
+            }
+        }
+    }
+
+    if ($semver.Count -eq 0) {
+        return @{ Tag = $StartVersion; Prev = $null }
+    }
+
+    # 숫자 기준 최고 버전 선택 후 patch +1 (접두사 v 유무는 기존 태그를 따름)
+    $top  = $semver | Sort-Object Major, Minor, Patch | Select-Object -Last 1
+    $next = "{0}{1}.{2}.{3}" -f $top.Prefix, $top.Major, $top.Minor, ($top.Patch + 1)
+    return @{ Tag = $next; Prev = $top.Name }
+}
 
 # ---------------------------------------------------------------------------
 # 0. 경로 설정 (스크립트 위치 기준으로 프로젝트 루트 계산)
@@ -139,9 +200,15 @@ Write-Ok "사용자: $Username"
 # 3. 태그 결정
 # ---------------------------------------------------------------------------
 if (-not $Tag) {
-    $sha = ""
-    try { $sha = (git -C $ProjectRoot rev-parse --short HEAD 2>$null).Trim() } catch { }
-    $Tag = if ($sha) { $sha } else { "latest" }
+    # -Tag 미지정 시 DockerHub 최신 semver 태그를 읽어 patch 자동 증가
+    Write-Step "다음 버전 자동 계산 (DockerHub 조회)"
+    $result = Get-NextDockerHubTag -Repo "$Username/$ImageName"
+    $Tag = $result.Tag
+    if ($result.Prev) {
+        Write-Ok "직전 버전: $($result.Prev)  →  새 버전: $Tag"
+    } else {
+        Write-Ok "기존 semver 태그 없음  →  첫 버전: $Tag"
+    }
 }
 $Repo      = "$Username/$ImageName"
 $FullTag   = "${Repo}:${Tag}"
@@ -153,52 +220,68 @@ if ($LatestToo -and $Tag -ne "latest") { Write-Host "  추가태그: $LatestTag"
 if ($Platform) { Write-Host "  플랫폼 : $Platform" }
 
 # ---------------------------------------------------------------------------
-# 4. 빌드
+# 4. buildx 준비 (크로스 아키텍처 빌드 = QEMU 에뮬레이션)
 # ---------------------------------------------------------------------------
-Write-Step "이미지 빌드"
+# 다른 아키텍처(예: x86 PC → arm64)로 빌드하려면 buildx 가 필요합니다.
+# buildx 는 대상 플랫폼 이미지를 로컬 docker 이미지 스토어에 --load 할 수 없으므로,
+# push 할 때는 --push 로 빌드와 업로드를 한 번에 수행합니다.
+Write-Step "buildx 준비 ($Platform)"
 
-$buildArgs = @("build", "-f", $Dockerfile, "-t", $FullTag)
+if ((Invoke-DockerQuiet buildx version) -ne 0) {
+    Fail "docker buildx 를 찾을 수 없습니다. Docker Desktop(또는 buildx 플러그인)이 필요합니다."
+}
+# 재사용 가능한 빌더(mateon-builder)를 보장. 없으면 생성.
+$builderName = "mateon-builder"
+if ((Invoke-DockerQuiet buildx inspect $builderName) -ne 0) {
+    if ((Invoke-DockerQuiet buildx create --name $builderName --use) -ne 0) { Fail "buildx 빌더 생성 실패" }
+    Write-Ok "buildx 빌더 생성: $builderName"
+} else {
+    Invoke-DockerQuiet buildx use $builderName | Out-Null
+    Write-Ok "buildx 빌더 사용: $builderName"
+}
+
+# ---------------------------------------------------------------------------
+# 5. 로그인 (push 시 buildx 가 빌드와 동시에 업로드하므로 빌드 전에 로그인)
+# ---------------------------------------------------------------------------
+if ($Push) {
+    Write-Step "DockerHub 로그인"
+    if ($Token) {
+        $Token | docker login --username $Username --password-stdin
+        if ($LASTEXITCODE -ne 0) { Fail "docker login 실패 (토큰/사용자명 확인)" }
+        Write-Ok "토큰으로 로그인 성공"
+    } else {
+        Write-Warn "DOCKERHUB_TOKEN 미설정 — 기존 docker login 세션을 사용합니다."
+        Write-Warn "미로그인 상태면 push 가 실패합니다. Access Token 사용을 권장합니다."
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 6. 빌드 (+ push)
+# ---------------------------------------------------------------------------
+Write-Step "이미지 빌드 ($Platform)"
+
+$buildArgs = @("buildx", "build", "--platform", $Platform, "-f", $Dockerfile, "-t", $FullTag)
 if ($LatestToo -and $Tag -ne "latest") { $buildArgs += @("-t", $LatestTag) }
-if ($Platform) { $buildArgs += @("--platform", $Platform) }
+if ($Push) {
+    # 빌드 결과를 곧바로 레지스트리로 push (크로스 아키텍처는 --load 불가)
+    $buildArgs += "--push"
+} else {
+    # push 안 할 때는 로컬 스토어로 load (대상 플랫폼이 호스트와 같을 때만 성공)
+    $buildArgs += "--load"
+}
 $buildArgs += $ProjectRoot
 
 docker @buildArgs
 if ($LASTEXITCODE -ne 0) { Fail "이미지 빌드 실패" }
-Write-Ok "빌드 완료: $FullTag"
 
 if (-not $Push) {
+    Write-Ok "빌드/로드 완료: $FullTag"
     Write-Step "완료 (Push 생략됨: -Push:`$false)"
     exit 0
 }
 
-# ---------------------------------------------------------------------------
-# 5. 로그인 (--password-stdin, 토큰이 있을 때만; 없으면 기존 세션 사용)
-# ---------------------------------------------------------------------------
-Write-Step "DockerHub 로그인"
-
-if ($Token) {
-    $Token | docker login --username $Username --password-stdin
-    if ($LASTEXITCODE -ne 0) { Fail "docker login 실패 (토큰/사용자명 확인)" }
-    Write-Ok "토큰으로 로그인 성공"
-} else {
-    Write-Warn "DOCKERHUB_TOKEN 미설정 — 기존 docker login 세션을 사용합니다."
-    Write-Warn "미로그인 상태면 push 가 실패합니다. Access Token 사용을 권장합니다."
-}
-
-# ---------------------------------------------------------------------------
-# 6. Push
-# ---------------------------------------------------------------------------
-Write-Step "이미지 Push"
-
-docker push $FullTag
-if ($LASTEXITCODE -ne 0) { Fail "push 실패: $FullTag" }
-Write-Ok "push 완료: $FullTag"
-
-if ($LatestToo -and $Tag -ne "latest") {
-    docker push $LatestTag
-    if ($LASTEXITCODE -ne 0) { Fail "push 실패: $LatestTag" }
-    Write-Ok "push 완료: $LatestTag"
-}
+Write-Ok "빌드 및 push 완료: $FullTag ($Platform)"
+if ($LatestToo -and $Tag -ne "latest") { Write-Ok "push 완료: $LatestTag" }
 
 Write-Step "배포 완료 🎉"
 Write-Host "  docker pull $FullTag" -ForegroundColor Green
