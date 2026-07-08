@@ -1,0 +1,31 @@
+# === Secrets & Environment (절대 이미지/빌드 컨텍스트에 포함 금지) ===
+.env
+.env.*
+*.env
+application-local.properties
+application-secret.properties
+http-client.private.env.json
+
+# === 빌드 산출물 (컨테이너 내부에서 재빌드) ===
+build/
+bin/
+out/
+.gradle/
+
+# === VCS / IDE ===
+.git
+.gitignore
+.gitattributes
+.idea/
+.vscode/
+*.iml
+
+# === 문서 / 테스트 스크립트 (런타임 불필요) ===
+docs/
+scripts/
+README.md
+HELP.md
+
+# === OS ===
+.DS_Store
+Thumbs.db

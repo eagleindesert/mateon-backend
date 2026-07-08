@@ -40,6 +40,9 @@ out/
 application-local.properties
 application-secret.properties
 *.env
+.env
 .env.local
 .env.*.local
+.env.deploy
+**/.env.deploy
 http-client.private.env.json
