@@ -32,7 +32,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       TZ: Asia/Seoul
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${APP_PORT:-8081}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
       TZ: Asia/Seoul
     # 외부에 DB 를 노출할 필요가 없다면 ports 블록은 주석 처리하세요(보안 권장).
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - mateon-postgres-data:/var/lib/postgresql/data
     healthcheck:
