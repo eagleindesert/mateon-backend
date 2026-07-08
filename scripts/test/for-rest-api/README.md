@@ -7,7 +7,7 @@
 
 | 파일 | 대상 | 인증 |
 |------|------|------|
-| `_common.ps1` | 공통 헬퍼 (curl 호출, 토큰 저장/재사용) | - |
+| `_common.ps1` | 공통 헬퍼 (curl 호출, 토큰 저장/재사용, `.env` 로드) | - |
 | `01_health.ps1` | Health (헬스체크) | 불필요 |
 | `02_auth.ps1` | Auth `/api/auth` (로그인 후 토큰 저장) | 불필요 |
 | `03_user.ps1` | User `/api/users` | **필요** |
@@ -22,10 +22,15 @@
    ```powershell
    ./gradlew bootRun
    ```
-2. 다른 주소를 쓰는 경우 환경변수로 지정
-   ```powershell
-   $env:MATEON_BASE_URL = "http://localhost:9090"
-   ```
+2. 대상 서버 주소 지정 — 우선순위: **셸 환경변수 > `.env` 파일 > 코드 기본값(`localhost:8080`)**
+   - **`.env` 파일 (권장, 반복 사용)**: 이 폴더에 `.env` 를 만들고 아래처럼 작성한다.
+     `_common.ps1` 로드 시 같은 폴더의 `.env` 를 자동으로 읽으며(`Import-DotEnv`),
+     `.env` 는 `.gitignore` 의 `*.env` 패턴으로 커밋에서 제외된다.
+     ```ini
+     # scripts/test/for-rest-api/.env  (커밋 금지)
+     # 테스트 대상 서버 주소 (뒤에 /api/... 가 붙는다)
+     MATEON_BASE_URL=http://localhost:8080/fmewlkmflewmlk
+     ```
 
 ## 실행 방법
 
@@ -56,6 +61,35 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr
 # 2) 메일 수신 후 코드로 재실행 (회원가입 + 로그인)
 powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr -Code 123456
 ```
+
+## 원격 VM 서버를 대상으로 실행할 때 추가 조치
+
+`-BypassEmail` 의 이메일 인증 우회(`Grant-EmailVerification`)는 **스크립트를 실행하는 로컬
+머신에서** `docker exec` 로 PostgreSQL 을 조작한다. 따라서 DB 가 원격 VM 에 있으면 로컬 우회는
+그 DB 에 닿지 않는다 → **VM 에서 직접 verified 행을 넣어야** 한다.
+
+1. VM 에 SSH 접속 후, 테스트 이메일(`02_auth.ps1` 기본값 `test1@dankook.ac.kr`)로 verified 행 삽입:
+   ```bash
+   docker exec mateon-postgres psql -U admin -d mateon_db -c "DELETE FROM email_verifications WHERE email='test1@dankook.ac.kr'; INSERT INTO email_verifications(code, email, expires_at, verified) VALUES ('000000', 'test1@dankook.ac.kr', NOW() + INTERVAL '1 day', true);"
+   ```
+   - `email_verifications.email` 에 unique 제약이 없어 `ON CONFLICT` 대신 **DELETE 후 INSERT** 로
+     멱등 처리한다(여러 번 실행해도 안전).
+   - **docker exec 이메일과 스크립트의 `-Email`(기본 `test1@dankook.ac.kr`)을 반드시 일치**시킬 것.
+
+2. 로컬에서 `.env` 의 `MATEON_BASE_URL` 을 VM 주소로 두고 실행:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -BypassEmail
+   # 또는 전체
+   powershell -ExecutionPolicy Bypass -File .\run_all.ps1
+   ```
+   - signup 은 `email_verifications.verified` 플래그만 확인하므로 **인증코드 없이** 통과한다.
+   - 이때 `-BypassEmail` 은 로컬 docker 우회가 실패하더라도(빨간 경고 출력) 무시되고 signup 단계로
+     진입하는 **트리거** 역할만 한다. VM 에 이미 넣어둔 verified 행 덕에 원격 signup 은 성공한다.
+   - 이메일이 고정이라 **두 번째 실행부터** signup 은 `EMAIL_ALREADY_EXISTS` 로 실패하지만, 이어지는
+     login 이 성공해 토큰은 정상 저장된다. 깨끗한 가입부터 다시 하려면 VM 에서 유저를 지운다:
+     ```bash
+     docker exec mateon-postgres psql -U admin -d mateon_db -c "DELETE FROM users WHERE email='test1@dankook.ac.kr';"
+     ```
 
 ## 주의
 

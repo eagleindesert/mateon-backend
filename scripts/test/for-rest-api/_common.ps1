@@ -5,6 +5,35 @@
 # - curl.exe 를 사용하여 API 를 호출한다.
 # - 로그인 시 발급된 accessToken 을 .auth-token.txt 에 저장/재사용한다.
 
+# .env 파일에서 설정을 읽어 환경변수로 로드한다(파일이 있을 때만).
+#   우선순위: 이미 지정된 셸 환경변수 > .env 파일 값 (셸이 우선)
+#   경로: 기본 $PSScriptRoot\.env (MATEON_ENV_FILE 로 변경 가능)
+#   지원 키 예: MATEON_BASE_URL / MATEON_PG_CONTAINER / MATEON_JWT_SECRET
+function Import-DotEnv {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return }
+    foreach ($line in Get-Content -Path $Path) {
+        $t = $line.Trim()
+        if (-not $t -or $t.StartsWith("#")) { continue }
+        $eq = $t.IndexOf("=")
+        if ($eq -lt 1) { continue }
+        $key = $t.Substring(0, $eq).Trim()
+        $val = $t.Substring($eq + 1).Trim()
+        # 양쪽 감싼 따옴표 제거
+        if ($val.Length -ge 2 -and
+            (($val[0] -eq '"' -and $val[-1] -eq '"') -or ($val[0] -eq "'" -and $val[-1] -eq "'"))) {
+            $val = $val.Substring(1, $val.Length - 2)
+        }
+        # 셸에 이미 설정돼 있으면 유지(셸 우선), 없을 때만 .env 값 적용
+        if (-not [System.Environment]::GetEnvironmentVariable($key, 'Process')) {
+            Set-Item -Path "env:$key" -Value $val
+        }
+    }
+}
+
+$script:EnvFile = if ($env:MATEON_ENV_FILE) { $env:MATEON_ENV_FILE } else { Join-Path $PSScriptRoot ".env" }
+Import-DotEnv -Path $script:EnvFile
+
 # 기본 설정 (환경변수로 덮어쓰기 가능)
 if (-not $script:BaseUrl) {
     if ($env:MATEON_BASE_URL) { $script:BaseUrl = $env:MATEON_BASE_URL }

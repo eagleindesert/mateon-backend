@@ -8,7 +8,7 @@
 #   2) -BypassEmail    : 메일 없이 DB 에 verified 행을 직접 넣어 signup 진행 (개발용)
 #                        (docker 로 실행 중인 PostgreSQL 컨테이너 필요)
 param(
-    [string]$Email = "test.$((Get-Random -Maximum 99999))@dankook.ac.kr",
+    [string]$Email = "test1@dankook.ac.kr",   # 고정 이메일 (DB verified 행과 일치시켜야 함)
     [string]$Password = "Password1234",
     [string]$Name = "테스트유저",
     [string]$Code = "",       # 이메일로 수신한 6자리 인증코드
