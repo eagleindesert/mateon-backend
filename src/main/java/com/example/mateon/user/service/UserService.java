@@ -164,6 +164,7 @@ public class UserService {
                 .grade(user.getGrade())
                 .interestJobPrimary(user.getInterestJobPrimary())
                 .campus(user.getCampus())
+                .schoolVerified(user.isSchoolVerified())
                 .dreamyReport(aiAnalysis)
                 .participatedActivities(activities)
                 .build();

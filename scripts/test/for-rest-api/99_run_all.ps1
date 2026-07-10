@@ -1,22 +1,23 @@
-# run_all.ps1 - 전체 API 테스트를 순서대로 실행
+# 99_run_all.ps1 - 전체 API 테스트를 순서대로 실행
 # 사용법:
-#   powershell -ExecutionPolicy Bypass -File .\run_all.ps1
-#   powershell -ExecutionPolicy Bypass -File .\run_all.ps1 -Email test@dankook.ac.kr -Password Password1234 -Code 123456
+#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1
+#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email test@dankook.ac.kr -Password Password1234 -Code 123456
 #
 # 회원가입/인증까지 자동으로 진행하려면 이메일로 수신한 -Code(6자리)를 넘긴다.
 # 이미 가입된 계정이 있다면 -Email/-Password 만 넘겨 로그인 후 나머지를 테스트할 수 있다.
+# -Email/-Password 를 생략하면 00_common 의 TestEmail/TestPassword 기본값이 쓰인다.
 #
 # 기본 동작: 02_auth 를 -BypassEmail 로 실행한다(메일 없이 DB 로 이메일 인증 우회).
 #   -Code 를 주면 실제 인증코드로 진행하며 우회는 자동으로 꺼진다.
 #   -NoBypassEmail 을 주면 우회 없이(코드도 없이) 실행한다.
 param(
-    [string]$Email = "",
-    [string]$Password = "Password1234",
+    [string]$Email = "",      # 미지정 시 각 스크립트가 00_common 의 TestEmail 사용
+    [string]$Password = "",   # 미지정 시 각 스크립트가 00_common 의 TestPassword 사용
     [string]$Code = "",
     [switch]$NoBypassEmail
 )
 
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
 
 # 이전 실행 결과가 남아있지 않도록 집계 초기화
 Reset-TestResults
@@ -46,6 +47,11 @@ Write-Host "`n===== 5) Team =====" -ForegroundColor Magenta
 
 Write-Host "`n===== 6) Notification =====" -ForegroundColor Magenta
 & "$PSScriptRoot\06_notification.ps1"
+
+Write-Host "`n===== 7) School Auth & Gating =====" -ForegroundColor Magenta
+$schoolArgs = @{}
+if ($Email) { $schoolArgs.Email = $Email }
+& "$PSScriptRoot\07_school_auth.ps1" @schoolArgs
 
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 

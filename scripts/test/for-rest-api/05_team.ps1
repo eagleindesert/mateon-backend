@@ -5,7 +5,7 @@
 # 흐름: 팀 생성 -> 목록/상세 조회 -> 수정 -> (지원 관련) -> 삭제
 # 지원(apply)은 보통 "다른 사용자"가 수행하므로, 본인 팀에 지원 시 서버 정책에 따라
 # 거절될 수 있다. 응답 상태로 동작을 확인한다.
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
 
 Write-Host "`n########## 5. Team (팀 모집/지원) - /api/teams [인증 필요] ##########" -ForegroundColor Magenta
 

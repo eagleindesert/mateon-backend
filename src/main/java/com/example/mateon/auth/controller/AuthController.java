@@ -6,6 +6,7 @@ import com.example.mateon.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,6 +26,26 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> verifyEmail(@Valid @RequestBody EmailVerifyRequest request) {
         authService.verifyEmail(request);
         return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다."));
+    }
+
+    // 로그인 후 학교(재학생) 이메일 인증코드 발송 [인증 필요]
+    @PostMapping("/school/email/request")
+    public ResponseEntity<ApiResponse<Object>> requestSchoolEmailVerification(
+            @Valid @RequestBody SchoolEmailRequest request,
+            Authentication authentication) {
+        Long userId = Long.valueOf(authentication.getName());
+        authService.requestSchoolEmailVerification(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("학교 이메일로 인증코드가 발송되었습니다."));
+    }
+
+    // 로그인 후 학교(재학생) 이메일 인증코드 검증 → 재학생 확정 [인증 필요]
+    @PostMapping("/school/email/verify")
+    public ResponseEntity<ApiResponse<Object>> verifySchoolEmail(
+            @Valid @RequestBody SchoolEmailVerifyRequest request,
+            Authentication authentication) {
+        Long userId = Long.valueOf(authentication.getName());
+        authService.verifySchoolEmail(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("학교 인증이 완료되었습니다."));
     }
 
     @PostMapping("/signup")

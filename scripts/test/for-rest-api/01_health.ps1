@@ -1,6 +1,6 @@
 # 01_health.ps1 - Health (헬스체크) API 테스트
 # 사용법: powershell -ExecutionPolicy Bypass -File .\01_health.ps1
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
 
 Write-Host "`n########## 1. Health (헬스체크) ##########" -ForegroundColor Magenta
 

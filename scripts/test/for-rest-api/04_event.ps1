@@ -1,7 +1,7 @@
 # 04_event.ps1 - Event (활동) API 테스트  /api/events
 # 사용법: powershell -ExecutionPolicy Bypass -File .\04_event.ps1
 # 참고: /recommended 는 인증 필요. 나머지는 비인증 접근 가능(인증 시 개인화 정렬).
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
 
 Write-Host "`n########## 4. Event (활동) - /api/events ##########" -ForegroundColor Magenta
 

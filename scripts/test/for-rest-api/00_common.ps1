@@ -1,14 +1,45 @@
-# _common.ps1
+# 00_common.ps1
 # 모든 테스트 스크립트가 공통으로 사용하는 헬퍼.
-# 각 스크립트 상단에서 `. "$PSScriptRoot\_common.ps1"` 로 로드한다.
+# 각 스크립트 상단에서 `. "$PSScriptRoot\00_common.ps1"` 로 로드한다.
 #
 # - curl.exe 를 사용하여 API 를 호출한다.
 # - 로그인 시 발급된 accessToken 을 .auth-token.txt 에 저장/재사용한다.
 
+# ============================================================================
+#  설정 (CONFIG) — 여기 Default 만 고치면 모든 스크립트에 반영됩니다.
+#  ----------------------------------------------------------------------------
+#  각 항목의 우선순위는 아래 $DotEnvOverridesShell 토글로 결정됩니다:
+#     * $true  (기본): .env 파일  >  셸 환경변수  >  Default   ← .env 가 이김
+#     * $false        : 셸 환경변수  >  .env 파일  >  Default   ← 셸이 이김
+#  ($true 여도 .env 에 없는 키는 셸 값이, 그것도 없으면 Default 가 적용됩니다.)
+# ============================================================================
+$script:DotEnvOverridesShell = $true
+
+$script:MateonConfig = @(
+    # Name          Default(기본값)                     EnvVar(셸 환경변수 이름)         # 설명
+    @{ Name = "EnvFile";     Default = (Join-Path $PSScriptRoot ".env"); EnvVar = "MATEON_ENV_FILE" }      # .env 파일 경로
+    @{ Name = "BaseUrl";     Default = "http://localhost:8080";          EnvVar = "MATEON_BASE_URL" }      # API 서버 주소
+    @{ Name = "PgContainer"; Default = "mateon-postgres";                EnvVar = "MATEON_PG_CONTAINER" }  # PostgreSQL 도커 컨테이너
+    @{ Name = "PgUser";      Default = "admin";                          EnvVar = "MATEON_PG_USER" }       # psql 접속 계정
+    @{ Name = "PgDatabase";  Default = "mateon_db";                      EnvVar = "MATEON_PG_DB" }         # psql 대상 DB 이름
+    @{ Name = "JwtSecret";   Default = "";                               EnvVar = "MATEON_JWT_SECRET" }    # (예약) 현재 미사용
+
+    # 테스트 계정 기본값 — 스크립트에 -Email/-Password/-Name 을 안 주면 아래 값이 쓰인다.
+    @{ Name = "TestEmail";    Default = "test1@dankook.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
+    @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
+    @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
+)
+
+# 셸 환경변수 값이 있으면 그것을, 없으면 Default 를 돌려준다.
+function Resolve-MateonConfig {
+    param([string]$EnvVar, $Default)
+    $v = [System.Environment]::GetEnvironmentVariable($EnvVar, 'Process')
+    if ($v) { return $v } else { return $Default }
+}
+
 # .env 파일에서 설정을 읽어 환경변수로 로드한다(파일이 있을 때만).
-#   우선순위: 이미 지정된 셸 환경변수 > .env 파일 값 (셸이 우선)
-#   경로: 기본 $PSScriptRoot\.env (MATEON_ENV_FILE 로 변경 가능)
-#   지원 키 예: MATEON_BASE_URL / MATEON_PG_CONTAINER / MATEON_JWT_SECRET
+#   $DotEnvOverridesShell 가 $true 면 .env 값으로 항상 덮어써서 .env 를 우선한다.
+#   $false 면 셸에 이미 있는 값은 유지하여 셸을 우선한다.
 function Import-DotEnv {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return }
@@ -24,33 +55,36 @@ function Import-DotEnv {
             (($val[0] -eq '"' -and $val[-1] -eq '"') -or ($val[0] -eq "'" -and $val[-1] -eq "'"))) {
             $val = $val.Substring(1, $val.Length - 2)
         }
-        # 셸에 이미 설정돼 있으면 유지(셸 우선), 없을 때만 .env 값 적용
-        if (-not [System.Environment]::GetEnvironmentVariable($key, 'Process')) {
+        # .env 우선이면 무조건 덮어쓰고, 아니면 셸에 없을 때만 적용한다.
+        if ($script:DotEnvOverridesShell -or -not [System.Environment]::GetEnvironmentVariable($key, 'Process')) {
             Set-Item -Path "env:$key" -Value $val
         }
     }
 }
 
-$script:EnvFile = if ($env:MATEON_ENV_FILE) { $env:MATEON_ENV_FILE } else { Join-Path $PSScriptRoot ".env" }
+# --- 설정 확정 ---
+# 1) .env 파일 경로부터 결정(셸 env > Default)한 뒤 .env 로드
+$script:EnvFile = Resolve-MateonConfig -EnvVar "MATEON_ENV_FILE" -Default (($script:MateonConfig | Where-Object { $_.Name -eq "EnvFile" }).Default)
 Import-DotEnv -Path $script:EnvFile
 
-# 기본 설정 (환경변수로 덮어쓰기 가능)
-if (-not $script:BaseUrl) {
-    if ($env:MATEON_BASE_URL) { $script:BaseUrl = $env:MATEON_BASE_URL }
-    else { $script:BaseUrl = "http://localhost:8080" }
+# 2) 나머지 설정을 $DotEnvOverridesShell 토글에 따른 우선순위로 $script: 변수에 채운다.
+#    Import-DotEnv 가 .env 값을 (토글에 따라) 프로세스 env 로 올려주므로 여기서 한 번에 해석된다.
+foreach ($c in $script:MateonConfig) {
+    if ($c.Name -eq "EnvFile") { continue }  # 위에서 이미 처리
+    Set-Variable -Name $c.Name -Value (Resolve-MateonConfig -EnvVar $c.EnvVar -Default $c.Default) -Scope Script
 }
 
 $script:TokenFile   = Join-Path $PSScriptRoot ".auth-token.txt"
 $script:RefreshFile = Join-Path $PSScriptRoot ".refresh-token.txt"
 
 # 테스트 결과 집계용 전역 트래커.
-# run_all.ps1 은 6개 스크립트를 같은 프로세스에서 실행하므로 $global: 로 공유한다.
+# 99_run_all.ps1 은 여러 스크립트를 같은 프로세스에서 실행하므로 $global: 로 공유한다.
 # (개별 스크립트를 단독 실행하면 새 프로세스마다 비어 있는 상태로 시작한다.)
 if (-not (Test-Path variable:global:MateonTestResults)) {
     $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
 }
 
-# 집계 초기화 (run_all.ps1 시작 시 호출)
+# 집계 초기화 (99_run_all.ps1 시작 시 호출)
 function Reset-TestResults {
     $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
 }
@@ -90,12 +124,6 @@ function Write-TestSummary {
 # curl.exe 실행 파일 확인
 $script:Curl = "curl.exe"
 
-# 이메일 인증 우회에 사용할 PostgreSQL 도커 컨테이너 이름 (docker-compose.yml 기준)
-if (-not $script:PgContainer) {
-    if ($env:MATEON_PG_CONTAINER) { $script:PgContainer = $env:MATEON_PG_CONTAINER }
-    else { $script:PgContainer = "mateon-postgres" }
-}
-
 # 이메일 인증 우회:
 #   서버의 signup 로직은 email_verifications.verified 플래그만 확인하므로,
 #   verified=true 행을 DB 에 직접 삽입하면 실제 메일 수신 없이 회원가입이 가능하다.
@@ -105,12 +133,61 @@ function Grant-EmailVerification {
     $sql = "DELETE FROM email_verifications WHERE email='$Email'; " +
            "INSERT INTO email_verifications(code, email, expires_at, verified) " +
            "VALUES ('000000','$Email', NOW() + INTERVAL '1 day', true);"
-    docker exec $script:PgContainer psql -U admin -d mateon_db -c $sql | Out-Null
+    docker exec $script:PgContainer psql -U $script:PgUser -d $script:PgDatabase -c $sql | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  (i) 이메일 인증 우회 완료: $Email (verified=true 직접 삽입)" -ForegroundColor Green
         return $true
     } else {
         Write-Host "  (!) 이메일 인증 우회 실패 - 컨테이너 '$script:PgContainer' 확인 (docker ps)" -ForegroundColor Red
+        return $false
+    }
+}
+
+# psql 을 도커 컨테이너 안에서 실행하는 범용 헬퍼. 성공 시 $true.
+function Invoke-PgSql {
+    param([Parameter(Mandatory = $true)][string]$Sql)
+    docker exec $script:PgContainer psql -U $script:PgUser -d $script:PgDatabase -c $Sql | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# 유저의 학교 인증 상태를 강제로 바꾼다(테스트용).
+#   소셜만 로그인한 '미인증' 상태를 재현하려면 -Verified:$false 로 호출.
+function Set-SchoolVerified {
+    param(
+        [Parameter(Mandatory = $true)][string]$Email,
+        [bool]$Verified = $true
+    )
+    $flag = if ($Verified) { "true" } else { "false" }
+    $sql = if ($Verified) {
+        "UPDATE users SET school_verified=true, school_email=email WHERE email='$Email';"
+    } else {
+        "UPDATE users SET school_verified=false, school_email=NULL WHERE email='$Email';"
+    }
+    if (Invoke-PgSql -Sql $sql) {
+        Write-Host "  (i) school_verified=$flag 설정 완료: $Email" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "  (!) school_verified 설정 실패 - 컨테이너 '$script:PgContainer' 확인 (docker ps)" -ForegroundColor Red
+        return $false
+    }
+}
+
+# 학교 이메일 인증코드를 '미검증(verified=false)' 상태로 알려진 코드로 심는다(테스트용).
+#   실제 request 엔드포인트는 랜덤 코드를 발급하므로, 메일 없이 verify 를 테스트하려면
+#   이 헬퍼로 코드를 직접 심은 뒤 그 코드로 /school/email/verify 를 호출한다.
+function Grant-SchoolEmailCode {
+    param(
+        [Parameter(Mandatory = $true)][string]$Email,
+        [string]$Code = "000000"
+    )
+    $sql = "DELETE FROM email_verifications WHERE email='$Email'; " +
+           "INSERT INTO email_verifications(code, email, expires_at, verified) " +
+           "VALUES ('$Code','$Email', NOW() + INTERVAL '1 day', false);"
+    if (Invoke-PgSql -Sql $sql) {
+        Write-Host "  (i) 학교 이메일 인증코드 심기 완료: $Email (code=$Code, verified=false)" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "  (!) 학교 이메일 인증코드 심기 실패 - 컨테이너 '$script:PgContainer' 확인 (docker ps)" -ForegroundColor Red
         return $false
     }
 }

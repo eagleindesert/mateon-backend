@@ -10,6 +10,8 @@
         EMAIL_NOT_VERIFIED("이메일 인증이 완료되지 않았습니다."),
         INVALID_VERIFICATION_CODE("인증코드가 올바르지 않거나 만료되었습니다."),
         INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
+        SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),
+        SCHOOL_NOT_VERIFIED("학교 인증이 필요한 기능입니다."),
 
         // 토큰 관련
         TOKEN_EXPIRED("토큰이 만료되었습니다."),

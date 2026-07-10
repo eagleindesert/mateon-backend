@@ -20,6 +20,7 @@ public class MyPageResponseDTO {
     private String grade;   // 학년
     private String interestJobPrimary; // 희망 직무 (Primary)
     private User.Campus campus; // 캠퍼스
+    private boolean schoolVerified; // 학교(재학생) 인증 여부
 
     // 2. 드림이 리포트 (AI 분석 결과)
     private AiAnalysisDTO dreamyReport;

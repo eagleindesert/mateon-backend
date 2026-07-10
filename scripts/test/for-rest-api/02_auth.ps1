@@ -8,13 +8,18 @@
 #   2) -BypassEmail    : 메일 없이 DB 에 verified 행을 직접 넣어 signup 진행 (개발용)
 #                        (docker 로 실행 중인 PostgreSQL 컨테이너 필요)
 param(
-    [string]$Email = "test1@dankook.ac.kr",   # 고정 이메일 (DB verified 행과 일치시켜야 함)
-    [string]$Password = "Password1234",
-    [string]$Name = "테스트유저",
+    [string]$Email,           # 미지정 시 00_common 의 TestEmail (DB verified 행과 일치시켜야 함)
+    [string]$Password,        # 미지정 시 00_common 의 TestPassword
+    [string]$Name,            # 미지정 시 00_common 의 TestName
     [string]$Code = "",       # 이메일로 수신한 6자리 인증코드
     [switch]$BypassEmail      # 메일 없이 DB 로 이메일 인증 우회 (개발용)
 )
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
+
+# param 미지정 시 00_common 의 테스트 계정 기본값으로 채운다.
+if (-not $Email)    { $Email    = $script:TestEmail }
+if (-not $Password) { $Password = $script:TestPassword }
+if (-not $Name)     { $Name     = $script:TestName }
 
 Write-Host "`n########## 2. Auth (인증) - /api/auth ##########" -ForegroundColor Magenta
 Write-Host "테스트 이메일: $Email" -ForegroundColor Yellow

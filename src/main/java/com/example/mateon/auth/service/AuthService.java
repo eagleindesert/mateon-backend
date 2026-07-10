@@ -43,10 +43,59 @@ public class AuthService {
             throw new MateonException(ErrorCode.INVALID_EMAIL_DOMAIN);
         }
 
-        // 인증코드 생성 (6자리)
+        generateAndSendCode(email);
+    }
+
+    public void verifyEmail(EmailVerifyRequest request) {
+        verifyCode(request.getEmail(), request.getCode());
+    }
+
+    // ===== 학교(재학생) 이메일 인증 : 로그인 후 단계 =====
+
+    // 인증된 유저가 학교 이메일(@dankook.ac.kr) 인증코드를 요청한다.
+    public void requestSchoolEmailVerification(Long userId, SchoolEmailRequest request) {
+        // 유저 존재 확인 (미인증 소셜 유저 포함)
+        if (!userRepository.existsById(userId)) {
+            throw new MateonException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        String schoolEmail = request.getSchoolEmail();
+
+        // 단국대 이메일 검증
+        if (!schoolEmail.endsWith("@dankook.ac.kr")) {
+            throw new MateonException(ErrorCode.INVALID_EMAIL_DOMAIN);
+        }
+
+        // 다른 계정이 이미 인증에 사용 중인 학교 이메일인지 확인
+        if (userRepository.existsBySchoolEmail(schoolEmail)) {
+            throw new MateonException(ErrorCode.SCHOOL_EMAIL_ALREADY_USED);
+        }
+
+        generateAndSendCode(schoolEmail);
+    }
+
+    // 인증된 유저가 학교 이메일 인증코드를 검증하면 재학생 상태로 전환한다.
+    public void verifySchoolEmail(Long userId, SchoolEmailVerifyRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+
+        String schoolEmail = request.getSchoolEmail();
+
+        // 다른 계정이 먼저 인증을 완료했을 수 있으므로 재확인
+        if (userRepository.existsBySchoolEmail(schoolEmail)) {
+            throw new MateonException(ErrorCode.SCHOOL_EMAIL_ALREADY_USED);
+        }
+
+        verifyCode(schoolEmail, request.getCode());
+
+        user.verifySchool(schoolEmail);
+        userRepository.save(user);
+    }
+
+    // 인증코드 6자리를 생성해 저장하고 메일로 발송한다. (기존 인증행이 있으면 갱신)
+    private void generateAndSendCode(String email) {
         String code = String.format("%06d", random.nextInt(1000000));
 
-        // 기존 인증 정보가 있으면 업데이트, 없으면 생성
         EmailVerification verification = emailVerificationRepository.findByEmail(email)
                 .orElse(EmailVerification.builder()
                         .email(email)
@@ -63,19 +112,19 @@ public class AuthService {
 
         emailVerificationRepository.save(verification);
 
-        // 이메일 발송
         mailService.sendVerificationCode(email, code);
     }
 
-    public void verifyEmail(EmailVerifyRequest request) {
-        EmailVerification verification = emailVerificationRepository.findByEmail(request.getEmail())
+    // 저장된 인증코드와 대조해 검증하고, 통과하면 verified 로 마킹한다.
+    private void verifyCode(String email, String code) {
+        EmailVerification verification = emailVerificationRepository.findByEmail(email)
                 .orElseThrow(() -> new MateonException(ErrorCode.INVALID_VERIFICATION_CODE));
 
         if (!verification.isValid()) {
             throw new MateonException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        if (!verification.getCode().equals(request.getCode())) {
+        if (!verification.getCode().equals(code)) {
             throw new MateonException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
@@ -102,11 +151,13 @@ public class AuthService {
             throw new MateonException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        // 사용자 생성
+        // 사용자 생성 (로컬 유저는 학교 이메일로 선행 인증했으므로 재학생 상태로 확정)
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .provider(AuthProvider.LOCAL)
+                .schoolEmail(request.getEmail())
+                .schoolVerified(true)
                 .name(request.getName())
                 .campus(request.getCampus())
                 .college(request.getCollege())

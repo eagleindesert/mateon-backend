@@ -7,14 +7,33 @@
 
 | 파일 | 대상 | 인증 |
 |------|------|------|
-| `_common.ps1` | 공통 헬퍼 (curl 호출, 토큰 저장/재사용, `.env` 로드) | - |
+| `00_common.ps1` | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드) | - |
 | `01_health.ps1` | Health (헬스체크) | 불필요 |
 | `02_auth.ps1` | Auth `/api/auth` (로그인 후 토큰 저장) | 불필요 |
 | `03_user.ps1` | User `/api/users` | **필요** |
 | `04_event.ps1` | Event `/api/events` | 일부 필요 |
 | `05_team.ps1` | Team `/api/teams` | **필요** |
 | `06_notification.ps1` | Notification `/api/notifications` | **필요** |
-| `run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
+| `07_school_auth.ps1` | 학교(재학생) 인증 & 게이팅 `/api/auth/school` | **필요** |
+| `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
+
+### 설정(CONFIG)
+모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 한 번에 관리합니다.
+우선순위는 바로 위 `$DotEnvOverridesShell` 토글로 정합니다:
+
+- `$true` (**기본**): `.env` 파일 > 셸 환경변수 > 기본값(Default) — **`.env` 가 이김**
+- `$false`: 셸 환경변수 > `.env` 파일 > 기본값(Default) — 셸이 이김
+
+(`$true` 여도 `.env` 에 없는 키는 셸 값이, 그것도 없으면 Default 가 적용됩니다.)
+
+| 설정 | 셸 환경변수 | 기본값 | 용도 |
+|------|-------------|--------|------|
+| EnvFile | `MATEON_ENV_FILE` | `<폴더>/.env` | `.env` 파일 경로 |
+| BaseUrl | `MATEON_BASE_URL` | `http://localhost:8080` | API 서버 주소 |
+| PgContainer | `MATEON_PG_CONTAINER` | `mateon-postgres` | PostgreSQL 도커 컨테이너 |
+| PgUser | `MATEON_PG_USER` | `admin` | psql 접속 계정 |
+| PgDatabase | `MATEON_PG_DB` | `mateon_db` | psql 대상 DB 이름 |
+| JwtSecret | `MATEON_JWT_SECRET` | (빈 값) | 예약 — 현재 미사용 |
 
 ## 사전 준비
 
@@ -24,7 +43,7 @@
    ```
 2. 대상 서버 주소 지정 — 우선순위: **셸 환경변수 > `.env` 파일 > 코드 기본값(`localhost:8080`)**
    - **`.env` 파일 (권장, 반복 사용)**: 이 폴더에 `.env` 를 만들고 아래처럼 작성한다.
-     `_common.ps1` 로드 시 같은 폴더의 `.env` 를 자동으로 읽으며(`Import-DotEnv`),
+     `00_common.ps1` 로드 시 같은 폴더의 `.env` 를 자동으로 읽으며(`Import-DotEnv`),
      `.env` 는 `.gitignore` 의 `*.env` 패턴으로 커밋에서 제외된다.
      ```ini
      # scripts/test/for-rest-api/.env  (커밋 금지)
@@ -45,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email me@dankook.ac.kr -
 powershell -ExecutionPolicy Bypass -File .\03_user.ps1
 
 # 전체 실행
-powershell -ExecutionPolicy Bypass -File .\run_all.ps1 -Email me@dankook.ac.kr -Password Password1234
+powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@dankook.ac.kr -Password Password1234
 ```
 
 ### 신규 회원가입까지 자동 진행
@@ -68,7 +87,7 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr 
 머신에서** `docker exec` 로 PostgreSQL 을 조작한다. 따라서 DB 가 원격 VM 에 있으면 로컬 우회는
 그 DB 에 닿지 않는다 → **VM 에서 직접 verified 행을 넣어야** 한다.
 
-1. VM 에 SSH 접속 후, 테스트 이메일(`02_auth.ps1` 기본값 `test1@dankook.ac.kr`)로 verified 행 삽입:
+1. VM 에 SSH 접속 후, 테스트 이메일(`00_common.ps1` 의 `TestEmail` 기본값 `test1@dankook.ac.kr`)로 verified 행 삽입:
    ```bash
    docker exec mateon-postgres psql -U admin -d mateon_db -c "DELETE FROM email_verifications WHERE email='test1@dankook.ac.kr'; INSERT INTO email_verifications(code, email, expires_at, verified) VALUES ('000000', 'test1@dankook.ac.kr', NOW() + INTERVAL '1 day', true);"
    ```
@@ -80,7 +99,7 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr 
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -BypassEmail
    # 또는 전체
-   powershell -ExecutionPolicy Bypass -File .\run_all.ps1
+   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1
    ```
    - signup 은 `email_verifications.verified` 플래그만 확인하므로 **인증코드 없이** 통과한다.
    - 이때 `-BypassEmail` 은 로컬 docker 우회가 실패하더라도(빨간 경고 출력) 무시되고 signup 단계로

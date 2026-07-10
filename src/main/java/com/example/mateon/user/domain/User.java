@@ -41,6 +41,15 @@ public class User {
     @Column(name = "provider_id", length = 100)
     private String providerId;
 
+    // 학교 인증용 이메일(@dankook.ac.kr). 인증 전엔 null, 계정당 1개이므로 unique.
+    @Column(name = "school_email", unique = true, length = 100)
+    private String schoolEmail;
+
+    // 학교(재학생) 인증 완료 여부. 소셜 로그인만 한 유저는 false.
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean schoolVerified = false;
+
     @Column(nullable = false, length = 50)
     private String name;
 
@@ -96,6 +105,12 @@ public class User {
 
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+
+    // 학교 이메일 인증 완료 처리. 인증된 학교 이메일을 저장하고 재학생 상태로 전환한다.
+    public void verifySchool(String schoolEmail) {
+        this.schoolEmail = schoolEmail;
+        this.schoolVerified = true;
     }
 
     public enum Campus {

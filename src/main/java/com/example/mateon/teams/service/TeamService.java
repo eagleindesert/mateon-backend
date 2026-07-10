@@ -114,6 +114,7 @@ public class TeamService {
 
     public TeamResponseDTO createTeam(TeamRequestDTO request, Long userId) {
         User user = getUserById(userId);
+        requireSchoolVerified(user); // 팀 모집글 작성은 학교 인증(재학생) 필요
         Team team = request.toEntity(user.getId());
         teamRepository.save(team);
 
@@ -167,6 +168,7 @@ public class TeamService {
 
     public void applyToTeam(Long teamId, TeamApplicationRequestDTO request, Long userId) {
         User applicant = getUserById(userId);
+        requireSchoolVerified(applicant); // 팀 지원은 학교 인증(재학생) 필요
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
@@ -327,5 +329,12 @@ public class TeamService {
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    // 학교 인증(재학생) 이 완료된 유저만 허용. 소셜만 로그인한 미인증 유저는 차단.
+    private void requireSchoolVerified(User user) {
+        if (!user.isSchoolVerified()) {
+            throw new MateonException(ErrorCode.SCHOOL_NOT_VERIFIED);
+        }
     }
 }

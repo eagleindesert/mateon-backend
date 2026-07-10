@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 public class UserResponse {
     private Long id;
     private String email;
+    private String schoolEmail;
+    private boolean schoolVerified;
     private String name;
     private User.Campus campus;
     private String college;
@@ -31,6 +33,8 @@ public class UserResponse {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .schoolEmail(user.getSchoolEmail())
+                .schoolVerified(user.isSchoolVerified())
                 .name(user.getName())
                 .campus(user.getCampus())
                 .college(user.getCollege())

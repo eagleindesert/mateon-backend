@@ -1,7 +1,7 @@
 # 06_notification.ps1 - Notification (알림) API 테스트  /api/notifications  [인증 필요]
 # 사용법: powershell -ExecutionPolicy Bypass -File .\06_notification.ps1
 # 사전 조건: 02_auth.ps1 로 로그인하여 .auth-token.txt 가 생성되어 있어야 한다.
-. "$PSScriptRoot\_common.ps1"
+. "$PSScriptRoot\00_common.ps1"
 
 Write-Host "`n########## 6. Notification (알림) - /api/notifications [인증 필요] ##########" -ForegroundColor Magenta
 
