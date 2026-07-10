@@ -39,11 +39,11 @@ public class TeamService {
     // 1. 팀 모집글 로직
 
     @Transactional(readOnly = true)
-    public List<TeamResponseDTO> getTeams(Long eventId, String category, boolean myPosts, String userEmail) {
+    public List<TeamResponseDTO> getTeams(Long eventId, String category, boolean myPosts, Long userId) {
         List<Team> teams;
 
         if (myPosts) {
-            User user = getUserByEmail(userEmail);
+            User user = getUserById(userId);
             teams = teamRepository.findByLeaderUserId(user.getId());
         } else if (eventId != null) {
             teams = teamRepository.findByEventIdAndIsRecruitingTrue(eventId);
@@ -75,7 +75,7 @@ public class TeamService {
     }
     // 개별 팀 상세 조회 (리더 여부, 지원 여부 포함)
     @Transactional(readOnly = true)
-    public TeamDetailResponseDTO getTeamDetail(Long teamId, String userEmail) {
+    public TeamDetailResponseDTO getTeamDetail(Long teamId, Long userId) {
         // 1. 팀 조회
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -93,8 +93,8 @@ public class TeamService {
         boolean isLeader = false;
         boolean hasApplied = false;
 
-        if (userEmail != null) {
-            User user = userRepository.findByEmail(userEmail).orElse(null);
+        if (userId != null) {
+            User user = userRepository.findById(userId).orElse(null);
             if (user != null) {
                 // 내가 리더인가?
                 isLeader = team.getLeaderUserId().equals(user.getId());
@@ -112,8 +112,8 @@ public class TeamService {
         return new TeamDetailResponseDTO(team, event, currentCount, isLeader, hasApplied, leaderUser);
     }
 
-    public TeamResponseDTO createTeam(TeamRequestDTO request, String userEmail) {
-        User user = getUserByEmail(userEmail);
+    public TeamResponseDTO createTeam(TeamRequestDTO request, Long userId) {
+        User user = getUserById(userId);
         Team team = request.toEntity(user.getId());
         teamRepository.save(team);
 
@@ -125,10 +125,10 @@ public class TeamService {
         return new TeamResponseDTO(team, event, 0);
     }
 
-    public TeamResponseDTO updateTeam(Long teamId, TeamRequestDTO request, String userEmail) {
+    public TeamResponseDTO updateTeam(Long teamId, TeamRequestDTO request, Long userId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
-        User user = getUserByEmail(userEmail);
+        User user = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(user.getId())) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
@@ -150,10 +150,10 @@ public class TeamService {
         return new TeamResponseDTO(team, event, currentCount);
     }
 
-    public void deleteTeam(Long teamId, String userEmail) {
+    public void deleteTeam(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
-        User user = getUserByEmail(userEmail);
+        User user = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(user.getId())) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
@@ -165,8 +165,8 @@ public class TeamService {
 
     // --- 2. 지원(Application) 로직 ---
 
-    public void applyToTeam(Long teamId, TeamApplicationRequestDTO request, String userEmail) {
-        User applicant = getUserByEmail(userEmail);
+    public void applyToTeam(Long teamId, TeamApplicationRequestDTO request, Long userId) {
+        User applicant = getUserById(userId);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
@@ -193,18 +193,18 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
-    public List<TeamApplicationResponseDTO> getMyApplications(String userEmail) {
-        User user = getUserByEmail(userEmail);
+    public List<TeamApplicationResponseDTO> getMyApplications(Long userId) {
+        User user = getUserById(userId);
         return applicationRepository.findByApplicantId(user.getId()).stream()
                 .map(app -> TeamApplicationResponseDTO.from(app, user.getId()))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<TeamApplicationResponseDTO> getApplicationsForMyTeam(Long teamId, String userEmail) {
+    public List<TeamApplicationResponseDTO> getApplicationsForMyTeam(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
-        User leader = getUserByEmail(userEmail);
+        User leader = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(leader.getId())) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
@@ -216,13 +216,13 @@ public class TeamService {
     }
     // [NEW] 지원서 개별 상세 조회
     @Transactional(readOnly = true)
-    public TeamApplicationResponseDTO getApplicationDetail(Long applicationId, String userEmail) {
+    public TeamApplicationResponseDTO getApplicationDetail(Long applicationId, Long userId) {
         // 1. 지원서 찾기
         TeamApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
         // 2. 현재 요청한 사람(로그인 유저) 찾기
-        User currentUser = getUserByEmail(userEmail);
+        User currentUser = getUserById(userId);
 
         // 3. 권한 체크 (중요!)
         // 조건 A: 내가 지원 당사자인가?
@@ -240,10 +240,10 @@ public class TeamService {
     }
 
     // 지원자 승인/거절 처리 + 알림 발송
-    public void processApplication(Long applicationId, boolean isApproved, String userEmail) {
+    public void processApplication(Long applicationId, boolean isApproved, Long userId) {
         TeamApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
-        User leader = getUserByEmail(userEmail);
+        User leader = getUserById(userId);
         Team team = application.getTeam();
 
         if (!team.getLeaderUserId().equals(leader.getId())) {
@@ -280,8 +280,8 @@ public class TeamService {
         }
     }
     // 지원서 수정
-    public void updateApplication(Long applicationId, TeamApplicationRequestDTO request, String userEmail) {
-        User applicant = getUserByEmail(userEmail);
+    public void updateApplication(Long applicationId, TeamApplicationRequestDTO request, Long userId) {
+        User applicant = getUserById(userId);
         TeamApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
@@ -305,8 +305,8 @@ public class TeamService {
     }
 
     //  지원서 삭제 (지원 취소)
-    public void cancelApplication(Long applicationId, String userEmail) {
-        User applicant = getUserByEmail(userEmail);
+    public void cancelApplication(Long applicationId, Long userId) {
+        User applicant = getUserById(userId);
         TeamApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
@@ -324,8 +324,8 @@ public class TeamService {
         applicationRepository.delete(application);
     }
 
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+    private User getUserById(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
     }
 }

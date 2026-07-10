@@ -22,12 +22,12 @@ public class NotificationController {
 
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(Authentication authentication) {
-        return notificationService.subscribe(authentication.getName());
+        return notificationService.subscribe(Long.valueOf(authentication.getName()));
     }
     // 내 알림 목록 조회
     @GetMapping
     public ApiResponse<List<NotificationResponseDTO>> getNotifications(Authentication authentication) {
-        List<NotificationResponseDTO> response = notificationService.getMyNotifications(authentication.getName());
+        List<NotificationResponseDTO> response = notificationService.getMyNotifications(Long.valueOf(authentication.getName()));
         return ApiResponse.success(response);
     }
 }

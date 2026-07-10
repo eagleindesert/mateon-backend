@@ -31,8 +31,8 @@ public class TeamController {
             @RequestParam(required = false, defaultValue = "false") boolean myPosts,
             Authentication authentication
     ) {
-        String email = (authentication != null) ? authentication.getName() : null;
-        List<TeamResponseDTO> responses = teamService.getTeams(eventId, category, myPosts, email);
+        Long userId = (authentication != null) ? Long.valueOf(authentication.getName()) : null;
+        List<TeamResponseDTO> responses = teamService.getTeams(eventId, category, myPosts, userId);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
     // 1-2. 팀 모집글 상세 조회 (단건)
@@ -42,8 +42,8 @@ public class TeamController {
             @PathVariable Long teamId,
             Authentication authentication
     ) {
-        String email = (authentication != null) ? authentication.getName() : null;
-        TeamDetailResponseDTO response = teamService.getTeamDetail(teamId, email);
+        Long userId = (authentication != null) ? Long.valueOf(authentication.getName()) : null;
+        TeamDetailResponseDTO response = teamService.getTeamDetail(teamId, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -55,7 +55,7 @@ public class TeamController {
             @Valid @RequestBody TeamRequestDTO request,
             Authentication authentication
     ) {
-        TeamResponseDTO response = teamService.createTeam(request, authentication.getName());
+        TeamResponseDTO response = teamService.createTeam(request, Long.valueOf(authentication.getName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
@@ -66,7 +66,7 @@ public class TeamController {
             @Valid @RequestBody TeamRequestDTO request,
             Authentication authentication
     ) {
-        TeamResponseDTO response = teamService.updateTeam(teamId, request, authentication.getName());
+        TeamResponseDTO response = teamService.updateTeam(teamId, request, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -76,7 +76,7 @@ public class TeamController {
             @PathVariable Long teamId,
             Authentication authentication
     ) {
-        teamService.deleteTeam(teamId, authentication.getName());
+        teamService.deleteTeam(teamId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success("삭제되었습니다."));
     }
 
@@ -87,7 +87,7 @@ public class TeamController {
             @Valid @RequestBody TeamApplicationRequestDTO request,
             Authentication authentication
     ) {
-        teamService.applyToTeam(teamId, request, authentication.getName());
+        teamService.applyToTeam(teamId, request, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success("지원이 완료되었습니다."));
     }
 
@@ -96,7 +96,7 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<TeamApplicationResponseDTO>>> getMyApplications(
             Authentication authentication
     ) {
-        List<TeamApplicationResponseDTO> responses = teamService.getMyApplications(authentication.getName());
+        List<TeamApplicationResponseDTO> responses = teamService.getMyApplications(Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
@@ -106,7 +106,7 @@ public class TeamController {
             @PathVariable Long teamId,
             Authentication authentication
     ) {
-        List<TeamApplicationResponseDTO> responses = teamService.getApplicationsForMyTeam(teamId, authentication.getName());
+        List<TeamApplicationResponseDTO> responses = teamService.getApplicationsForMyTeam(teamId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
@@ -117,7 +117,7 @@ public class TeamController {
             @RequestParam boolean isApproved,
             Authentication authentication
     ) {
-        teamService.processApplication(applicationId, isApproved, authentication.getName());
+        teamService.processApplication(applicationId, isApproved, Long.valueOf(authentication.getName()));
         String message = isApproved ? "승인되었습니다." : "거절되었습니다.";
         return ResponseEntity.ok(ApiResponse.success(message));
     }
@@ -128,7 +128,7 @@ public class TeamController {
             @Valid @RequestBody TeamApplicationRequestDTO request,
             Authentication authentication
     ) {
-        teamService.updateApplication(applicationId, request, authentication.getName());
+        teamService.updateApplication(applicationId, request, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success("지원서가 수정되었습니다."));
     }
 
@@ -138,7 +138,7 @@ public class TeamController {
             @PathVariable Long applicationId,
             Authentication authentication
     ) {
-        teamService.cancelApplication(applicationId, authentication.getName());
+        teamService.cancelApplication(applicationId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success("지원이 취소되었습니다."));
     }
     // 11. [NEW] 지원서 상세 조회 (팀장 OR 지원자 본인만 가능)
@@ -147,7 +147,7 @@ public class TeamController {
             @PathVariable Long applicationId,
             Authentication authentication
     ) {
-        TeamApplicationResponseDTO response = teamService.getApplicationDetail(applicationId, authentication.getName());
+        TeamApplicationResponseDTO response = teamService.getApplicationDetail(applicationId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

@@ -9,7 +9,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_provider_provider_id", columnNames = {"provider", "provider_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,8 +27,19 @@ public class User {
     @Column(unique = true, nullable = false, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    // 소셜 로그인 유저는 비밀번호가 없으므로 nullable.
+    @Column(nullable = true)
     private String password;
+
+    // 가입 경로. 로컬 가입은 LOCAL, 소셜 가입은 해당 provider.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    // 소셜 provider 내 고유 식별자 (로컬 유저는 null).
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
 
     @Column(nullable = false, length = 50)
     private String name;

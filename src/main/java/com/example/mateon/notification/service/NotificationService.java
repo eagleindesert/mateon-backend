@@ -30,10 +30,10 @@ public class NotificationService {
     // -------------------------------------------------------------------------
     // 1. SSE 구독 (연결)
     // -------------------------------------------------------------------------
-    public SseEmitter subscribe(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
-        Long userId = user.getId();
+    public SseEmitter subscribe(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new MateonException(ErrorCode.USER_NOT_FOUND);
+        }
 
         // 1. Emitter 생성 (타임아웃 1시간 설정)
         SseEmitter emitter = new SseEmitter(60L * 1000 * 60);
@@ -97,8 +97,8 @@ public class NotificationService {
     // 3. 내 알림 목록 조회 (API 호출용)
     // -------------------------------------------------------------------------
     @Transactional(readOnly = true)
-    public List<NotificationResponseDTO> getMyNotifications(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+    public List<NotificationResponseDTO> getMyNotifications(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         return notificationRepository.findAllByReceiverIdOrderByCreatedAtDesc(user.getId())

@@ -61,8 +61,8 @@ public class EventController {
 
         // 인증된 사용자가 있으면 키워드 매칭으로 정렬
         if (authentication != null) {
-            String email = authentication.getName();
-            User user = userRepository.findByEmail(email).orElse(null);
+            Long userId = Long.valueOf(authentication.getName());
+            User user = userRepository.findById(userId).orElse(null);
 
             if (user != null) {
                 // 관련도 점수 계산 및 정렬
@@ -114,8 +114,8 @@ public class EventController {
             throw new MateonException(ErrorCode.UNAUTHORIZED);
         }
 
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
+        Long userId = Long.valueOf(authentication.getName());
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         List<Event> allEvents;

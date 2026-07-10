@@ -39,14 +39,14 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional(readOnly = true)
-    public UserResponse getMyProfile(String email) {
-        User user = userRepository.findByEmail(email)
+    public UserResponse getMyProfile(Long userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
         return UserResponse.from(user);
     }
 
-    public UserResponse updateMyProfile(String email, UserUpdateRequest request) {
-        User user = userRepository.findByEmail(email)
+    public UserResponse updateMyProfile(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         user.update(
@@ -67,9 +67,9 @@ public class UserService {
     }
 
     @Transactional
-    public MyPageResponseDTO getMyPage(String email) {
+    public MyPageResponseDTO getMyPage(Long userId) {
         // 1. 유저 정보 조회
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 참여한 활동 조회 (승인된 지원서만)
@@ -169,13 +169,13 @@ public class UserService {
                 .build();
     }
 
-    public void changePassword(String email, PasswordChangeRequest request) {
+    public void changePassword(Long userId, PasswordChangeRequest request) {
         // 새 비밀번호 확인 일치 검증
         if (!request.getNewPassword().equals(request.getNewPasswordConfirm())) {
             throw new MateonException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         // 현재 비밀번호 확인
@@ -188,6 +188,6 @@ public class UserService {
         userRepository.save(user);
 
         // 비밀번호 변경 시 리프레시 토큰 삭제 (재로그인 필요)
-        refreshTokenRepository.deleteByEmail(user.getEmail());
+        refreshTokenRepository.deleteByUserId(user.getId());
     }
 }

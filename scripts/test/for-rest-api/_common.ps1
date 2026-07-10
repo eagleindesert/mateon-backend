@@ -135,6 +135,53 @@ function Get-RefreshToken {
     return $null
 }
 
+# JWT accessToken 의 payload 에서 subject(sub) 를 추출한다.
+#   서버 리팩터링(A안) 이후 subject 는 email 이 아니라 userId(숫자)여야 한다.
+#   base64url 디코딩 후 JSON 의 sub 필드를 반환한다.
+function Get-JwtSubject {
+    param([string]$Token)
+    if (-not $Token) { return $null }
+    $parts = $Token.Split(".")
+    if ($parts.Count -lt 2) { return $null }
+    $payload = $parts[1].Replace("-", "+").Replace("_", "/")
+    switch ($payload.Length % 4) {
+        2 { $payload += "==" }
+        3 { $payload += "=" }
+    }
+    try {
+        $bytes = [System.Convert]::FromBase64String($payload)
+        $json  = [System.Text.Encoding]::UTF8.GetString($bytes)
+        return ($json | ConvertFrom-Json).sub
+    } catch {
+        return $null
+    }
+}
+
+# 서버 응답 없이 클라이언트에서 조건을 검증하고 결과를 집계에 추가한다.
+#   (Invoke-Api 와 동일하게 $global:MateonTestResults 에 기록되어 요약에 포함된다.)
+function Assert-Test {
+    param(
+        [Parameter(Mandatory = $true)][string]$Title,
+        [Parameter(Mandatory = $true)][bool]$Condition,
+        [string]$Detail
+    )
+    $ok    = [bool]$Condition
+    $tag   = if ($ok) { "PASS" } else { "FAIL" }
+    $color = if ($ok) { "Green" } else { "Red" }
+    $line  = "  [$tag] $Title"
+    if ($Detail) { $line += " - $Detail" }
+    Write-Host $line -ForegroundColor $color
+
+    $global:MateonTestResults.Add([pscustomobject]@{
+        Title  = $Title
+        Method = "ASSERT"
+        Path   = ""
+        Status = $tag
+        Ok     = $ok
+    })
+    return $ok
+}
+
 # API 호출 헬퍼
 #   -Method  : GET/POST/PUT/PATCH/DELETE
 #   -Path    : "/api/..." (BaseUrl 뒤에 붙는다)

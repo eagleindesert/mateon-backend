@@ -26,8 +26,8 @@ public class RefreshToken {
     @Column(nullable = false, unique = true, length = 500)
     private String token;
 
-    @Column(nullable = false, length = 100)
-    private String email;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(nullable = false)
     private LocalDateTime expiresAt;

@@ -75,6 +75,17 @@ if ($login.data.accessToken) {
     Write-Host "  (!) 로그인 실패 - 계정이 없으면 위 회원가입(-Code)을 먼저 진행하세요." -ForegroundColor Yellow
 }
 
+# 2.4b [리팩터링 검증] accessToken 의 subject 가 email 이 아니라 userId(숫자)인지 확인.
+#   A안 리팩터링(JWT subject: email -> userId)이 정상 반영됐는지 검증하는 핵심 체크.
+$tokenForCheck = Get-AccessToken
+if ($tokenForCheck) {
+    $sub = Get-JwtSubject -Token $tokenForCheck
+    Write-Host "`n[2.4b JWT subject 검증]" -ForegroundColor Cyan
+    Assert-Test -Title "2.4b JWT subject 가 userId(숫자)" -Condition ($sub -match '^\d+$') -Detail "sub=$sub" | Out-Null
+} else {
+    Write-Host "`n[2.4b JWT subject 검증] 스킵 - 저장된 accessToken 없음." -ForegroundColor Yellow
+}
+
 # 2.5 토큰 갱신
 $refresh = Get-RefreshToken
 if ($refresh) {

@@ -10,6 +10,7 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.config.JwtProperties;
 import com.example.mateon.mail.service.MailService;
+import com.example.mateon.user.domain.AuthProvider;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -105,6 +106,7 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .provider(AuthProvider.LOCAL)
                 .name(request.getName())
                 .campus(request.getCampus())
                 .college(request.getCollege())
@@ -119,11 +121,11 @@ public class AuthService {
         userRepository.save(user);
 
         // 토큰 발급
-        String accessToken = jwtTokenProvider.createAccessToken(user.getEmail());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getEmail());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
         // 리프레시 토큰 저장
-        saveRefreshToken(user.getEmail(), refreshToken);
+        saveRefreshToken(user.getId(), refreshToken);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -141,12 +143,12 @@ public class AuthService {
             throw new MateonException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getEmail());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getEmail());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
         // 기존 리프레시 토큰 삭제 후 새로 저장
-        refreshTokenRepository.deleteByEmail(user.getEmail());
-        saveRefreshToken(user.getEmail(), refreshToken);
+        refreshTokenRepository.deleteByUserId(user.getId());
+        saveRefreshToken(user.getId(), refreshToken);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -171,8 +173,8 @@ public class AuthService {
             throw new MateonException(ErrorCode.TOKEN_EXPIRED);
         }
 
-        String email = jwtTokenProvider.getEmailFromToken(refreshTokenValue);
-        String newAccessToken = jwtTokenProvider.createAccessToken(email);
+        Long userId = jwtTokenProvider.getUserIdFromToken(refreshTokenValue);
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
@@ -198,17 +200,19 @@ public class AuthService {
         userRepository.save(user);
 
         // 비밀번호 변경 시 리프레시 토큰 삭제 (재로그인 필요)
-        refreshTokenRepository.deleteByEmail(user.getEmail());
+        refreshTokenRepository.deleteByUserId(user.getId());
     }
 
     public void logout(LogoutRequest request) {
-        refreshTokenRepository.deleteByEmail(request.getEmail());
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+        refreshTokenRepository.deleteByUserId(user.getId());
     }
 
-    private void saveRefreshToken(String email, String refreshTokenValue) {
+    private void saveRefreshToken(Long userId, String refreshTokenValue) {
         RefreshToken refreshToken = RefreshToken.builder()
                 .token(refreshTokenValue)
-                .email(email)
+                .userId(userId)
                 .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpiration() / 1000))
                 .build();
 
