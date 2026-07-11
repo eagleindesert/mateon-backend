@@ -53,6 +53,11 @@ $schoolArgs = @{}
 if ($Email) { $schoolArgs.Email = $Email }
 & "$PSScriptRoot\07_school_auth.ps1" @schoolArgs
 
+Write-Host "`n===== 8) Social Login (Kakao) =====" -ForegroundColor Magenta
+# 실제 카카오 토큰이 없으면 음성 테스트(잘못된 토큰 차단)만 수행한다.
+# 정상 경로까지 보려면 .env 의 MATEON_KAKAO_ACCESS_TOKEN 을 설정한다.
+& "$PSScriptRoot\08_social_kakao.ps1"
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력

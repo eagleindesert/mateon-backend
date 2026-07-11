@@ -24,7 +24,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 100)
+    // 계정/소셜 이메일. 로컬 유저는 학교 이메일과 동일하지만, 카카오 유저는
+    // 이메일 미동의/미검증 시 null 일 수 있으므로 nullable. (unique 는 유지 → 다중 NULL 허용)
+    @Column(unique = true, nullable = true, length = 100)
     private String email;
 
     // 소셜 로그인 유저는 비밀번호가 없으므로 nullable.
@@ -111,6 +113,13 @@ public class User {
     public void verifySchool(String schoolEmail) {
         this.schoolEmail = schoolEmail;
         this.schoolVerified = true;
+    }
+
+    // 기존 계정에 소셜 로그인을 연동한다. 재방문 시 (provider, providerId) 로 신원을
+    // 조회할 수 있도록 provider 도 함께 전환한다. (로컬 비밀번호는 그대로 유지되어 병행 로그인 가능)
+    public void linkSocial(AuthProvider provider, String providerId) {
+        this.provider = provider;
+        this.providerId = providerId;
     }
 
     public enum Campus {

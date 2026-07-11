@@ -28,6 +28,13 @@ $script:MateonConfig = @(
     @{ Name = "TestEmail";    Default = "test1@dankook.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
     @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
+
+    # 카카오 실제 액세스 토큰(선택) — 있으면 08_social_kakao.ps1 이 실제 로그인까지 검증한다.
+    # (get-kakao-token.ps1 이 인가코드 교환 후 이 값을 .env 에 자동 기록한다.)
+    @{ Name = "KakaoAccessToken"; Default = "";                          EnvVar = "MATEON_KAKAO_ACCESS_TOKEN" } # 카카오 access token
+
+    # 참고: 카카오 앱 설정(REST API 키/redirect_uri/client secret)은 디버그 전용이라
+    #       여기 두지 않고 ../debug/oauth/get-kakao-token.ps1 이 자기 폴더 .env 로 해석한다.
 )
 
 # 셸 환경변수 값이 있으면 그것을, 없으면 Default 를 돌려준다.

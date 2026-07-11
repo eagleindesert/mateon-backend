@@ -1,5 +1,7 @@
 package com.example.mateon.auth.service;
 
+import com.example.mateon.auth.client.KakaoOAuthClient;
+import com.example.mateon.auth.client.KakaoUserInfo;
 import com.example.mateon.auth.domain.EmailVerification;
 import com.example.mateon.auth.domain.RefreshToken;
 import com.example.mateon.auth.dto.*;
@@ -33,6 +35,7 @@ public class AuthService {
     private final MailService mailService;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
+    private final KakaoOAuthClient kakaoClient;
     private final Random random = new Random();
 
     public void requestEmailVerification(EmailRequest request) {
@@ -171,33 +174,63 @@ public class AuthService {
 
         userRepository.save(user);
 
-        // 토큰 발급
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-
-        // 리프레시 토큰 저장
-        saveRefreshToken(user.getId(), refreshToken);
-
-        return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(jwtProperties.getExpiration() / 1000)
-                .build();
+        return issueTokens(user);
     }
 
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new MateonException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (user.getPassword() == null
+                || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new MateonException(ErrorCode.INVALID_CREDENTIALS);
         }
 
+        return issueTokens(user);
+    }
+
+    // 카카오 액세스 토큰으로 로그인/회원가입한다. (신원 기준: provider=KAKAO + providerId)
+    public TokenResponse kakaoLogin(KakaoLoginRequest request) {
+        KakaoUserInfo info = kakaoClient.fetchUserInfo(request.getAccessToken());
+
+        // 1) 재방문 카카오 유저: (KAKAO, providerId) 로 조회되면 그대로 로그인.
+        User user = userRepository
+                .findByProviderAndProviderId(AuthProvider.KAKAO, info.providerId())
+                .orElse(null);
+
+        if (user == null) {
+            // 2) 연동 후보 이메일: 카카오가 검증한 이메일만 신뢰(도용 방지).
+            String linkableEmail = (info.emailVerified() && info.email() != null) ? info.email() : null;
+
+            if (linkableEmail != null) {
+                user = userRepository.findByEmail(linkableEmail).orElse(null);
+            }
+
+            if (user != null) {
+                // 2-a) 검증 이메일이 같은 기존 계정에 카카오를 연동.
+                user.linkSocial(AuthProvider.KAKAO, info.providerId());
+                userRepository.save(user);
+            } else {
+                // 2-b) 신규 카카오 유저 생성 (학교 미인증 상태로 시작).
+                user = User.builder()
+                        .provider(AuthProvider.KAKAO)
+                        .providerId(info.providerId())
+                        .email(linkableEmail) // 미동의/미검증이면 null
+                        .name(info.nickname() != null ? info.nickname() : "카카오사용자")
+                        .schoolVerified(false)
+                        .build();
+                userRepository.save(user);
+            }
+        }
+
+        return issueTokens(user);
+    }
+
+    // 액세스/리프레시 토큰을 발급하고, 기존 리프레시 토큰을 교체 저장한다. (신규 유저면 삭제는 no-op)
+    private TokenResponse issueTokens(User user) {
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
-        // 기존 리프레시 토큰 삭제 후 새로 저장
         refreshTokenRepository.deleteByUserId(user.getId());
         saveRefreshToken(user.getId(), refreshToken);
 

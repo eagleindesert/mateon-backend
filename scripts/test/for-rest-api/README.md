@@ -15,6 +15,7 @@
 | `05_team.ps1` | Team `/api/teams` | **필요** |
 | `06_notification.ps1` | Notification `/api/notifications` | **필요** |
 | `07_school_auth.ps1` | 학교(재학생) 인증 & 게이팅 `/api/auth/school` | **필요** |
+| `08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
 ### 설정(CONFIG)
@@ -34,6 +35,11 @@
 | PgUser | `MATEON_PG_USER` | `admin` | psql 접속 계정 |
 | PgDatabase | `MATEON_PG_DB` | `mateon_db` | psql 대상 DB 이름 |
 | JwtSecret | `MATEON_JWT_SECRET` | (빈 값) | 예약 — 현재 미사용 |
+| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
+
+> 카카오 앱 설정(REST API 키·redirect_uri·client secret)은 **디버그 전용**이라 위 표에 없다.
+> 실제 카카오 토큰이 필요하면 [`../debug/oauth/README.md`](../debug/oauth/README.md) 의 `get-kakao-token.ps1`
+> 로 인가코드 교환~`.env` 주입을 자동화할 수 있다(해당 키는 그 폴더 `.env` 에 둔다).
 
 ## 사전 준비
 

@@ -60,6 +60,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("로그인 성공", response));
     }
 
+    // 카카오 소셜 로그인/회원가입 [인증 불필요]. RN 이 카카오 SDK 로 받은 access token 을 넘긴다.
+    @PostMapping("/social/kakao")
+    public ResponseEntity<ApiResponse<TokenResponse>> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
+        TokenResponse response = authService.kakaoLogin(request);
+        return ResponseEntity.ok(ApiResponse.success("카카오 로그인 성공", response));
+    }
+
     @PostMapping("/token/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         TokenResponse response = authService.refreshToken(request);

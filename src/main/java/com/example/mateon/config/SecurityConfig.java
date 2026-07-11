@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/health").permitAll() // 헬스체크 허용
+                        .requestMatchers("/debug/**").permitAll() // [로컬 전용] 카카오 인가코드 수신 디버그 (컨트롤러는 debug.oauth.enabled 로 격리)
                         .requestMatchers("/api/auth/school/**").authenticated() // 학교 인증은 로그인 후 단계 → 인증 필요
                         .requestMatchers("/api/auth/**").permitAll() // 그 외 인증 API는 모두 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()

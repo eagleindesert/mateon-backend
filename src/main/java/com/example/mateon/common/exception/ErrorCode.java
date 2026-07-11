@@ -12,6 +12,7 @@
         INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
         SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),
         SCHOOL_NOT_VERIFIED("학교 인증이 필요한 기능입니다."),
+        KAKAO_AUTH_FAILED("카카오 인증에 실패했습니다."),
 
         // 토큰 관련
         TOKEN_EXPIRED("토큰이 만료되었습니다."),
