@@ -25,7 +25,7 @@ $script:MateonConfig = @(
     @{ Name = "JwtSecret";   Default = "";                               EnvVar = "MATEON_JWT_SECRET" }    # (예약) 현재 미사용
 
     # 테스트 계정 기본값 — 스크립트에 -Email/-Password/-Name 을 안 주면 아래 값이 쓰인다.
-    @{ Name = "TestEmail";    Default = "test11@snu.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
+    @{ Name = "TestEmail";    Default = "test19@snu.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
     @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
 

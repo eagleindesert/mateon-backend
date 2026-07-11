@@ -38,6 +38,7 @@ public class AuthService {
     private final KakaoOAuthClient kakaoClient;
     private final Random random = new Random();
 
+    // 회원가입 시 사용하는 verification()
     public void requestEmailVerification(EmailRequest request) {
         String email = request.getEmail();
 
@@ -53,8 +54,7 @@ public class AuthService {
         verifyCode(request.getEmail(), request.getCode());
     }
 
-    // ===== 학교(재학생) 이메일 인증 : 로그인 후 단계 =====
-
+    // 소셜 로그인 한 유저가 사용하는 verification()
     // 인증된 유저가 학교 이메일(.ac.kr) 인증코드를 요청한다.
     public void requestSchoolEmailVerification(Long userId, SchoolEmailRequest request) {
         // 유저 존재 확인 (미인증 소셜 유저 포함)
