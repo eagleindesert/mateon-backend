@@ -25,7 +25,7 @@ $script:MateonConfig = @(
     @{ Name = "JwtSecret";   Default = "";                               EnvVar = "MATEON_JWT_SECRET" }    # (예약) 현재 미사용
 
     # 테스트 계정 기본값 — 스크립트에 -Email/-Password/-Name 을 안 주면 아래 값이 쓰인다.
-    @{ Name = "TestEmail";    Default = "test1@dankook.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
+    @{ Name = "TestEmail";    Default = "test11@snu.ac.kr";           EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
     @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
 
@@ -131,23 +131,26 @@ function Write-TestSummary {
 # curl.exe 실행 파일 확인
 $script:Curl = "curl.exe"
 
-# 이메일 인증 우회:
-#   서버의 signup 로직은 email_verifications.verified 플래그만 확인하므로,
-#   verified=true 행을 DB 에 직접 삽입하면 실제 메일 수신 없이 회원가입이 가능하다.
-#   (docker 로 실행 중인 PostgreSQL 컨테이너에 psql 로 직접 INSERT)
-function Grant-EmailVerification {
+# 이메일 인증코드 조회(정식 절차 자동화):
+#   /api/auth/email/request 가 생성해 email_verifications.code 에 저장한 6자리 코드를,
+#   실제 메일 수신 대신 DB 에서 직접 읽어와 /api/auth/email/verify 를 그대로 밟는다.
+#   (docker 로 실행 중인 PostgreSQL 컨테이너에 psql 로 SELECT)
+#   email 에 unique 제약이 없어 여러 행이 있을 수 있으므로 가장 최근(id 최대) 코드를 읽는다.
+function Get-EmailVerificationCode {
     param([Parameter(Mandatory = $true)][string]$Email)
-    $sql = "DELETE FROM email_verifications WHERE email='$Email'; " +
-           "INSERT INTO email_verifications(code, email, expires_at, verified) " +
-           "VALUES ('000000','$Email', NOW() + INTERVAL '1 day', true);"
-    docker exec $script:PgContainer psql -U $script:PgUser -d $script:PgDatabase -c $sql | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  (i) 이메일 인증 우회 완료: $Email (verified=true 직접 삽입)" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "  (!) 이메일 인증 우회 실패 - 컨테이너 '$script:PgContainer' 확인 (docker ps)" -ForegroundColor Red
-        return $false
+    $sql = "SELECT code FROM email_verifications WHERE email='$Email' ORDER BY id DESC LIMIT 1;"
+    # -t: 튜플만, -A: 정렬 없이 값만 → 순수 코드 문자열만 얻는다.
+    $out = docker exec $script:PgContainer psql -U $script:PgUser -d $script:PgDatabase -t -A -c $sql
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  (!) 인증코드 조회 실패 - 컨테이너 '$script:PgContainer' 확인 (docker ps)" -ForegroundColor Red
+        return $null
     }
+    $code = ($out | Out-String).Trim()
+    if (-not $code) {
+        Write-Host "  (!) 인증코드가 DB 에 없습니다: $Email (email/request 성공 여부 확인)" -ForegroundColor Red
+        return $null
+    }
+    return $code
 }
 
 # psql 을 도커 컨테이너 안에서 실행하는 범용 헬퍼. 성공 시 $true.

@@ -46,7 +46,7 @@ public class GlobalExceptionHandler {
         });
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("입력값 검증에 실패했습니다."));
+                .body(ApiResponse.error("입력값 검증에 실패했습니다.", errors));
     }
 
     @ExceptionHandler(Exception.class)

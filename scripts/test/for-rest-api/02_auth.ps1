@@ -1,18 +1,18 @@
 # 02_auth.ps1 - Auth (인증) API 테스트  /api/auth
 # 사용법: powershell -ExecutionPolicy Bypass -File .\02_auth.ps1
-# ex) powershell -ExecutionPolicy Bypass -File .\test\scripts\for-rest-api\02_auth.ps1 -Email me@dankook.ac.kr -BypassEmail
+# ex) powershell -ExecutionPolicy Bypass -File .\scripts\test\for-rest-api\02_auth.ps1
 
 #
-# 인증코드는 서버가 메일로 발송하는 값이라 자동화가 어렵다. 두 가지 방법:
-#   1) -Code <6자리>   : 실제 메일로 받은 코드로 verify + signup 진행
-#   2) -BypassEmail    : 메일 없이 DB 에 verified 행을 직접 넣어 signup 진행 (개발용)
-#                        (docker 로 실행 중인 PostgreSQL 컨테이너 필요)
+# 인증코드는 서버가 메일로 발송하는 값이다. 이 스크립트는 실제 엔드포인트(request→verify→signup)를
+# 그대로 밟되, 메일 확인 대신 email_verifications.code 를 docker 로 읽어 자동화한다.
+#   1) 기본            : request 로 코드를 발급받고 DB(email_verifications.code)에서 읽어 verify + signup
+#   2) -Code <6자리>   : 실제 메일로 받은 코드를 직접 지정하면 DB 조회 대신 그 코드를 사용
+# (기본 동작은 docker 로 실행 중인 PostgreSQL 컨테이너 필요)
 param(
-    [string]$Email,           # 미지정 시 00_common 의 TestEmail (DB verified 행과 일치시켜야 함)
+    [string]$Email,           # 미지정 시 00_common 의 TestEmail
     [string]$Password,        # 미지정 시 00_common 의 TestPassword
     [string]$Name,            # 미지정 시 00_common 의 TestName
-    [string]$Code = "",       # 이메일로 수신한 6자리 인증코드
-    [switch]$BypassEmail      # 메일 없이 DB 로 이메일 인증 우회 (개발용)
+    [string]$Code = ""        # 이메일로 수신한 6자리 인증코드 (미지정 시 DB 에서 자동 조회)
 )
 . "$PSScriptRoot\00_common.ps1"
 
@@ -24,30 +24,32 @@ if (-not $Name)     { $Name     = $script:TestName }
 Write-Host "`n########## 2. Auth (인증) - /api/auth ##########" -ForegroundColor Magenta
 Write-Host "테스트 이메일: $Email" -ForegroundColor Yellow
 
-# 2.1 이메일 인증코드 요청
-if ($BypassEmail) {
-    Write-Host "`n[2.1 이메일 인증코드 요청] 스킵 (-BypassEmail) - DB 로 인증을 직접 처리합니다." -ForegroundColor Yellow
-    Grant-EmailVerification -Email $Email | Out-Null
-} else {
-    Invoke-Api -Method POST -Path "/api/auth/email/request" -Title "2.1 이메일 인증코드 요청" -Body @{
-        email = $Email
+# 2.1 이메일 인증코드 요청 (서버가 6자리 코드를 생성해 email_verifications 에 저장하고 메일 발송)
+Invoke-Api -Method POST -Path "/api/auth/email/request" -Title "2.1 이메일 인증코드 요청" -Body @{
+    email = $Email
+}
+
+# 인증코드 확보: -Code 로 직접 주지 않았다면 DB(email_verifications.code)에서 읽어 정식 절차를 자동화한다.
+if (-not $Code) {
+    Write-Host "`n[인증코드 자동 조회] email_verifications.code 를 docker 로 읽어옵니다." -ForegroundColor Yellow
+    $Code = Get-EmailVerificationCode -Email $Email
+    if ($Code) {
+        Write-Host "  (i) DB 에서 인증코드 확보: $Code" -ForegroundColor Green
     }
 }
 
-# 2.2 이메일 인증코드 검증 (코드가 주어졌을 때만)
+# 2.2 이메일 인증코드 검증 (코드를 확보했을 때만)
 if ($Code) {
     Invoke-Api -Method POST -Path "/api/auth/email/verify" -Title "2.2 이메일 인증코드 검증" -Body @{
         email = $Email
         code  = $Code
     }
-} elseif ($BypassEmail) {
-    Write-Host "`n[2.2 이메일 인증코드 검증] 스킵 (-BypassEmail) - 이미 verified=true 로 처리됨." -ForegroundColor Yellow
 } else {
-    Write-Host "`n[2.2 이메일 인증코드 검증] 스킵 - 실행 시 -Code <6자리> 또는 -BypassEmail 을 사용하세요." -ForegroundColor Yellow
+    Write-Host "`n[2.2 이메일 인증코드 검증] 스킵 - 인증코드를 확보하지 못했습니다. (-Code 로 직접 지정하거나 docker 컨테이너 확인)" -ForegroundColor Yellow
 }
 
-# 2.3 회원가입 (이메일 인증 선행 필요 - -Code 또는 -BypassEmail)
-if ($Code -or $BypassEmail) {
+# 2.3 회원가입 (이메일 인증 선행 필요 - verify 통과한 코드가 있어야 함)
+if ($Code) {
     $signup = Invoke-Api -Method POST -Path "/api/auth/signup" -PassThru -Title "2.3 회원가입" -Body @{
         email           = $Email
         password        = $Password
@@ -64,7 +66,7 @@ if ($Code -or $BypassEmail) {
         Write-Host "  (i) 회원가입 토큰 저장 완료" -ForegroundColor Green
     }
 } else {
-    Write-Host "`n[2.3 회원가입] 스킵 - 이메일 인증(-Code) 또는 -BypassEmail 이 필요합니다." -ForegroundColor Yellow
+    Write-Host "`n[2.3 회원가입] 스킵 - 이메일 인증코드 확보 실패로 진행하지 않습니다." -ForegroundColor Yellow
 }
 
 # 2.4 로그인 (토큰 저장)

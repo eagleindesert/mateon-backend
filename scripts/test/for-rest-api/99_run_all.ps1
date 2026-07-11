@@ -7,14 +7,12 @@
 # 이미 가입된 계정이 있다면 -Email/-Password 만 넘겨 로그인 후 나머지를 테스트할 수 있다.
 # -Email/-Password 를 생략하면 00_common 의 TestEmail/TestPassword 기본값이 쓰인다.
 #
-# 기본 동작: 02_auth 를 -BypassEmail 로 실행한다(메일 없이 DB 로 이메일 인증 우회).
-#   -Code 를 주면 실제 인증코드로 진행하며 우회는 자동으로 꺼진다.
-#   -NoBypassEmail 을 주면 우회 없이(코드도 없이) 실행한다.
+# 기본 동작: 02_auth 가 request→(DB 코드 조회)→verify→signup 의 정식 절차를 자동으로 밟는다.
+#   -Code 를 주면 DB 조회 대신 실제 인증코드로 진행한다.
 param(
     [string]$Email = "",      # 미지정 시 각 스크립트가 00_common 의 TestEmail 사용
     [string]$Password = "",   # 미지정 시 각 스크립트가 00_common 의 TestPassword 사용
-    [string]$Code = "",
-    [switch]$NoBypassEmail
+    [string]$Code = ""
 )
 
 . "$PSScriptRoot\00_common.ps1"
@@ -26,9 +24,6 @@ $authArgs = @{}
 if ($Email)    { $authArgs.Email = $Email }
 if ($Password) { $authArgs.Password = $Password }
 if ($Code)     { $authArgs.Code = $Code }
-
-# -Code 도 없고 -NoBypassEmail 도 아니면 기본적으로 이메일 인증을 우회한다.
-if (-not $Code -and -not $NoBypassEmail) { $authArgs.BypassEmail = $true }
 
 Write-Host "===== 1) Health =====" -ForegroundColor Magenta
 & "$PSScriptRoot\01_health.ps1"

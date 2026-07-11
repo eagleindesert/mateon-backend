@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + jwtProperties.getExpiration());
 
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(String.valueOf(userId))
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -36,7 +38,10 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getRefreshExpiration());
 
+        // jti(랜덤 UUID) 를 넣어 같은 초에 재발급해도 토큰 문자열이 항상 유일하도록 한다.
+        // (없으면 sub+iat+exp 만으로 동일 토큰이 생성되어 refresh_tokens.token UNIQUE 제약과 충돌한다.)
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(String.valueOf(userId))
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)

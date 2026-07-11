@@ -10,7 +10,7 @@ import lombok.Setter;
 public class SignupRequest {
     @NotBlank(message = "이메일을 입력해주세요.")
     @Email(message = "올바른 이메일 형식이 아닙니다.")
-    @Pattern(regexp = "^[a-zA-Z0-9._%+-]+@dankook\\.ac\\.kr$", message = "단국대학교 이메일(@dankook.ac.kr)만 사용 가능합니다.")
+    // 도메인(.ac.kr) 검증은 AuthService 에서 처리한다. DTO 는 이메일 형식만 검사.
     private String email;
 
     @NotBlank(message = "비밀번호를 입력해주세요.")

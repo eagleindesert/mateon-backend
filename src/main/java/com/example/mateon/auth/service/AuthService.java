@@ -41,8 +41,8 @@ public class AuthService {
     public void requestEmailVerification(EmailRequest request) {
         String email = request.getEmail();
 
-        // 단국대 이메일 검증
-        if (!email.endsWith("@dankook.ac.kr")) {
+        // 대학교 이메일 검증 (현재는 모든 대학교 대상)
+        if (!email.endsWith(".ac.kr")) {
             throw new MateonException(ErrorCode.INVALID_EMAIL_DOMAIN);
         }
 
@@ -55,7 +55,7 @@ public class AuthService {
 
     // ===== 학교(재학생) 이메일 인증 : 로그인 후 단계 =====
 
-    // 인증된 유저가 학교 이메일(@dankook.ac.kr) 인증코드를 요청한다.
+    // 인증된 유저가 학교 이메일(.ac.kr) 인증코드를 요청한다.
     public void requestSchoolEmailVerification(Long userId, SchoolEmailRequest request) {
         // 유저 존재 확인 (미인증 소셜 유저 포함)
         if (!userRepository.existsById(userId)) {
@@ -64,8 +64,8 @@ public class AuthService {
 
         String schoolEmail = request.getSchoolEmail();
 
-        // 단국대 이메일 검증
-        if (!schoolEmail.endsWith("@dankook.ac.kr")) {
+        // 대학교 이메일 검증
+        if (!schoolEmail.endsWith(".ac.kr")) {
             throw new MateonException(ErrorCode.INVALID_EMAIL_DOMAIN);
         }
 
@@ -231,7 +231,6 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
-        refreshTokenRepository.deleteByUserId(user.getId());
         saveRefreshToken(user.getId(), refreshToken);
 
         return TokenResponse.builder()
@@ -293,12 +292,20 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 
+    // 리프레시 토큰을 유저당 1행으로 upsert 한다.
+    //   기존 행이 있으면 토큰/만료시각만 교체(rotate)하고, 없으면 새로 만든다.
+    //   (delete→insert 방식은 Hibernate flush 순서상 INSERT 가 DELETE 보다 먼저 나가
+    //    같은 토큰 값 재발급 시 UNIQUE 제약과 충돌하므로 upsert 로 대체한다.)
     private void saveRefreshToken(Long userId, String refreshTokenValue) {
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(refreshTokenValue)
-                .userId(userId)
-                .expiresAt(LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpiration() / 1000))
-                .build();
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpiration() / 1000);
+
+        RefreshToken refreshToken = refreshTokenRepository.findByUserId(userId)
+                .map(existing -> { existing.rotate(refreshTokenValue, expiresAt); return existing; })
+                .orElseGet(() -> RefreshToken.builder()
+                        .token(refreshTokenValue)
+                        .userId(userId)
+                        .expiresAt(expiresAt)
+                        .build());
 
         refreshTokenRepository.save(refreshToken);
     }
