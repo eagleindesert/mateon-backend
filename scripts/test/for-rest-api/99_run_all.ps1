@@ -53,6 +53,11 @@ Write-Host "`n===== 8) Social Login (Kakao) =====" -ForegroundColor Magenta
 # 정상 경로까지 보려면 .env 의 MATEON_KAKAO_ACCESS_TOKEN 을 설정한다.
 & "$PSScriptRoot\08_social_kakao.ps1"
 
+Write-Host "`n===== 10) Chat (REST + WebSocket/STOMP) =====" -ForegroundColor Magenta
+# 08 카카오 테스트가 저장 토큰을 덮어쓸 수 있으므로, A 세션을 다시 확보하기 위해 재로그인한다.
+& "$PSScriptRoot\02_auth.ps1" @authArgs | Out-Null
+& "$PSScriptRoot\10_chat.ps1"
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력

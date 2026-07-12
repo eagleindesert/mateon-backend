@@ -16,7 +16,12 @@
 | `06_notification.ps1` | Notification `/api/notifications` | **필요** |
 | `07_school_auth.ps1` | 학교(재학생) 인증 & 게이팅 `/api/auth/school` | **필요** |
 | `08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
+| `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
+
+> `10_chat.ps1` 은 curl(REST) 뿐 아니라 `System.Net.WebSockets` 로 실제 STOMP 메시지를
+> 주고받아 양방향 채팅을 검증한다. 2번째 유저(B)를 자동 생성/로그인하므로 이메일 인증코드
+> 조회용 **로컬 PostgreSQL 도커 컨테이너**가 필요하다. (B 이메일/비번은 `-UserBEmail` 등으로 변경 가능)
 
 ### 설정(CONFIG)
 모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 한 번에 관리합니다.

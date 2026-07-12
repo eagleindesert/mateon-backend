@@ -43,6 +43,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/school/**").authenticated() // 학교 인증은 로그인 후 단계 → 인증 필요
                         .requestMatchers("/api/auth/**").permitAll() // 그 외 인증 API는 모두 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+                        .requestMatchers("/ws-stomp/**").permitAll() // WS 핸드셰이크 허용 (인증은 STOMP CONNECT 에서 JWT 검증)
+                        .requestMatchers("/api/chat/**").authenticated() // 채팅 REST API는 인증 필요
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
                         .requestMatchers("/api/events/recommended").authenticated() // 추천 API는 인증 필요
                         .requestMatchers("/api/events/**").permitAll() // 기존 Event API 허용
