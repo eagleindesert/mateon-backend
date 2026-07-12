@@ -230,58 +230,79 @@ Write-Step "buildx 준비 ($Platform)"
 if ((Invoke-DockerQuiet buildx version) -ne 0) {
     Fail "docker buildx 를 찾을 수 없습니다. Docker Desktop(또는 buildx 플러그인)이 필요합니다."
 }
-# 재사용 가능한 빌더(mateon-builder)를 보장. 없으면 생성.
-$builderName = "mateon-builder"
-if ((Invoke-DockerQuiet buildx inspect $builderName) -ne 0) {
-    if ((Invoke-DockerQuiet buildx create --name $builderName --use) -ne 0) { Fail "buildx 빌더 생성 실패" }
-    Write-Ok "buildx 빌더 생성: $builderName"
-} else {
-    Invoke-DockerQuiet buildx use $builderName | Out-Null
-    Write-Ok "buildx 빌더 사용: $builderName"
-}
 
-# ---------------------------------------------------------------------------
-# 5. 로그인 (push 시 buildx 가 빌드와 동시에 업로드하므로 빌드 전에 로그인)
-# ---------------------------------------------------------------------------
-if ($Push) {
-    Write-Step "DockerHub 로그인"
-    if ($Token) {
-        $Token | docker login --username $Username --password-stdin
-        if ($LASTEXITCODE -ne 0) { Fail "docker login 실패 (토큰/사용자명 확인)" }
-        Write-Ok "토큰으로 로그인 성공"
+# buildx 빌더는 뒤에 buildkit 컨테이너(buildx_buildkit_<builder>0)를 상시 띄운다.
+# 스크립트 종료 시(정상/실패/중간 exit 모두) 그 컨테이너를 자동으로 멈추기 위해
+# 빌더 준비부터 빌드까지를 try/finally 로 감싼다. rm 이 아닌 stop 이라 빌더 설정과
+# 캐시는 유지되고, 다음 실행 때 buildx 가 컨테이너를 자동으로 다시 시작한다.
+$builderName   = "mateon-builder"
+$builderToStop = $null
+try {
+    # 재사용 가능한 빌더(mateon-builder)를 보장. 없으면 생성.
+    if ((Invoke-DockerQuiet buildx inspect $builderName) -ne 0) {
+        if ((Invoke-DockerQuiet buildx create --name $builderName --use) -ne 0) { Fail "buildx 빌더 생성 실패" }
+        Write-Ok "buildx 빌더 생성: $builderName"
     } else {
-        Write-Warn "DOCKERHUB_TOKEN 미설정 — 기존 docker login 세션을 사용합니다."
-        Write-Warn "미로그인 상태면 push 가 실패합니다. Access Token 사용을 권장합니다."
+        Invoke-DockerQuiet buildx use $builderName | Out-Null
+        Write-Ok "buildx 빌더 사용: $builderName"
+    }
+    # 여기까지 왔으면 빌더 컨테이너가 떠 있을 수 있으므로 종료 대상으로 표시
+    $builderToStop = $builderName
+
+    # -----------------------------------------------------------------------
+    # 5. 로그인 (push 시 buildx 가 빌드와 동시에 업로드하므로 빌드 전에 로그인)
+    # -----------------------------------------------------------------------
+    if ($Push) {
+        Write-Step "DockerHub 로그인"
+        if ($Token) {
+            $Token | docker login --username $Username --password-stdin
+            if ($LASTEXITCODE -ne 0) { Fail "docker login 실패 (토큰/사용자명 확인)" }
+            Write-Ok "토큰으로 로그인 성공"
+        } else {
+            Write-Warn "DOCKERHUB_TOKEN 미설정 — 기존 docker login 세션을 사용합니다."
+            Write-Warn "미로그인 상태면 push 가 실패합니다. Access Token 사용을 권장합니다."
+        }
+    }
+
+    # -----------------------------------------------------------------------
+    # 6. 빌드 (+ push)
+    # -----------------------------------------------------------------------
+    Write-Step "이미지 빌드 ($Platform)"
+
+    $buildArgs = @("buildx", "build", "--platform", $Platform, "-f", $Dockerfile, "-t", $FullTag)
+    if ($LatestToo -and $Tag -ne "latest") { $buildArgs += @("-t", $LatestTag) }
+    if ($Push) {
+        # 빌드 결과를 곧바로 레지스트리로 push (크로스 아키텍처는 --load 불가)
+        $buildArgs += "--push"
+    } else {
+        # push 안 할 때는 로컬 스토어로 load (대상 플랫폼이 호스트와 같을 때만 성공)
+        $buildArgs += "--load"
+    }
+    $buildArgs += $ProjectRoot
+
+    docker @buildArgs
+    if ($LASTEXITCODE -ne 0) { Fail "이미지 빌드 실패" }
+
+    if (-not $Push) {
+        Write-Ok "빌드/로드 완료: $FullTag"
+        Write-Step "완료 (Push 생략됨: -Push:`$false)"
+        exit 0
+    }
+
+    Write-Ok "빌드 및 push 완료: $FullTag ($Platform)"
+    if ($LatestToo -and $Tag -ne "latest") { Write-Ok "push 완료: $LatestTag" }
+
+    Write-Step "배포 완료 🎉"
+    Write-Host "  docker pull $FullTag" -ForegroundColor Green
+}
+finally {
+    # buildkit 컨테이너 자동 종료 (finally 라 정상 종료/실패/중간 exit 모두 실행됨)
+    if ($builderToStop) {
+        Write-Step "buildx 빌더 컨테이너 정리"
+        if ((Invoke-DockerQuiet buildx stop $builderToStop) -eq 0) {
+            Write-Ok "buildx 빌더 컨테이너 종료: $builderToStop (다음 실행 시 자동 재시작)"
+        } else {
+            Write-Warn "buildx 빌더 컨테이너 종료를 건너뜁니다: $builderToStop"
+        }
     }
 }
-
-# ---------------------------------------------------------------------------
-# 6. 빌드 (+ push)
-# ---------------------------------------------------------------------------
-Write-Step "이미지 빌드 ($Platform)"
-
-$buildArgs = @("buildx", "build", "--platform", $Platform, "-f", $Dockerfile, "-t", $FullTag)
-if ($LatestToo -and $Tag -ne "latest") { $buildArgs += @("-t", $LatestTag) }
-if ($Push) {
-    # 빌드 결과를 곧바로 레지스트리로 push (크로스 아키텍처는 --load 불가)
-    $buildArgs += "--push"
-} else {
-    # push 안 할 때는 로컬 스토어로 load (대상 플랫폼이 호스트와 같을 때만 성공)
-    $buildArgs += "--load"
-}
-$buildArgs += $ProjectRoot
-
-docker @buildArgs
-if ($LASTEXITCODE -ne 0) { Fail "이미지 빌드 실패" }
-
-if (-not $Push) {
-    Write-Ok "빌드/로드 완료: $FullTag"
-    Write-Step "완료 (Push 생략됨: -Push:`$false)"
-    exit 0
-}
-
-Write-Ok "빌드 및 push 완료: $FullTag ($Platform)"
-if ($LatestToo -and $Tag -ne "latest") { Write-Ok "push 완료: $LatestTag" }
-
-Write-Step "배포 완료 🎉"
-Write-Host "  docker pull $FullTag" -ForegroundColor Green
