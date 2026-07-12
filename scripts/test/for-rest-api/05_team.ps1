@@ -51,14 +51,20 @@ if ($teamId) {
     }
 }
 
-# 5.6 팀 지원하기 (본인 팀 지원은 정책상 실패할 수 있음 - 응답 상태로 확인)
+# 5.6 팀 지원하기 — 여기서는 지원자=방금 팀을 만든 본인이므로, 서버 정책상 "차단"되어야 정상이다.
+#     (TeamService.applyToTeam: 본인이 개설한 팀에는 지원 불가 → 400, success=false)
 if ($teamId) {
-    $applied = Invoke-Api -Method POST -Path "/api/teams/$teamId/apply" -Auth -Title "5.6 팀 지원하기" -Body @{
+    Write-Host "`n[5.6 팀 지원하기] 본인이 만든 팀에 지원 → 차단(거절)될 것으로 기대합니다." -ForegroundColor Yellow
+    $applied = Invoke-Api -Method POST -Path "/api/teams/$teamId/apply" -Auth -PassThru -Title "5.6 팀 지원하기 (본인 팀 → 차단 기대)" -Body @{
         introduction  = "간단 소개입니다."
         message       = "지원 동기입니다."
         contactNumber = "010-1234-5678"
         portfolioUrl  = "https://github.com/example"
     }
+    # 차단되면 응답 envelope 의 success 가 false 로 내려온다.
+    $blocked   = [bool]($applied -and ($applied.success -eq $false))
+    $blockMsg  = if ($applied) { $applied.message } else { $null }
+    Assert-Test -Title "5.6 본인 팀 지원 차단" -Condition $blocked -Detail "message=$blockMsg" | Out-Null
 }
 
 # 5.7 내가 쓴 지원서 목록

@@ -16,11 +16,16 @@
 # 참고: 채팅 메시지 "전송"은 REST 가 아니라 WebSocket(STOMP) 로만 이루어진다.
 #       그래서 이 스크립트는 curl(REST) 과 System.Net.WebSockets(STOMP) 를 함께 사용한다.
 param(
-    [string]$UserBEmail    = "chatmate@snu.ac.kr",  # 2번째 유저(B) 이메일
-    [string]$UserBPassword = "Password1234",         # 2번째 유저(B) 비밀번호
-    [string]$UserBName     = "채팅메이트"             # 2번째 유저(B) 이름
+    [string]$UserBEmail,       # 미지정 시 00_common 의 UserBEmail
+    [string]$UserBPassword,    # 미지정 시 00_common 의 UserBPassword
+    [string]$UserBName         # 미지정 시 00_common 의 UserBName
 )
 . "$PSScriptRoot\00_common.ps1"
+
+# param 미지정 시 00_common 의 2번째 유저(B) 기본값으로 채운다.
+if (-not $UserBEmail)    { $UserBEmail    = $script:UserBEmail }
+if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
+if (-not $UserBName)     { $UserBName     = $script:UserBName }
 
 Write-Host "`n########## 10. Chat (채팅) - /api/chat + WebSocket(STOMP) [인증 필요] ##########" -ForegroundColor Magenta
 
