@@ -29,6 +29,11 @@
         DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."),         // 중복 지원 방지
         INVALID_INPUT("잘못된 입력값입니다."),
 
+        // 채팅 관련 ---
+        CHAT_ROOM_NOT_FOUND("채팅방을 찾을 수 없습니다."),
+        NOT_ROOM_MEMBER("해당 채팅방의 참여자가 아닙니다."),
+        CANNOT_CHAT_WITH_SELF("자기 자신과는 채팅할 수 없습니다."),
+
         // 기타
         INTERNAL_SERVER_ERROR("서버 오류가 발생했습니다."),
         BAD_REQUEST("잘못된 요청입니다."),

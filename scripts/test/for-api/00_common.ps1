@@ -29,6 +29,11 @@ $script:MateonConfig = @(
     @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
 
+    # 2번째 유저(B) 기본값 — 10_chat.ps1 의 채팅 상대 계정. -UserB* 를 안 주면 아래 값이 쓰인다.
+    @{ Name = "UserBEmail";    Default = "chatmate@snu.ac.kr";          EnvVar = "MATEON_USERB_EMAIL" }    # 유저 B 이메일
+    @{ Name = "UserBPassword"; Default = "Password1234";                 EnvVar = "MATEON_USERB_PASSWORD" } # 유저 B 비밀번호
+    @{ Name = "UserBName";     Default = "채팅메이트";                    EnvVar = "MATEON_USERB_NAME" }     # 유저 B 이름
+
     # 카카오 실제 액세스 토큰(선택) — 있으면 08_social_kakao.ps1 이 실제 로그인까지 검증한다.
     # (get-kakao-token.ps1 이 인가코드 교환 후 이 값을 .env 에 자동 기록한다.)
     @{ Name = "KakaoAccessToken"; Default = "";                          EnvVar = "MATEON_KAKAO_ACCESS_TOKEN" } # 카카오 access token
