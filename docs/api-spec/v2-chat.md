@@ -2,7 +2,7 @@
 
 > Base URL: `/`  
 > 인증 방식: JWT Bearer Token (`Authorization: Bearer <accessToken>`)  
-> Last Updated: 2026-07-11
+> Last Updated: 2026-07-13
 
 ---
 
@@ -43,7 +43,13 @@
 | 31 | Team | GET | `/api/teams/applications/{applicationId}` | ✅ | 지원서 상세 단건 조회 | - | - | ❌ | ✅ |
 | 32 | Notification | GET | `/api/notifications/subscribe` | ✅ | 실시간 알림 SSE 구독 | - | - | ❌ | ✅ |
 | 33 | Notification | GET | `/api/notifications` | ✅ | 내 알림 목록 조회 | - | - | ❌ | ✅ |
-| 34 | Debug | GET | `/debug/oauth` | ❌ | 카카오 인가코드 수신 디버그 (dev) | - | - | ❌ | ✅ |
+| 34 | Chat | POST | `/api/chat/rooms/dm` | ✅ | DM 방 조회 및 생성 | - | - | ❌ | ✅ |
+| 35 | Chat | GET | `/api/chat/rooms` | ✅ | 참여 중인 채팅방 목록 조회 | - | - | ❌ | ✅ |
+| 36 | Chat | GET | `/api/chat/rooms/{roomId}/messages` | ✅ | 채팅방 메시지 이력 조회 | - | - | ❌ | ✅ |
+| 37 | Chat | POST | `/api/chat/rooms/{roomId}/read` | ✅ | 채팅방 메시지 읽음 처리 | - | - | ❌ | ✅ |
+| 38 | Chat | PUB | `/app/chat.send` | ✅ | [STOMP] 채팅 메시지 전송 | - | - | ❌ | ✅ |
+| 39 | Chat | SUB | `/topic/room.{roomId}` | ✅ | [STOMP] 채팅방 메시지 수신/구독 | - | - | ❌ | ✅ |
+| 40 | Debug | GET | `/debug/oauth` | ❌ | 카카오 인가코드 수신 디버그 (dev) | - | - | ❌ | ✅ |
 
 ---
 
@@ -884,7 +890,166 @@
 
 ---
 
-## 7. OAuth 디버그 (Debug)
+## 7. 채팅 (Chat)
+
+### POST `/api/chat/rooms/dm` — DM 방 조회 및 생성 (멱등)
+
+**Headers**
+
+| 헤더 | 값 | 필수 |
+|---|---|---|
+| Authorization | Bearer {accessToken} | ✅ |
+
+**Request Body (`CreateDmRequest`)**
+
+| 필드 | 타입 | 필수 | Validation | 설명 |
+|---|---|---|---|---|
+| targetUserId | Long | ✅ | @NotNull | DM 상대방 고유 사용자 ID |
+
+**Response 200 OK**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| success | Boolean | 성공 여부 (`true`) |
+| message | String | 결과 메시지 (`성공`) |
+| data | Object | 생성 혹은 조회된 DM 방 정보 |
+| data.roomId | Long | 채팅방 고유 ID |
+
+---
+
+### GET `/api/chat/rooms` — 참여 중인 채팅방 목록 조회
+
+**Headers**
+
+| 헤더 | 값 | 필수 |
+|---|---|---|
+| Authorization | Bearer {accessToken} | ✅ |
+
+**Response 200 OK**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| success | Boolean | 성공 여부 (`true`) |
+| message | String | 결과 메시지 (`성공`) |
+| data | Array | 참여 중인 채팅방 목록 |
+| data[].roomId | Long | 채팅방 고유 ID |
+| data[].type | RoomType | 채팅방 타입 (`DM`, `GROUP`) |
+| data[].teamId | Long | GROUP 방일 때 연결된 팀 ID (없으면 `null`) |
+| data[].title | String | GROUP 방 이름 (DM 방은 상대 사용자 이름으로 채워짐) |
+| data[].partnerId | Long | DM 상대 사용자 ID (GROUP 방은 `null`) |
+| data[].lastMessage | String | 마지막 메시지 미리보기 (메시지가 없으면 `null`) |
+| data[].lastMessageAt | LocalDateTime | 마지막 메시지 전송 시각 (메시지가 없으면 `null`, YYYY-MM-DDTHH:mm:ss 형식) |
+| data[].unreadCount | Long | 안읽음 메시지 개수 |
+
+---
+
+### GET `/api/chat/rooms/{roomId}/messages` — 채팅방 메시지 이력 조회
+
+**Headers**
+
+| 헤더 | 값 | 필수 |
+|---|---|---|
+| Authorization | Bearer {accessToken} | ✅ |
+
+**Path Parameters**
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| roomId | Long | 조회할 채팅방 ID |
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| before | Long | - | - | 이 메시지 ID보다 이전의 메시지만 조회 (페이징용) |
+| size | Integer | - | 30 | 한 번에 조회할 메시지 개수 |
+
+**Response 200 OK**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| success | Boolean | 성공 여부 (`true`) |
+| message | String | 결과 메시지 (`성공`) |
+| data | Array | 채팅 메시지 목록 (오래된 순 → 최신 순) |
+| data[].messageId | Long | 메시지 고유 ID |
+| data[].roomId | Long | 채팅방 고유 ID |
+| data[].senderId | Long | 발신자 고유 ID |
+| data[].senderName | String | 발신자 이름 |
+| data[].content | String | 메시지 내용 |
+| data[].createdAt | LocalDateTime | 메시지 생성 시각 (YYYY-MM-DDTHH:mm:ss 형식) |
+
+---
+
+### POST `/api/chat/rooms/{roomId}/read` — 채팅방 메시지 읽음 처리
+
+**Headers**
+
+| 헤더 | 값 | 필수 |
+|---|---|---|
+| Authorization | Bearer {accessToken} | ✅ |
+
+**Path Parameters**
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| roomId | Long | 읽음 처리할 채팅방 ID |
+
+**Request Body (`ReadRequest`)**
+
+| 필드 | 타입 | 필수 | Validation | 설명 |
+|---|---|---|---|---|
+| lastReadMessageId | Long | ✅ | @NotNull | 여기까지 읽음 처리할 마지막 메시지 ID |
+
+**Response 200 OK**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| success | Boolean | 성공 여부 (`true`) |
+| message | String | 결과 메시지 (`성공`) |
+| data | Object | `null` |
+
+---
+
+### [WebSocket PUB] `/app/chat.send` — [STOMP] 채팅 메시지 전송
+
+**STOMP Connection Headers**
+
+| 헤더 | 값 | 필수 | 설명 |
+|---|---|---|---|
+| Authorization | Bearer {accessToken} | ✅ | WebSocket CONNECT 요청 시 인증 헤더 포함 필요 (인터셉터에서 검증) |
+
+**Destination**: `/app/chat.send`
+
+**Payload (`ChatMessageRequest`)**
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| roomId | Long | ✅ | 전송할 채팅방 ID |
+| content | String | ✅ | 메시지 내용 |
+
+**동작 설명**:
+클라이언트가 `/app/chat.send` 목적지로 메시지를 발행하면, 서버에서 발신자 정보를 세션 principal로부터 획득하여 메시지를 저장하고, 해당 방의 구독자들에게 `/topic/room.{roomId}` 주소로 메시지를 브로드캐스트합니다.
+
+---
+
+### [WebSocket SUB] `/topic/room.{roomId}` — [STOMP] 채팅방 메시지 수신/구독
+
+**Destination**: `/topic/room.{roomId}`
+
+**Broadcast Payload (`ChatMessageResponse`)**
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| messageId | Long | 메시지 고유 ID |
+| roomId | Long | 채팅방 고유 ID |
+| senderId | Long | 발신자 고유 ID |
+| senderName | String | 발신자 이름 |
+| content | String | 메시지 내용 |
+| createdAt | LocalDateTime | 메시지 생성 시각 (YYYY-MM-DDTHH:mm:ss 형식) |
+
+---
+
+## 8. OAuth 디버그 (Debug)
 
 ### GET `/debug/oauth` — 카카오 인가코드 수신용 디버그 (dev 환경)
 
@@ -950,3 +1115,9 @@
 | `PENDING` | 대기 중 (팀장의 처리를 대기하는 상태) |
 | `APPROVED` | 승인됨 (팀 매칭이 완료되어 팀원으로 참여한 상태) |
 | `REJECTED` | 거절됨 (팀장이 지원을 거절한 상태) |
+
+### RoomType
+| 값 | 설명 |
+|---|---|
+| `DM` | 1:1 개인 채팅 |
+| `GROUP` | 팀 등 다인 그룹 채팅 |
