@@ -4,7 +4,7 @@
 # (직접 실행도 가능: 아래 param 을 채워서 호출)
 #
 #   powershell -ExecutionPolicy Bypass -File .\chat-client.ps1 `
-#       -Label A -Email test19@snu.ac.kr -Password Password1234 -RoomId 3
+#       -Label A -Email test19@example.ac.kr -Password Password1234 -RoomId 3
 #
 # 동작:
 #   1) 이메일/비밀번호로 로그인해 accessToken 을 '메모리에만' 보관

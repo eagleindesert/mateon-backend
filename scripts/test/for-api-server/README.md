@@ -23,9 +23,9 @@
 1. **서버가 보낸 메일**에서 확인 → 접근 가능한 실제 이메일 주소를 테스트 계정으로 써야 합니다.
 2. **원격 DB 조회** (pgAdmin 또는 psql). 서버가 `email_verifications` 에 저장한 최신 코드를 읽습니다:
    ```sql
-   SELECT code FROM email_verifications WHERE email='test22@snu.ac.kr' ORDER BY id DESC LIMIT 1;
+   SELECT code FROM email_verifications WHERE email='test22@example.ac.kr' ORDER BY id DESC LIMIT 1;
    ```
-   - 조회 이메일과 스크립트의 `-Email`(기본 `test22@snu.ac.kr`)을 반드시 일치시키세요.
+   - 조회 이메일과 스크립트의 `-Email`(기본 `test22@example.ac.kr`)을 반드시 일치시키세요.
    - `email` 에 unique 제약이 없어 가장 최근(`id` 최대) 코드를 읽습니다.
 
 > 코드 입력 프롬프트에서 그냥 **Enter**(빈 값)를 치면 해당 verify/signup 단계를 건너뜁니다.
@@ -55,10 +55,10 @@
 | 설정 | 셸 환경변수 | 기본값 | 용도 |
 |------|-------------|--------|------|
 | BaseUrl | `MATEON_BASE_URL` | `http://localhost:8080` | **원격 서버 주소 — 반드시 지정** |
-| TestEmail | `MATEON_TEST_EMAIL` | `test22@snu.ac.kr` | 유저 A 이메일 |
+| TestEmail | `MATEON_TEST_EMAIL` | `test22@example.ac.kr` | 유저 A 이메일 |
 | TestPassword | `MATEON_TEST_PASSWORD` | `Password1234` | 유저 A 비밀번호 |
 | TestName | `MATEON_TEST_NAME` | `테스트유저` | 유저 A 이름 |
-| UserBEmail | `MATEON_USERB_EMAIL` | `chatmate@snu.ac.kr` | 유저 B(채팅 상대) 이메일 |
+| UserBEmail | `MATEON_USERB_EMAIL` | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일 |
 | UserBPassword | `MATEON_USERB_PASSWORD` | `Password1234` | 유저 B 비밀번호 |
 | UserBName | `MATEON_USERB_NAME` | `채팅메이트` | 유저 B 이름 |
 | KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
@@ -67,8 +67,8 @@
 ```ini
 # scripts/test/for-api-server/.env  (커밋 금지)
 MATEON_BASE_URL=https://your-remote-server.example.com
-MATEON_TEST_EMAIL=test22@snu.ac.kr
-MATEON_USERB_EMAIL=chatmate@snu.ac.kr
+MATEON_TEST_EMAIL=test22@example.ac.kr
+MATEON_USERB_EMAIL=chatmate@example.ac.kr
 ```
 
 ## 사전 준비
@@ -85,7 +85,7 @@ MATEON_USERB_EMAIL=chatmate@snu.ac.kr
 
 ```powershell
 # 유저 A·B 생성 (각각 코드 수동 입력) — 이후 채팅 테스트를 위해 먼저 실행
-pwsh -File .\02_auth.ps1 -Email me@snu.ac.kr -Password Password1234
+pwsh -File .\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
 
 # 개별 실행
 pwsh -File .\03_user.ps1
@@ -93,7 +93,7 @@ pwsh -File .\07_school_auth.ps1   # 학교 이메일 코드도 수동 입력
 pwsh -File .\10_chat.ps1          # 유저 B 는 로그인만 (코드 불필요)
 
 # 전체 순차 실행
-pwsh -File .\99_run_all.ps1 -Email me@snu.ac.kr -Password Password1234
+pwsh -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
 ```
 
 ## 주의

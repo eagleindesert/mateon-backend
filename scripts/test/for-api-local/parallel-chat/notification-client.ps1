@@ -4,7 +4,7 @@
 # (직접 실행도 가능)
 #
 #   powershell -ExecutionPolicy Bypass -File .\notification-client.ps1 `
-#       -Label B-noti -Email chatmate@snu.ac.kr -Password Password1234
+#       -Label B-noti -Email chatmate@example.ac.kr -Password Password1234
 #
 # 동작:
 #   1) 이메일/비밀번호로 로그인해 accessToken 을 '메모리에만' 보관

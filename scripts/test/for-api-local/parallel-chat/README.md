@@ -29,8 +29,8 @@
 2. 로컬 PostgreSQL 도커 컨테이너 실행 중 — 유저 자동 생성 시 이메일 인증코드를 DB 에서 읽음
    (이미 두 계정이 가입돼 있으면 login 만으로 진행되어 DB 접근이 필요 없습니다.)
 3. 설정(BaseUrl·계정 등)은 상위 폴더 `00_common.ps1` / `.env` 를 그대로 따릅니다.
-   - 유저 A = `TestEmail`(기본 `test19@snu.ac.kr`)
-   - 유저 B = `UserBEmail`(기본 `chatmate@snu.ac.kr`)
+   - 유저 A = `TestEmail`(기본 `test19@example.ac.kr`)
+   - 유저 B = `UserBEmail`(기본 `chatmate@example.ac.kr`)
 
 ## 실행 (권장)
 
@@ -48,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File .\launch.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\launch.ps1 `
-    -UserAEmail alice@snu.ac.kr -UserBEmail bob@snu.ac.kr
+    -UserAEmail alice@example.ac.kr -UserBEmail bob@example.ac.kr
 ```
 
 ## 직접 한 창만 띄우기 (수동)
@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\launch.ps1 `
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\chat-client.ps1 `
-    -Label A -Email test19@snu.ac.kr -Password Password1234 -RoomId 3 -Color Cyan
+    -Label A -Email test19@example.ac.kr -Password Password1234 -RoomId 3 -Color Cyan
 ```
 
 ## 동작 원리 (왜 창 하나로 송·수신이 같이 되나)

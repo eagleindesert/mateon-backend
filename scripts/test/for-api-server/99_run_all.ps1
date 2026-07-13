@@ -1,7 +1,7 @@
 # 99_run_all.ps1 (for-api-server) - 전체 API 테스트를 순서대로 실행 (원격 서버 대상)
 # 사용법:
 #   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1
-#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@snu.ac.kr -Password Password1234
+#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
 #
 # 인증코드는 각 스크립트가 실행 중에 콘솔로 직접 물어본다(수동 입력).
 #   02_auth 단계에서 유저 A·B 두 계정의 코드를 각각 입력하게 되며, 이후 10_chat 은 B 를

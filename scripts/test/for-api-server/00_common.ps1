@@ -30,13 +30,13 @@ $script:MateonConfig = @(
     @{ Name = "JwtSecret";   Default = "";                               EnvVar = "MATEON_JWT_SECRET" }    # (예약) 현재 미사용
 
     # 테스트 계정(A) 기본값 — 스크립트에 -Email/-Password/-Name 을 안 주면 아래 값이 쓰인다.
-    @{ Name = "TestEmail";    Default = "test22@snu.ac.kr";              EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
-    @{ Name = "TestPassword"; Default = "Password1234";                  EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
+    @{ Name = "TestEmail";    Default = "";                              EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
+    @{ Name = "TestPassword"; Default = "";                              EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
 
     # 2번째 유저(B) 기본값 — 02_auth 가 함께 생성하고 10_chat 이 로그인해 쓰는 채팅 상대 계정.
-    @{ Name = "UserBEmail";    Default = "chatmate@snu.ac.kr";          EnvVar = "MATEON_USERB_EMAIL" }    # 유저 B 이메일
-    @{ Name = "UserBPassword"; Default = "Password1234";                 EnvVar = "MATEON_USERB_PASSWORD" } # 유저 B 비밀번호
+    @{ Name = "UserBEmail";    Default = "";                              EnvVar = "MATEON_USERB_EMAIL" }    # 유저 B 이메일
+    @{ Name = "UserBPassword"; Default = "";                              EnvVar = "MATEON_USERB_PASSWORD" } # 유저 B 비밀번호
     @{ Name = "UserBName";     Default = "채팅메이트";                    EnvVar = "MATEON_USERB_NAME" }     # 유저 B 이름
 
     # 카카오 실제 액세스 토큰(선택) — 있으면 08_social_kakao.ps1 이 실제 로그인까지 검증한다.
@@ -109,6 +109,8 @@ function Write-TestSummary {
     $failedItems = @($results | Where-Object { -not $_.Ok })
     $passed  = $total - $failedItems.Count
 
+    $expectedBlocks = @($results | Where-Object { $_.IsExpectedBlock -and $_.Ok })
+
     Write-Host ""
     Write-Host ("=" * 70) -ForegroundColor DarkGray
     Write-Host " 테스트 요약 (Test Summary)" -ForegroundColor Magenta
@@ -116,6 +118,14 @@ function Write-TestSummary {
     Write-Host ("  전체: {0}" -f $total) -ForegroundColor White
     Write-Host ("  성공: {0}" -f $passed) -ForegroundColor Green
     Write-Host ("  실패: {0}" -f $failedItems.Count) -ForegroundColor $(if ($failedItems.Count -gt 0) { "Red" } else { "Green" })
+
+    if ($expectedBlocks.Count -gt 0) {
+        Write-Host ""
+        Write-Host ("  정상 차단된 항목 ({0}개):" -f $expectedBlocks.Count) -ForegroundColor Cyan
+        foreach ($b in $expectedBlocks) {
+            Write-Host ("    - [{0}] {1}  ({2} {3})" -f $b.Status, $b.Title, $b.Method, $b.Path) -ForegroundColor Cyan
+        }
+    }
 
     if ($failedItems.Count -gt 0) {
         Write-Host ""
@@ -290,17 +300,24 @@ function Invoke-Api {
         $bodyText = ($raw -replace "HTTP_STATUS:\d+\s*$", "").Trim()
     }
 
-    $ok = [bool]($status -and [int]$status -lt 400)
+    $isExpectedBlock = [bool]($Title -and $Title -match "차단 기대")
+    if ($isExpectedBlock) {
+        $ok = [bool]($status -and [int]$status -ge 400)
+    } else {
+        $ok = [bool]($status -and [int]$status -lt 400)
+    }
+    
     $statusColor = if ($ok) { "Green" } else { "Red" }
     Write-Host "  Status: $status" -ForegroundColor $statusColor
 
     # 결과 집계 (요약 출력에 사용)
     $global:MateonTestResults.Add([pscustomobject]@{
-        Title  = if ($Title) { $Title } else { "$Method $Path" }
-        Method = $Method
-        Path   = $Path
-        Status = $status
-        Ok     = $ok
+        Title           = if ($Title) { $Title } else { "$Method $Path" }
+        Method          = $Method
+        Path            = $Path
+        Status          = $status
+        Ok              = $ok
+        IsExpectedBlock = $isExpectedBlock
     })
 
     # 본문을 JSON 으로 예쁘게 출력 (실패 시 원문 그대로)
