@@ -39,26 +39,34 @@ if (-not $Code) {
 }
 
 # 2.2 이메일 인증코드 검증 (코드를 확보했을 때만)
+# 인증 성공 시 응답의 data.verificationToken(일회용 티켓)을 받아 회원가입에 전달한다.
+# (이메일 인증을 완료한 주체만 가입하도록 하는 도용 방지 장치)
+$verificationToken = ""
 if ($Code) {
-    Invoke-Api -Method POST -Path "/api/auth/email/verify" -Title "2.2 이메일 인증코드 검증" -Body @{
+    $verify = Invoke-Api -Method POST -Path "/api/auth/email/verify" -PassThru -Title "2.2 이메일 인증코드 검증" -Body @{
         email = $Email
         code  = $Code
+    }
+    $verificationToken = $verify.data.verificationToken
+    if ($verificationToken) {
+        Write-Host "  (i) 인증 티켓 확보: $verificationToken" -ForegroundColor Green
     }
 } else {
     Write-Host "`n[2.2 이메일 인증코드 검증] 스킵 - 인증코드를 확보하지 못했습니다. (-Code 로 직접 지정하거나 docker 컨테이너 확인)" -ForegroundColor Yellow
 }
 
-# 2.3 회원가입 (이메일 인증 선행 필요 - verify 통과한 코드가 있어야 함)
-if ($Code) {
+# 2.3 회원가입 (이메일 인증 선행 필요 - verify 로 받은 인증 티켓이 있어야 함)
+if ($verificationToken) {
     $signup = Invoke-Api -Method POST -Path "/api/auth/signup" -PassThru -Title "2.3 회원가입" -Body @{
-        email           = $Email
-        password        = $Password
-        passwordConfirm = $Password
-        name            = $Name
-        campus          = "JUKJEON"
-        college         = "SW융합대학"
-        major           = "소프트웨어학과"
-        grade           = "3학년"
+        email             = $Email
+        password          = $Password
+        passwordConfirm   = $Password
+        name              = $Name
+        campus            = "JUKJEON"
+        college           = "SW융합대학"
+        major             = "소프트웨어학과"
+        grade             = "3학년"
+        verificationToken = $verificationToken
     }
     if ($signup.data.accessToken) {
         Save-AccessToken $signup.data.accessToken
@@ -66,7 +74,7 @@ if ($Code) {
         Write-Host "  (i) 회원가입 토큰 저장 완료" -ForegroundColor Green
     }
 } else {
-    Write-Host "`n[2.3 회원가입] 스킵 - 이메일 인증코드 확보 실패로 진행하지 않습니다." -ForegroundColor Yellow
+    Write-Host "`n[2.3 회원가입] 스킵 - 인증 티켓 확보 실패로 진행하지 않습니다." -ForegroundColor Yellow
 }
 
 # 2.4 로그인 (토큰 저장)
