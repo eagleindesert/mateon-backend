@@ -8,48 +8,48 @@
 
 ## 📋 API 엔드포인트 총괄표
 
-| # | 분류 | Method | Endpoint | 인증 | 설명 | FE 담당자 | BE 담당자 | FE 작업완료 | BE 작업완료 |
-|---|------|--------|----------|------|------|-----------|-----------|-------------|-------------|
-| 1 | Auth | POST | `/api/auth/email/request` | ❌ | 이메일 인증코드 발송 | - | - | ❌ | ✅ |
-| 2 | Auth | POST | `/api/auth/email/verify` | ❌ | 이메일 인증코드 검증 | - | - | ❌ | ✅ |
-| 3 | Auth | POST | `/api/auth/school/email/request` | ✅ | 학교 이메일 인증코드 발송 | - | - | ❌ | ✅ |
-| 4 | Auth | POST | `/api/auth/school/email/verify` | ✅ | 학교 이메일 인증코드 검증 | - | - | ❌ | ✅ |
-| 5 | Auth | POST | `/api/auth/signup` | ❌ | 일반 회원가입 | - | - | ❌ | ✅ |
-| 6 | Auth | POST | `/api/auth/login` | ❌ | 이메일 로그인 | - | - | ❌ | ✅ |
-| 7 | Auth | POST | `/api/auth/social/kakao` | ❌ | 카카오 로그인 | - | - | ❌ | ✅ |
-| 8 | Auth | POST | `/api/auth/token/refresh` | ❌ | 토큰 갱신 | - | - | ❌ | ✅ |
-| 9 | Auth | POST | `/api/auth/password/change` | ❌ | 비밀번호 변경 (비로그인 상태) | - | - | ❌ | ✅ |
-| 10 | Auth | POST | `/api/auth/logout` | ❌ | 로그아웃 | - | - | ❌ | ✅ |
-| 11 | Health | GET | `/` | ❌ | 루트 경로 헬스체크 | - | - | ❌ | ✅ |
-| 12 | Health | GET | `/health` | ❌ | 헬스체크 | - | - | ❌ | ✅ |
-| 13 | User | GET | `/api/users/me` | ✅ | 내 프로필 정보 조회 | - | - | ❌ | ✅ |
-| 14 | User | PUT | `/api/users/me` | ✅ | 내 프로필 정보 수정 | - | - | ❌ | ✅ |
-| 15 | User | GET | `/api/users/mypage` | ✅ | 마이페이지 종합 정보 조회 | - | - | ❌ | ✅ |
-| 16 | User | POST | `/api/users/password/change` | ✅ | 비밀번호 변경 (로그인 상태) | - | - | ❌ | ✅ |
-| 17 | Event | GET | `/api/events/search` | 👤 (선택) | 활동 검색 및 관련도 정렬 조회 | - | - | ❌ | ✅ |
-| 18 | Event | GET | `/api/events/recommended` | ✅ | 맞춤 활동 추천 (카테고리별 1개) | - | - | ❌ | ✅ |
-| 19 | Event | GET | `/api/events` | ❌ | 전체 활동 무작위 조회 | - | - | ❌ | ✅ |
-| 20 | Team | GET | `/api/teams` | 👤 (선택) | 팀 모집글 목록 통합 조회 | - | - | ❌ | ✅ |
-| 21 | Team | GET | `/api/teams/{teamId}` | 👤 (선택) | 팀 모집글 상세 조회 | - | - | ❌ | ✅ |
-| 22 | Team | POST | `/api/teams` | ✅ | 팀 모집글 작성 | - | - | ❌ | ✅ |
-| 23 | Team | PUT | `/api/teams/{teamId}` | ✅ | 팀 모집글 수정 | - | - | ❌ | ✅ |
-| 24 | Team | DELETE | `/api/teams/{teamId}` | ✅ | 팀 모집글 삭제 | - | - | ❌ | ✅ |
-| 25 | Team | POST | `/api/teams/{teamId}/apply` | ✅ | 특정 팀에 지원서 제출 | - | - | ❌ | ✅ |
-| 26 | Team | GET | `/api/teams/applications/me` | ✅ | 내가 쓴 지원서 목록 조회 | - | - | ❌ | ✅ |
-| 27 | Team | GET | `/api/teams/{teamId}/applications` | ✅ | 팀에 온 지원서 목록 조회 (팀장) | - | - | ❌ | ✅ |
-| 28 | Team | PATCH | `/api/teams/applications/{applicationId}` | ✅ | 지원서 승인/거절 처리 (팀장) | - | - | ❌ | ✅ |
-| 29 | Team | PUT | `/api/teams/applications/{applicationId}` | ✅ | 지원서 수정 (지원자) | - | - | ❌ | ✅ |
-| 30 | Team | DELETE | `/api/teams/applications/{applicationId}` | ✅ | 지원 취소 (지원자) | - | - | ❌ | ✅ |
-| 31 | Team | GET | `/api/teams/applications/{applicationId}` | ✅ | 지원서 상세 단건 조회 | - | - | ❌ | ✅ |
-| 32 | Notification | GET | `/api/notifications/subscribe` | ✅ | 실시간 알림 SSE 구독 | - | - | ❌ | ✅ |
-| 33 | Notification | GET | `/api/notifications` | ✅ | 내 알림 목록 조회 | - | - | ❌ | ✅ |
-| 34 | Chat | POST | `/api/chat/rooms/dm` | ✅ | DM 방 조회 및 생성 | - | - | ❌ | ✅ |
-| 35 | Chat | GET | `/api/chat/rooms` | ✅ | 참여 중인 채팅방 목록 조회 | - | - | ❌ | ✅ |
-| 36 | Chat | GET | `/api/chat/rooms/{roomId}/messages` | ✅ | 채팅방 메시지 이력 조회 | - | - | ❌ | ✅ |
-| 37 | Chat | POST | `/api/chat/rooms/{roomId}/read` | ✅ | 채팅방 메시지 읽음 처리 | - | - | ❌ | ✅ |
-| 38 | Chat | PUB | `/app/chat.send` | ✅ | [STOMP] 채팅 메시지 전송 | - | - | ❌ | ✅ |
-| 39 | Chat | SUB | `/topic/room.{roomId}` | ✅ | [STOMP] 채팅방 메시지 수신/구독 | - | - | ❌ | ✅ |
-| 40 | Debug | GET | `/debug/oauth` | ❌ | 카카오 인가코드 수신 디버그 (dev) | - | - | ❌ | ✅ |
+| # | 분류 | Method | Endpoint | 인증 | 설명 | FE 담당자 | FE 작업완료 |
+|---|------|--------|----------|------|------|-----------|-------------|
+| 1 | Auth | POST | `/api/auth/email/request` | ❌ | 이메일 인증코드 발송 |  |  |
+| 2 | Auth | POST | `/api/auth/email/verify` | ❌ | 이메일 인증코드 검증 |  |  |
+| 3 | Auth | POST | `/api/auth/school/email/request` | ✅ | 학교 이메일 인증코드 발송 |  |  |
+| 4 | Auth | POST | `/api/auth/school/email/verify` | ✅ | 학교 이메일 인증코드 검증 |  |  |
+| 5 | Auth | POST | `/api/auth/signup` | ❌ | 일반 회원가입 |  |  |
+| 6 | Auth | POST | `/api/auth/login` | ❌ | 이메일 로그인 |  |  |
+| 7 | Auth | POST | `/api/auth/social/kakao` | ❌ | 카카오 로그인 |  |  |
+| 8 | Auth | POST | `/api/auth/token/refresh` | ❌ | 토큰 갱신 |  |  |
+| 9 | Auth | POST | `/api/auth/password/change` | ❌ | 비밀번호 변경 (비로그인 상태) |  |  |
+| 10 | Auth | POST | `/api/auth/logout` | ❌ | 로그아웃 |  |  |
+| 11 | Health | GET | `/` | ❌ | 루트 경로 헬스체크 |  |  |
+| 12 | Health | GET | `/health` | ❌ | 헬스체크 |  |  |
+| 13 | User | GET | `/api/users/me` | ✅ | 내 프로필 정보 조회 |  |  |
+| 14 | User | PUT | `/api/users/me` | ✅ | 내 프로필 정보 수정 |  |  |
+| 15 | User | GET | `/api/users/mypage` | ✅ | 마이페이지 종합 정보 조회 |  |  |
+| 16 | User | POST | `/api/users/password/change` | ✅ | 비밀번호 변경 (로그인 상태) |  |  |
+| 17 | Event | GET | `/api/events/search` | 👤 (선택) | 활동 검색 및 관련도 정렬 조회 |  |  |
+| 18 | Event | GET | `/api/events/recommended` | ✅ | 맞춤 활동 추천 (카테고리별 1개) |  |  |
+| 19 | Event | GET | `/api/events` | ❌ | 전체 활동 무작위 조회 |  |  |
+| 20 | Team | GET | `/api/teams` | 👤 (선택) | 팀 모집글 목록 통합 조회 |  |  |
+| 21 | Team | GET | `/api/teams/{teamId}` | 👤 (선택) | 팀 모집글 상세 조회 |  |  |
+| 22 | Team | POST | `/api/teams` | ✅ | 팀 모집글 작성 |  |  |
+| 23 | Team | PUT | `/api/teams/{teamId}` | ✅ | 팀 모집글 수정 |  |  |
+| 24 | Team | DELETE | `/api/teams/{teamId}` | ✅ | 팀 모집글 삭제 |  |  |
+| 25 | Team | POST | `/api/teams/{teamId}/apply` | ✅ | 특정 팀에 지원서 제출 |  |  |
+| 26 | Team | GET | `/api/teams/applications/me` | ✅ | 내가 쓴 지원서 목록 조회 |  |  |
+| 27 | Team | GET | `/api/teams/{teamId}/applications` | ✅ | 팀에 온 지원서 목록 조회 (팀장) |  |  |
+| 28 | Team | PATCH | `/api/teams/applications/{applicationId}` | ✅ | 지원서 승인/거절 처리 (팀장) |  |  |
+| 29 | Team | PUT | `/api/teams/applications/{applicationId}` | ✅ | 지원서 수정 (지원자) |  |  |
+| 30 | Team | DELETE | `/api/teams/applications/{applicationId}` | ✅ | 지원 취소 (지원자) |  |  |
+| 31 | Team | GET | `/api/teams/applications/{applicationId}` | ✅ | 지원서 상세 단건 조회 |  |  |
+| 32 | Notification | GET | `/api/notifications/subscribe` | ✅ | 실시간 알림 SSE 구독 |  |  |
+| 33 | Notification | GET | `/api/notifications` | ✅ | 내 알림 목록 조회 |  |  |
+| 34 | Chat | POST | `/api/chat/rooms/dm` | ✅ | DM 방 조회 및 생성 |  |  |
+| 35 | Chat | GET | `/api/chat/rooms` | ✅ | 참여 중인 채팅방 목록 조회 |  |  |
+| 36 | Chat | GET | `/api/chat/rooms/{roomId}/messages` | ✅ | 채팅방 메시지 이력 조회 |  |  |
+| 37 | Chat | POST | `/api/chat/rooms/{roomId}/read` | ✅ | 채팅방 메시지 읽음 처리 |  |  |
+| 38 | Chat | PUB | `/app/chat.send` | ✅ | [STOMP] 채팅 메시지 전송 |  |  |
+| 39 | Chat | SUB | `/topic/room.{roomId}` | ✅ | [STOMP] 채팅방 메시지 수신/구독 |  |  |
+| 40 | Debug | GET | `/debug/oauth` | ❌ | 카카오 인가코드 수신 디버그 (dev) |  |  |
 
 ---
 
