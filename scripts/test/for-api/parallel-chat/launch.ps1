@@ -128,13 +128,31 @@ function Start-ChatWindow {
     Start-Process -FilePath $chatShell -ArgumentList $procArgs
 }
 
-Write-Host "`n[2] 채팅 창 2개를 띄웁니다..." -ForegroundColor Magenta
+# 알림(SSE) 뷰어 창. 채팅과 달리 일반 HTTP GET 스트림이라 pwsh 요건은 없지만,
+# 창 실행 셸은 채팅과 동일하게 맞춰 일관성을 유지한다.
+$notiClient = Join-Path $PSScriptRoot "notification-client.ps1"
+function Start-NotiWindow {
+    param([string]$Label, [string]$Email, [string]$Password, [string]$Color)
+    $procArgs = @(
+        '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', $notiClient,
+        '-Label', $Label, '-Email', $Email, '-Password', $Password,
+        '-BaseUrl', $script:BaseUrl, '-Color', $Color
+    )
+    Start-Process -FilePath $chatShell -ArgumentList $procArgs
+}
+
+Write-Host "`n[2] 채팅 창 2개 + 알림 감시 창 1개를 띄웁니다..." -ForegroundColor Magenta
 Start-ChatWindow -Label 'A' -Email $UserAEmail -Password $UserAPassword -Color 'Cyan'
 Start-Sleep -Milliseconds 400
 Start-ChatWindow -Label 'B' -Email $UserBEmail -Password $UserBPassword -Color 'Green'
+Start-Sleep -Milliseconds 400
+# 알림 감시 창: B 계정으로 구독 → A 가 메시지를 보내면 여기에 알림이 뜬다.
+# (알림은 '발신자를 제외한' 방 멤버에게 가므로, A 발신 → B 수신 구도가 관찰하기 쉽다.)
+Start-NotiWindow -Label 'B-noti' -Email $UserBEmail -Password $UserBPassword -Color 'Magenta'
 
-Write-Host "`n두 창이 열렸습니다. 한쪽에서 메시지를 입력하면 다른 쪽 창에 노란색으로 실시간 표시됩니다." -ForegroundColor Green
-Write-Host "  - A 창: $UserAEmail (userId=$userIdA)" -ForegroundColor Cyan
-Write-Host "  - B 창: $UserBEmail (userId=$userIdB)" -ForegroundColor Green
+Write-Host "`n세 창이 열렸습니다. A 창에서 메시지를 보내면 B 채팅 창(노랑)과 B 알림 창(🔔)에 동시에 표시됩니다." -ForegroundColor Green
+Write-Host "  - A 채팅 창: $UserAEmail (userId=$userIdA)" -ForegroundColor Cyan
+Write-Host "  - B 채팅 창: $UserBEmail (userId=$userIdB)" -ForegroundColor Green
+Write-Host "  - B 알림 창: $UserBEmail 의 실시간 SSE 알림 (A 발신 시 🔔)" -ForegroundColor Magenta
 Write-Host "  - 방 번호: #$roomId" -ForegroundColor DarkGray
-Write-Host "각 창에서 /quit 로 종료하세요." -ForegroundColor DarkGray
+Write-Host "채팅 창은 /quit, 알림 창은 Ctrl+C 로 종료하세요." -ForegroundColor DarkGray
