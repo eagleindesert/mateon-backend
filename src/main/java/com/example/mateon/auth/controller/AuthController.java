@@ -23,9 +23,10 @@ public class AuthController {
     }
 
     @PostMapping("/email/verify")
-    public ResponseEntity<ApiResponse<Object>> verifyEmail(@Valid @RequestBody EmailVerifyRequest request) {
-        authService.verifyEmail(request);
-        return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다."));
+    public ResponseEntity<ApiResponse<EmailVerifyResponse>> verifyEmail(@Valid @RequestBody EmailVerifyRequest request) {
+        String verificationToken = authService.verifyEmail(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                "이메일 인증이 완료되었습니다.", new EmailVerifyResponse(verificationToken)));
     }
 
     // 로그인 후 학교(재학생) 이메일 인증코드 발송 [인증 필요]

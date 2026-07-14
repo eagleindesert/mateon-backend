@@ -1,7 +1,7 @@
 # 99_run_all.ps1 - 전체 API 테스트를 순서대로 실행
 # 사용법:
 #   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1
-#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email test@dankook.ac.kr -Password Password1234 -Code 123456
+#   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email test@example.ac.kr -Password Password1234 -Code 123456
 #
 # 회원가입/인증까지 자동으로 진행하려면 이메일로 수신한 -Code(6자리)를 넘긴다.
 # 이미 가입된 계정이 있다면 -Email/-Password 만 넘겨 로그인 후 나머지를 테스트할 수 있다.

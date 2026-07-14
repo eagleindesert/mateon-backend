@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MateonException.class)
     public ResponseEntity<ApiResponse<Object>> handleMateonException(MateonException e) {
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(e.getErrorCode().getStatus())
                 .body(ApiResponse.error(e.getMessage()));
     }
 

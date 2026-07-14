@@ -71,11 +71,11 @@
 ```powershell
 # 개별 실행
 powershell -ExecutionPolicy Bypass -File .\01_health.ps1
-powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email me@dankook.ac.kr -Password Password1234
+powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
 powershell -ExecutionPolicy Bypass -File .\03_user.ps1
 
 # 전체 실행
-powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@dankook.ac.kr -Password Password1234
+powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
 ```
 
 ### 신규 회원가입까지 자동 진행
@@ -87,10 +87,10 @@ powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@dankook.ac.k
 
 ```powershell
 # 기본: request → DB 에서 코드 조회 → verify → signup 까지 자동 진행
-powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr
+powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@example.ac.kr
 
 # 메일로 받은 코드를 직접 지정하고 싶으면 -Code 로 넘긴다 (DB 조회 생략)
-powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr -Code 123456
+powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@example.ac.kr -Code 123456
 ```
 
 ## 원격 VM 서버를 대상으로 실행할 때 추가 조치
@@ -104,10 +104,10 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr 
    `TestEmail` 기본값 사용). 먼저 로컬에서 `.env` 의 `MATEON_BASE_URL` 을 VM 주소로 두고
    `02_auth.ps1` 을 한 번 실행해 request 를 보낸 뒤:
    ```bash
-   docker exec mateon-postgres psql -U admin -d mateon_db -t -A -c "SELECT code FROM email_verifications WHERE email='test1@snu.ac.kr' ORDER BY id DESC LIMIT 1;"
+   docker exec mateon-postgres psql -U admin -d mateon_db -t -A -c "SELECT code FROM email_verifications WHERE email='test1@example.ac.kr' ORDER BY id DESC LIMIT 1;"
    ```
    - `email_verifications.email` 에 unique 제약이 없어 가장 최근(`id` 최대) 코드를 읽는다.
-   - **조회 이메일과 스크립트의 `-Email`(기본 `test1@snu.ac.kr`)을 반드시 일치**시킬 것.
+   - **조회 이메일과 스크립트의 `-Email`(기본 `test1@example.ac.kr`)을 반드시 일치**시킬 것.
 
 2. 조회한 코드를 `-Code` 로 넘겨 verify + signup + login 을 진행한다:
    ```powershell
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\02_auth.ps1 -Email new@dankook.ac.kr 
    - 이메일이 고정이라 **두 번째 실행부터** signup 은 `EMAIL_ALREADY_EXISTS` 로 실패하지만, 이어지는
      login 이 성공해 토큰은 정상 저장된다. 깨끗한 가입부터 다시 하려면 VM 에서 유저를 지운다:
      ```bash
-     docker exec mateon-postgres psql -U admin -d mateon_db -c "DELETE FROM users WHERE email='test1@snu.ac.kr';"
+     docker exec mateon-postgres psql -U admin -d mateon_db -c "DELETE FROM users WHERE email='test1@example.ac.kr';"
      ```
 
 ## 주의

@@ -4,7 +4,7 @@
 # (직접 실행도 가능)
 #
 #   powershell -ExecutionPolicy Bypass -File .\notification-client.ps1 `
-#       -Label B-noti -Email chatmate@snu.ac.kr -Password Password1234
+#       -Label B-noti -Email chatmate@example.ac.kr -Password Password1234
 #
 # 동작:
 #   1) 이메일/비밀번호로 로그인해 accessToken 을 '메모리에만' 보관
@@ -27,7 +27,7 @@ param(
     [string]$Color = 'Magenta'                          # 이 창의 테마 색
 )
 
-# 공통 설정/로그인 헬퍼 로드 (상위 for-rest-api 폴더 기준)
+# 공통 설정/로그인 헬퍼 로드 (상위 for-api-server 폴더 기준)
 . "$PSScriptRoot\..\00_common.ps1"
 
 if ($BaseUrl) { $script:BaseUrl = $BaseUrl }

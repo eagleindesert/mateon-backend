@@ -13,6 +13,10 @@ public class SignupRequest {
     // 도메인(.ac.kr) 검증은 AuthService 에서 처리한다. DTO 는 이메일 형식만 검사.
     private String email;
 
+    // 이메일 인증(/email/verify) 응답으로 받은 일회용 티켓. 인증 주체 확인용.
+    @NotBlank(message = "이메일 인증을 먼저 완료해주세요.")
+    private String verificationToken;
+
     @NotBlank(message = "비밀번호를 입력해주세요.")
     @Size(min = 10, max = 20, message = "비밀번호는 10-20자리 이내로 입력해주세요.")
     private String password;

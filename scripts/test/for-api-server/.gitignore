@@ -1,0 +1,6 @@
+# 로그인 시 생성되는 토큰 파일 (커밋 금지)
+.auth-token.txt
+.refresh-token.txt
+
+# 서버 주소/자격증명 등 로컬 설정 (커밋 금지)
+.env

@@ -11,17 +11,19 @@ import com.example.mateon.auth.repository.RefreshTokenRepository;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.config.JwtProperties;
-import com.example.mateon.mail.service.MailService;
+import com.example.mateon.mail.event.VerificationCodeIssuedEvent;
 import com.example.mateon.user.domain.AuthProvider;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -32,11 +34,17 @@ public class AuthService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final MailService mailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final KakaoOAuthClient kakaoClient;
-    private final Random random = new Random();
+    private final SecureRandom random = new SecureRandom();
+
+    // 동일 이메일 인증코드 재요청 쿨다운 (메일 폭탄/남용 방지)
+    private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
+
+    // 인증 티켓 유효기간: 인증 완료 후 이 시간 안에 회원가입을 마쳐야 한다.
+    private static final Duration TICKET_TTL = Duration.ofMinutes(30);
 
     // 회원가입 시 사용하는 verification()
     public void requestEmailVerification(EmailRequest request) {
@@ -50,8 +58,9 @@ public class AuthService {
         generateAndSendCode(email);
     }
 
-    public void verifyEmail(EmailVerifyRequest request) {
-        verifyCode(request.getEmail(), request.getCode());
+    // 회원가입용 이메일 인증. 성공 시 회원가입에 제출할 일회용 티켓을 반환한다.
+    public String verifyEmail(EmailVerifyRequest request) {
+        return verifyCode(request.getEmail(), request.getCode());
     }
 
     // 소셜 로그인 한 유저가 사용하는 verification()
@@ -97,16 +106,18 @@ public class AuthService {
 
     // 인증코드 6자리를 생성해 저장하고 메일로 발송한다. (기존 인증행이 있으면 갱신)
     private void generateAndSendCode(String email) {
+        EmailVerification existing = emailVerificationRepository.findByEmail(email).orElse(null);
+
+        // 재요청 쿨다운: 마지막 발송(updatedAt) 이후 RESEND_COOLDOWN 이내면 거부 (메일 폭탄/남용 방지)
+        if (existing != null && existing.getUpdatedAt() != null
+                && existing.getUpdatedAt().isAfter(LocalDateTime.now().minus(RESEND_COOLDOWN))) {
+            throw new MateonException(ErrorCode.EMAIL_REQUEST_TOO_FREQUENT);
+        }
+
         String code = String.format("%06d", random.nextInt(1000000));
 
-        EmailVerification verification = emailVerificationRepository.findByEmail(email)
-                .orElse(EmailVerification.builder()
-                        .email(email)
-                        .verified(false)
-                        .build());
-
-        verification = EmailVerification.builder()
-                .id(verification.getId())
+        EmailVerification verification = EmailVerification.builder()
+                .id(existing != null ? existing.getId() : null)
                 .email(email)
                 .code(code)
                 .expiresAt(LocalDateTime.now().plusMinutes(5))
@@ -115,11 +126,13 @@ public class AuthService {
 
         emailVerificationRepository.save(verification);
 
-        mailService.sendVerificationCode(email, code);
+        // 메일 발송은 트랜잭션 커밋 후로 미룬다. ([[VerificationCodeMailListener]])
+        eventPublisher.publishEvent(new VerificationCodeIssuedEvent(email, code));
     }
 
     // 저장된 인증코드와 대조해 검증하고, 통과하면 verified 로 마킹한다.
-    private void verifyCode(String email, String code) {
+    // 반환값은 발급된 일회용 티켓(회원가입 주체 식별용). 학교 이메일 경로는 이 값을 사용하지 않는다.
+    private String verifyCode(String email, String code) {
         EmailVerification verification = emailVerificationRepository.findByEmail(email)
                 .orElseThrow(() -> new MateonException(ErrorCode.INVALID_VERIFICATION_CODE));
 
@@ -131,8 +144,10 @@ public class AuthService {
             throw new MateonException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        verification.verify();
+        String token = java.util.UUID.randomUUID().toString();
+        verification.verify(token);
         emailVerificationRepository.save(verification);
+        return token;
     }
 
     public TokenResponse signup(SignupRequest request) {
@@ -150,8 +165,10 @@ public class AuthService {
         EmailVerification verification = emailVerificationRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new MateonException(ErrorCode.EMAIL_NOT_VERIFIED));
 
-        if (!verification.getVerified()) {
-            throw new MateonException(ErrorCode.EMAIL_NOT_VERIFIED);
+        // 인증 티켓 검증: 이 이메일 인증을 완료한 주체만(= 티켓 소유자만) 가입할 수 있다.
+        // 이메일이 verified 라는 사실만으로 통과시키면, 인증을 마친 이메일을 제3자가 선점(도용)할 수 있다.
+        if (!verification.isTicketValid(request.getVerificationToken(), TICKET_TTL)) {
+            throw new MateonException(ErrorCode.INVALID_VERIFICATION_TOKEN);
         }
 
         // 사용자 생성 (로컬 유저는 학교 이메일로 선행 인증했으므로 재학생 상태로 확정)

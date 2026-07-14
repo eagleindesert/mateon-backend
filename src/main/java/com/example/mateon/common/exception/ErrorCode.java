@@ -1,13 +1,16 @@
     package com.example.mateon.common.exception;
 
     import lombok.Getter;
+    import org.springframework.http.HttpStatus;
 
     @Getter
     public enum ErrorCode {
         // 인증 관련
         EMAIL_ALREADY_EXISTS("이미 사용 중인 이메일입니다."),
-        INVALID_EMAIL_DOMAIN("단국대학교 이메일(@dankook.ac.kr)만 사용 가능합니다."),
+        INVALID_EMAIL_DOMAIN("교육기관 이메일(.ac.kr)만 사용 가능합니다."),
         EMAIL_NOT_VERIFIED("이메일 인증이 완료되지 않았습니다."),
+        INVALID_VERIFICATION_TOKEN("이메일 인증 정보가 유효하지 않습니다. 인증을 다시 진행해주세요."),
+        EMAIL_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청은 잠시 후 다시 시도해주세요."),
         INVALID_VERIFICATION_CODE("인증코드가 올바르지 않거나 만료되었습니다."),
         INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
         SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),
@@ -39,9 +42,16 @@
         BAD_REQUEST("잘못된 요청입니다."),
         UNAUTHORIZED("인증이 필요합니다.");
 
+        private final HttpStatus status;
         private final String message;
 
+        // 상태코드 미지정 시 기본 400 (기존 코드값 동작 유지)
         ErrorCode(String message) {
+            this(HttpStatus.BAD_REQUEST, message);
+        }
+
+        ErrorCode(HttpStatus status, String message) {
+            this.status = status;
             this.message = message;
         }
     }
