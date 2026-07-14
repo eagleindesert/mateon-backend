@@ -37,6 +37,7 @@
 |------|------|------|
 | `00_common.ps1` | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드, 수동 코드 입력) | - |
 | `01_health.ps1` | Health (헬스체크) | 불필요 |
+| `auth/00_before_auth.ps1` | 회원가입 전 원격 DB 정리 SQL 생성 (DB 직접 실행용) | - |
 | `auth/02_auth.ps1` | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장 | 불필요 |
 | `03_user.ps1` | User `/api/users` | **필요** |
 | `04_event.ps1` | Event `/api/events` | 일부 필요 |
@@ -61,6 +62,7 @@
 | UserBEmail | `MATEON_USERB_EMAIL` | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일 |
 | UserBPassword | `MATEON_USERB_PASSWORD` | `Password1234` | 유저 B 비밀번호 |
 | UserBName | `MATEON_USERB_NAME` | `채팅메이트` | 유저 B 이름 |
+| SchoolEmail | `MATEON_SCHOOL_EMAIL` | (빈 값) | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
 | KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
 
 `.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
@@ -80,20 +82,24 @@ MATEON_USERB_EMAIL=chatmate@example.ac.kr
 
 ## 실행 방법
 
-각 스크립트는 독립 실행 가능하지만, **인증이 필요한 스크립트는 먼저 `auth/02_auth.ps1` 로 로그인**해야
-합니다. 로그인 성공 시 accessToken 이 `.auth-token.txt` 에 저장되어 이후 스크립트가 재사용합니다.
-(인증 관련 스크립트 `02_auth` · `07_school_auth` · `08_social_kakao` 는 `auth/` 하위 폴더에 모여 있습니다.)
+`auth` 폴더 내의 스크립트들(`00_before_auth`, `02_auth`, `07_school_auth`, `08_social_kakao`)은 계정 생성, 소셜 로그인 등 테스트 환경 구성이 필요할 때 **필요 시에만 개별적으로 실행**하십시오.
+`99_run_all.ps1` 은 이미 생성된 계정으로 로그인만 수행하여 토큰을 획득한 후 API 테스트를 진행하며, `auth` 폴더의 스크립트들은 자동으로 실행하지 않습니다.
+
+각 스크립트는 독립 실행 가능하지만, **인증이 필요한 스크립트는 먼저 로그인이 선행**되어야 합니다. 로그인 성공 시 accessToken 이 `.auth-token.txt` 에 저장되어 이후 스크립트가 재사용합니다.
 
 ```powershell
-# 유저 A·B 생성 (각각 코드 수동 입력) — 이후 채팅 테스트를 위해 먼저 실행
+# [필요 시] 회원가입 전 테스트 계정 DB 정리 SQL 생성 및 복사
+pwsh -File .\auth\00_before_auth.ps1 -Clip
+
+# [필요 시] 유저 A·B 신규 생성 (각각 코드 수동 입력) — 전체 테스트 전 계정 세팅
 pwsh -File .\auth\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
 
 # 개별 실행
 pwsh -File .\03_user.ps1
-pwsh -File .\auth\07_school_auth.ps1   # 학교 이메일 코드도 수동 입력
+pwsh -File .\auth\07_school_auth.ps1   # [필요 시] 학교 이메일 코드도 수동 입력
 pwsh -File .\10_chat.ps1               # 유저 B 는 로그인만 (코드 불필요)
 
-# 전체 순차 실행
+# 전체 순차 실행 (계정 생성을 생략하고 로그인만으로 테스트 진행)
 pwsh -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
 ```
 
