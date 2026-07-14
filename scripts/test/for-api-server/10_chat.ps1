@@ -149,7 +149,7 @@ function Use-Token   { param([string]$Token) Save-AccessToken $Token }
 # ============================================================================
 $tokenA = Get-AccessToken
 if (-not $tokenA) {
-    Write-Host "(!) accessToken(A) 이 없습니다. 먼저 .\02_auth.ps1 을 실행하세요." -ForegroundColor Red
+    Write-Host "(!) accessToken(A) 이 없습니다. 먼저 .\auth\02_auth.ps1 을 실행하세요." -ForegroundColor Red
     return
 }
 $userIdA = Get-JwtSubject -Token $tokenA
@@ -162,7 +162,7 @@ $loginB = Invoke-Api -Method POST -Path "/api/auth/login" -PassThru -Title "10.0
 }
 $tokenB = $loginB.data.accessToken
 if (-not $tokenB) {
-    Write-Host "(!) 유저 B 로그인 실패 - 먼저 .\02_auth.ps1 로 유저 B 계정을 생성하세요." -ForegroundColor Red
+    Write-Host "(!) 유저 B 로그인 실패 - 먼저 .\auth\02_auth.ps1 로 유저 B 계정을 생성하세요." -ForegroundColor Red
     Write-Host "    (또는 -UserBEmail/-UserBPassword 로 이미 존재하는 계정을 지정하세요.)" -ForegroundColor Red
     return
 }

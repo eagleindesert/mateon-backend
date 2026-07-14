@@ -1,5 +1,5 @@
 # 02_auth.ps1 (for-api-server) - Auth (인증) API 테스트  /api/auth
-# 사용법: powershell -ExecutionPolicy Bypass -File .\02_auth.ps1
+# 사용법: powershell -ExecutionPolicy Bypass -File .\auth\02_auth.ps1
 #
 # 원격 서버 판: 인증코드를 docker(DB)로 자동 조회하지 않고 사람이 직접 입력한다.
 #   코드는 서버가 보낸 메일에서 확인하거나, 원격 DB(pgAdmin/psql)의 email_verifications.code 를 읽는다.
@@ -18,7 +18,7 @@ param(
     [string]$UserBName,       # 유저 B: 미지정 시 00_common 의 UserBName
     [switch]$SkipUserB        # 지정 시 유저 B 생성을 건너뛴다(유저 A 만 준비)
 )
-. "$PSScriptRoot\00_common.ps1"
+. "$PSScriptRoot\..\00_common.ps1"
 
 # param 미지정 시 00_common 의 기본값으로 채운다.
 if (-not $Email)         { $Email         = $script:TestEmail }

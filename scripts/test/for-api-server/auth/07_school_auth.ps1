@@ -1,5 +1,5 @@
 # 07_school_auth.ps1 (for-api-server) - 학교(재학생) 이메일 인증 라운드트립  [인증 필요]
-# 사용법: powershell -ExecutionPolicy Bypass -File .\07_school_auth.ps1
+# 사용법: powershell -ExecutionPolicy Bypass -File .\auth\07_school_auth.ps1
 #
 # 원격 서버 판: 정상 절차(request → 수동 코드 입력 → verify)로 학교 이메일 인증을 검증한다.
 #   /api/auth/school/email/request { schoolEmail } → 서버가 코드 생성/발송(+ email_verifications 저장)
@@ -12,17 +12,18 @@
 #   또한 이메일 회원가입 유저는 signup 시점에 이미 schoolVerified=true 이므로, 이 스크립트는
 #   학교 이메일 인증 엔드포인트가 정상 동작하는지를 라운드트립으로 확인하는 데 목적이 있다.
 param(
-    [string]$Email   # 학교 이메일(=인증 대상). 미지정 시 00_common 의 TestEmail(02_auth 기본 이메일과 일치)
+    [string]$Email   # 학교 이메일(=인증 대상). 미지정 시 .env 의 MATEON_SCHOOL_EMAIL → 없으면 TestEmail
 )
-. "$PSScriptRoot\00_common.ps1"
+. "$PSScriptRoot\..\00_common.ps1"
 
-# param 미지정 시 00_common 의 테스트 계정 기본값으로 채운다.
+# param 미지정 시 .env(MATEON_SCHOOL_EMAIL) → 그것도 없으면 테스트 계정(TestEmail) 순으로 폴백한다.
+if (-not $Email) { $Email = $script:SchoolEmail }
 if (-not $Email) { $Email = $script:TestEmail }
 
 Write-Host "`n########## 7. School Email Auth - /api/auth/school [인증 필요] ##########" -ForegroundColor Magenta
 
 if (-not (Get-AccessToken)) {
-    Write-Host "(!) accessToken 이 없습니다. 먼저 .\02_auth.ps1 을 실행하세요." -ForegroundColor Red
+    Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 을 실행하세요." -ForegroundColor Red
     return
 }
 

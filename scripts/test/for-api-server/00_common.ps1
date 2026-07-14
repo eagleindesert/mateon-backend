@@ -34,6 +34,9 @@ $script:MateonConfig = @(
     @{ Name = "TestPassword"; Default = "";                              EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호
     @{ Name = "TestName";     Default = "테스트유저";                     EnvVar = "MATEON_TEST_NAME" }     # 기본 테스트 이름
 
+    # 학교(재학생) 인증 대상 이메일 — 07_school_auth 가 쓴다. 비우면 TestEmail 로 폴백한다.
+    @{ Name = "SchoolEmail";  Default = "";                              EnvVar = "MATEON_SCHOOL_EMAIL" }  # 학교 인증 이메일
+
     # 2번째 유저(B) 기본값 — 02_auth 가 함께 생성하고 10_chat 이 로그인해 쓰는 채팅 상대 계정.
     @{ Name = "UserBEmail";    Default = "";                              EnvVar = "MATEON_USERB_EMAIL" }    # 유저 B 이메일
     @{ Name = "UserBPassword"; Default = "";                              EnvVar = "MATEON_USERB_PASSWORD" } # 유저 B 비밀번호
@@ -266,7 +269,7 @@ function Invoke-Api {
     if ($Auth) {
         $token = Get-AccessToken
         if (-not $token) {
-            Write-Host "  (!) 저장된 accessToken 이 없습니다. 먼저 02_auth.ps1 로그인 테스트를 실행하세요." -ForegroundColor Yellow
+            Write-Host "  (!) 저장된 accessToken 이 없습니다. 먼저 auth\02_auth.ps1 로그인 테스트를 실행하세요." -ForegroundColor Yellow
         } else {
             $curlArgs += @("-H", "Authorization: Bearer $token")
         }

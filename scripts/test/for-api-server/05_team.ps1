@@ -10,7 +10,7 @@
 Write-Host "`n########## 5. Team (팀 모집/지원) - /api/teams [인증 필요] ##########" -ForegroundColor Magenta
 
 if (-not (Get-AccessToken)) {
-    Write-Host "(!) accessToken 이 없습니다. 먼저 .\02_auth.ps1 을 실행하세요." -ForegroundColor Red
+    Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 을 실행하세요." -ForegroundColor Red
     return
 }
 

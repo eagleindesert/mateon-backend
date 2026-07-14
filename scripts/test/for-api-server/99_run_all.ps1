@@ -3,10 +3,10 @@
 #   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1
 #   powershell -ExecutionPolicy Bypass -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
 #
-# 인증코드는 각 스크립트가 실행 중에 콘솔로 직접 물어본다(수동 입력).
-#   02_auth 단계에서 유저 A·B 두 계정의 코드를 각각 입력하게 되며, 이후 10_chat 은 B 를
-#   로그인만 하므로 코드 입력이 없다.
-#   - 코드 확인 방법: 서버가 보낸 메일 또는 원격 DB(pgAdmin/psql)의 email_verifications.code
+# 이 러너는 인증 계열 스크립트(02_auth / 07_school_auth / 08_social_kakao)를 실행하지 않는다.
+#   대신 채팅 등 인증이 필요한 테스트를 위해, 코드 입력 없이 유저 A 로그인만 해서 토큰을 확보한다.
+#   (auth/ 스크립트는 필요할 때 개별 실행: pwsh -File .\auth\02_auth.ps1 ...)
+#   - 전제: 유저 A/B 계정이 이미 존재해야 한다(신규 가입/코드 입력은 하지 않음).
 param(
     [string]$Email = "",          # 유저 A: 미지정 시 00_common 의 TestEmail
     [string]$Password = "",       # 유저 A: 미지정 시 00_common 의 TestPassword
@@ -33,8 +33,26 @@ if ($UserBPassword) { $chatArgs.UserBPassword = $UserBPassword }
 Write-Host "===== 1) Health =====" -ForegroundColor Magenta
 & "$PSScriptRoot\01_health.ps1"
 
-Write-Host "`n===== 2) Auth (유저 A·B 생성 -> A 토큰 저장) =====" -ForegroundColor Magenta
-& "$PSScriptRoot\02_auth.ps1" @authArgs
+# ===== 2) Auth (비활성화) — 인증 계열은 이 러너에서 실행하지 않는다. =====
+# 필요 시 개별 실행: pwsh -File .\auth\02_auth.ps1 -Email ... -Password ...
+# & "$PSScriptRoot\auth\02_auth.ps1" @authArgs
+
+# ===== (준비) 유저 A 로그인 — 인증 필요 테스트용 토큰 확보 (코드 입력 없음) =====
+# 02_auth 를 실행하지 않으므로 여기서 로그인만 해서 A 세션 토큰을 저장한다.
+# 전제: 유저 A 계정이 이미 존재해야 한다(신규 가입/코드 입력은 하지 않음).
+Write-Host "`n===== (준비) 유저 A 로그인 (토큰 확보) =====" -ForegroundColor Magenta
+$loginEmail    = if ($Email)    { $Email }    else { $script:TestEmail }
+$loginPassword = if ($Password) { $Password } else { $script:TestPassword }
+$loginA = Invoke-Api -Method POST -Path "/api/auth/login" -PassThru -Title "유저 A 로그인" -Body @{
+    email = $loginEmail; password = $loginPassword
+}
+if ($loginA.data.accessToken) {
+    Save-AccessToken $loginA.data.accessToken
+    Save-RefreshToken $loginA.data.refreshToken
+    Write-Host "  (i) 유저 A 로그인/토큰 저장 완료 -> 이후 인증 필요 테스트에서 재사용" -ForegroundColor Green
+} else {
+    Write-Host "  (!) 유저 A 로그인 실패 - 계정 존재 여부를 확인하세요. 인증 필요 테스트가 스킵될 수 있습니다." -ForegroundColor Yellow
+}
 
 Write-Host "`n===== 3) User =====" -ForegroundColor Magenta
 & "$PSScriptRoot\03_user.ps1"
@@ -48,31 +66,15 @@ Write-Host "`n===== 5) Team =====" -ForegroundColor Magenta
 Write-Host "`n===== 6) Notification =====" -ForegroundColor Magenta
 & "$PSScriptRoot\06_notification.ps1"
 
-Write-Host "`n===== 7) School Email Auth =====" -ForegroundColor Magenta
-$schoolArgs = @{}
-if ($Email) { $schoolArgs.Email = $Email }
-& "$PSScriptRoot\07_school_auth.ps1" @schoolArgs
+# ===== 7) School Email Auth (비활성화) — 인증 계열은 이 러너에서 실행하지 않는다. =====
+# 필요 시 개별 실행: pwsh -File .\auth\07_school_auth.ps1
+# $schoolArgs = @{}
+# if ($Email) { $schoolArgs.Email = $Email }
+# & "$PSScriptRoot\auth\07_school_auth.ps1" @schoolArgs
 
-Write-Host "`n===== 8) Social Login (Kakao) =====" -ForegroundColor Magenta
-# 실제 카카오 토큰이 없으면 음성 테스트(잘못된 토큰 차단)만 수행한다.
-# 정상 경로까지 보려면 .env 의 MATEON_KAKAO_ACCESS_TOKEN 을 설정한다.
-& "$PSScriptRoot\08_social_kakao.ps1"
-
-Write-Host "`n===== (준비) 유저 A 재로그인 (채팅 전 세션 복구) =====" -ForegroundColor Magenta
-# 08 카카오 정상 경로가 실행되면 저장 토큰을 카카오 유저로 덮어쓸 수 있다.
-# 코드 재입력 없이 A 세션을 되돌리기 위해 login 만 다시 수행한다(가입/코드 불필요).
-$reloginEmail    = if ($Email)    { $Email }    else { $script:TestEmail }
-$reloginPassword = if ($Password) { $Password } else { $script:TestPassword }
-$reloginA = Invoke-Api -Method POST -Path "/api/auth/login" -PassThru -Title "유저 A 재로그인" -Body @{
-    email = $reloginEmail; password = $reloginPassword
-}
-if ($reloginA.data.accessToken) {
-    Save-AccessToken $reloginA.data.accessToken
-    Save-RefreshToken $reloginA.data.refreshToken
-    Write-Host "  (i) 유저 A 세션 복구 완료" -ForegroundColor Green
-} else {
-    Write-Host "  (!) 유저 A 재로그인 실패 - 채팅 테스트가 A 세션을 확보하지 못할 수 있습니다." -ForegroundColor Yellow
-}
+# ===== 8) Social Login (Kakao) (비활성화) — 인증 계열은 이 러너에서 실행하지 않는다. =====
+# 필요 시 개별 실행: pwsh -File .\auth\08_social_kakao.ps1
+# & "$PSScriptRoot\auth\08_social_kakao.ps1"
 
 Write-Host "`n===== 10) Chat (REST + WebSocket/STOMP) =====" -ForegroundColor Magenta
 & "$PSScriptRoot\10_chat.ps1" @chatArgs

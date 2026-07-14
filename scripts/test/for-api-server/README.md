@@ -37,13 +37,13 @@
 |------|------|------|
 | `00_common.ps1` | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드, 수동 코드 입력) | - |
 | `01_health.ps1` | Health (헬스체크) | 불필요 |
-| `02_auth.ps1` | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장 | 불필요 |
+| `auth/02_auth.ps1` | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장 | 불필요 |
 | `03_user.ps1` | User `/api/users` | **필요** |
 | `04_event.ps1` | Event `/api/events` | 일부 필요 |
 | `05_team.ps1` | Team `/api/teams` | **필요** |
 | `06_notification.ps1` | Notification `/api/notifications` | **필요** |
-| `07_school_auth.ps1` | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify) | **필요** |
-| `08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
+| `auth/07_school_auth.ps1` | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify) | **필요** |
+| `auth/08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
 | `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만) | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
@@ -61,7 +61,7 @@
 | UserBEmail | `MATEON_USERB_EMAIL` | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일 |
 | UserBPassword | `MATEON_USERB_PASSWORD` | `Password1234` | 유저 B 비밀번호 |
 | UserBName | `MATEON_USERB_NAME` | `채팅메이트` | 유저 B 이름 |
-| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
+| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
 
 `.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
 ```ini
@@ -80,17 +80,18 @@ MATEON_USERB_EMAIL=chatmate@example.ac.kr
 
 ## 실행 방법
 
-각 스크립트는 독립 실행 가능하지만, **인증이 필요한 스크립트는 먼저 `02_auth.ps1` 로 로그인**해야
+각 스크립트는 독립 실행 가능하지만, **인증이 필요한 스크립트는 먼저 `auth/02_auth.ps1` 로 로그인**해야
 합니다. 로그인 성공 시 accessToken 이 `.auth-token.txt` 에 저장되어 이후 스크립트가 재사용합니다.
+(인증 관련 스크립트 `02_auth` · `07_school_auth` · `08_social_kakao` 는 `auth/` 하위 폴더에 모여 있습니다.)
 
 ```powershell
 # 유저 A·B 생성 (각각 코드 수동 입력) — 이후 채팅 테스트를 위해 먼저 실행
-pwsh -File .\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
+pwsh -File .\auth\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
 
 # 개별 실행
 pwsh -File .\03_user.ps1
-pwsh -File .\07_school_auth.ps1   # 학교 이메일 코드도 수동 입력
-pwsh -File .\10_chat.ps1          # 유저 B 는 로그인만 (코드 불필요)
+pwsh -File .\auth\07_school_auth.ps1   # 학교 이메일 코드도 수동 입력
+pwsh -File .\10_chat.ps1               # 유저 B 는 로그인만 (코드 불필요)
 
 # 전체 순차 실행
 pwsh -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234

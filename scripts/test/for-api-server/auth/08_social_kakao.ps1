@@ -1,7 +1,7 @@
 # 08_social_kakao.ps1 - 카카오 소셜 로그인/회원가입 테스트  /api/auth/social/kakao
 # 사용법:
-#   powershell -ExecutionPolicy Bypass -File .\08_social_kakao.ps1
-#   powershell -ExecutionPolicy Bypass -File .\08_social_kakao.ps1 -KakaoAccessToken <실제_카카오_토큰>
+#   powershell -ExecutionPolicy Bypass -File .\auth\08_social_kakao.ps1
+#   powershell -ExecutionPolicy Bypass -File .\auth\08_social_kakao.ps1 -KakaoAccessToken <실제_카카오_토큰>
 #
 # [토큰 두 종류 구분]
 #   (A) 카카오 액세스 토큰 : RN/카카오가 발급 → 우리가 '입력'으로 받는 값 ($KakaoAccessToken).
@@ -18,7 +18,7 @@
 param(
     [string]$KakaoAccessToken   # 미지정 시 00_common 의 KakaoAccessToken(.env/env) 사용
 )
-. "$PSScriptRoot\00_common.ps1"
+. "$PSScriptRoot\..\00_common.ps1"
 
 # param 미지정 시 00_common 의 기본값(대개 .env 의 MATEON_KAKAO_ACCESS_TOKEN)으로 채운다.
 if (-not $KakaoAccessToken) { $KakaoAccessToken = $script:KakaoAccessToken }

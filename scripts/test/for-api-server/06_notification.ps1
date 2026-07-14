@@ -7,7 +7,7 @@ Write-Host "`n########## 6. Notification (알림) - /api/notifications [인증 �
 
 $token = Get-AccessToken
 if (-not $token) {
-    Write-Host "(!) accessToken 이 없습니다. 먼저 .\02_auth.ps1 을 실행하세요." -ForegroundColor Red
+    Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 을 실행하세요." -ForegroundColor Red
     return
 }
 
