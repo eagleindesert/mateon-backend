@@ -2,6 +2,7 @@ package com.example.mateon.config;
 
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,6 +26,10 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    // 로컬/개발 환경에서 모든 오리진을 허용하기 위한 디버그 플래그 (.env 의 debug.enabled=true 로 활성화)
+    @Value("${debug.enabled:false}")
+    private boolean debugEnabled;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -58,7 +63,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+        if (debugEnabled) {
+            // allowCredentials(true) 와 함께 와일드카드를 쓰려면 Origins 가 아닌 OriginPatterns 를 사용해야 한다.
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+        }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
