@@ -12,7 +12,7 @@
        - DockerHub 자격증명은 아래 우선순위로 로드됩니다.
          1) 매개변수 -Username / 환경변수 DOCKERHUB_USERNAME
          2) 환경변수 DOCKERHUB_TOKEN (Access Token 권장, 비밀번호 대신)
-         3) scripts/docker/.env.deploy 파일 (KEY=VALUE, gitignore 됨)
+         3) scripts/docker/.env 파일 (KEY=VALUE, gitignore 됨)
        - 위 값이 없으면 기존 `docker login` 세션을 그대로 사용합니다.
        - 애플리케이션 시크릿(.env)은 .dockerignore 로 이미지에서 제외됩니다.
 
@@ -171,10 +171,10 @@ if (-not (Test-Path $DockerIgnore)) {
 # ---------------------------------------------------------------------------
 Write-Step "DockerHub 자격증명 로드"
 
-# scripts/docker/.env.deploy (KEY=VALUE) 가 있으면 환경변수로 로드
-$EnvDeploy = Join-Path $ScriptDir ".env.deploy"
+# scripts/docker/.env (KEY=VALUE) 가 있으면 환경변수로 로드
+$EnvDeploy = Join-Path $ScriptDir ".env"
 if (Test-Path $EnvDeploy) {
-    Write-Ok ".env.deploy 파일에서 자격증명 로드"
+    Write-Ok ".env 파일에서 자격증명 로드"
     Get-Content $EnvDeploy | ForEach-Object {
         $line = $_.Trim()
         if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
