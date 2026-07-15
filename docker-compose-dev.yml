@@ -3,7 +3,7 @@
 # 배포용 전체 스택은 docker-compose.yml 을 사용하세요.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: mateon-postgres
     restart: unless-stopped
     environment:
