@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
                         .requestMatchers("/api/events/recommended").authenticated() // 추천 API는 인증 필요
                         .requestMatchers("/api/events/**").permitAll() // 기존 Event API 허용
+                        .requestMatchers("/api/matching/**").authenticated() // 의도 추출/추천 API는 인증 필요
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

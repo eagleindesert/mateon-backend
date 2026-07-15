@@ -11,6 +11,7 @@
 | 로컬 도커 DB | 필요 | **불필요** |
 | 유저 B(채팅 상대) 생성 | 10_chat 이 생성 | **02_auth 가 A 와 함께 생성**, 10_chat 은 로그인만 |
 | 07 학교인증 | DB 로 미인증 강제 → 게이팅 차단 → 코드 심기 → verify | **정상 절차**(request → 수동 코드 → verify) 라운드트립 |
+| 11 의도추출 AI | 스텁 AI(`../debug/ai-stub`) + DB 로 벡터/슬롯 직접 검증 | **실서버 FastAPI** 대상. DB 검증 불가 → `slotId` 로 간접 확인, 시나리오는 `missingFields` 기반 반복 |
 
 핵심: 인증코드를 `docker exec` 로 읽던 부분만 **수동 입력**으로 바꾸면, API 서버가 어디 있든
 (원격 VM 포함) 그대로 작동합니다. DB 를 직접 조작하던 07 의 미인증 강제/게이팅 차단 검증은
@@ -46,6 +47,7 @@
 | `auth/07_school_auth.ps1` | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify) | **필요** |
 | `auth/08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
 | `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만) | **필요** |
+| `11_matching_intent.ps1` | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동 | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
 ## 설정(CONFIG)
