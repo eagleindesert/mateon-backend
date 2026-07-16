@@ -16,6 +16,7 @@ public class TeamResponseDTO {
     private String connectedActivityTitle;
     private String connectedActivitySummary;
     private String characteristic;
+    private List<String> requiredSkills; // 요구 기술 스택 (optional)
     private String promotionText;
     private Integer capacity;
     private int currentMemberCount;
@@ -32,6 +33,7 @@ public class TeamResponseDTO {
         this.connectedActivityTitle = event != null ? event.getTitle() : null;
         this.connectedActivitySummary = event != null ? event.getSummarizedDescription() : null;
         this.characteristic = team.getCharacteristic();
+        this.requiredSkills = team.getRequiredSkills();
         this.promotionText = team.getPromotionText();
         this.capacity = team.getCapacity();
         this.currentMemberCount = currentMemberCount;

@@ -1,13 +1,14 @@
 # stub-ai-server.ps1
-# 별도 FastAPI AI 서버(POST /intents/extract)의 스텁.
+# 별도 FastAPI AI 서버의 스텁. 처리하는 엔드포인트:
+#   POST /intents/extract                  (매칭 의도 추출)
+#   POST /internal/teams/embedding:refresh (팀 임베딩 계산)
 #
 # 실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한 도구다.
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
 #
 # 진짜 목적: 백엔드가 보내는 요청을 콘솔에 덤프해서
-#   - messages 의 id 가 1 부터 연속 증가하는지
-#   - USER 발화만 들어있는지 (assistant_message 가 섞이지 않았는지)
-#   - 호출할 때마다 누적되는지
+#   - (intents) messages 의 id 가 1 부터 연속 증가하는지, USER 발화만 들어있는지, 누적되는지
+#   - (teams)   intro_text/recruiting_roles/required_skills/contest_field 가 제대로 실려 오는지
 #   - X-Internal-Secret 헤더를 실어 보내는지 (실서버는 이게 없으면 401)
 # 를 눈으로 확인하는 것.
 #
@@ -49,7 +50,7 @@ try {
 }
 
 Write-Host ("=" * 70) -ForegroundColor DarkGray
-Write-Host " AI 서버 스텁 (POST /intents/extract)" -ForegroundColor Magenta
+Write-Host " AI 서버 스텁 (POST /intents/extract, POST /internal/teams/embedding:refresh)" -ForegroundColor Magenta
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 Write-Host "  리스닝: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  임베딩 차원: $EmbeddingDimension" -ForegroundColor DarkGray
@@ -59,14 +60,26 @@ if ($ExpectedSecret) {
     Write-Host "  X-Internal-Secret: 출력만 함 (검증하려면 -ExpectedSecret 지정)" -ForegroundColor DarkGray
 }
 Write-Host ""
-Write-Host "  동작: messages 개수로 분기" -ForegroundColor DarkGray
+Write-Host "  동작 (/intents/extract): messages 개수로 분기" -ForegroundColor DarkGray
 Write-Host "    1개      -> missing_fields=['experience_level'], 임베딩 null (재질문)" -ForegroundColor DarkGray
 Write-Host "    2개 이상 -> missing_fields=[], 임베딩 $EmbeddingDimension 개 (완료)" -ForegroundColor DarkGray
+Write-Host "  동작 (/internal/teams/embedding:refresh): 항상 임베딩 + metadata 반환" -ForegroundColor DarkGray
+Write-Host "    (missing_fields=['activity_intensity'] — 스펙상 미추출 항목이 있어도 벡터는 온다)" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  중지: Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
 
 $rand = New-Object System.Random
+
+# 난수 임베딩 벡터 생성 (두 엔드포인트가 공유)
+function New-StubVector {
+    param([int]$Dimension)
+    $vector = New-Object 'double[]' $Dimension
+    for ($i = 0; $i -lt $Dimension; $i++) {
+        $vector[$i] = [Math]::Round(($rand.NextDouble() * 2 - 1), 6)
+    }
+    return ,$vector   # 콤마: 배열이 파이프라인에서 풀리지 않게
+}
 
 function Write-Json {
     param($Response, $Object, [int]$StatusCode = 200)
@@ -89,8 +102,9 @@ try {
         Write-Host ("-" * 70) -ForegroundColor DarkGray
         Write-Host ("[{0}] {1} {2}" -f (Get-Date -Format "HH:mm:ss"), $request.HttpMethod, $path) -ForegroundColor Cyan
 
-        if ($request.HttpMethod -ne "POST" -or $path -ne "/intents/extract") {
-            Write-Host "  -> 404 (이 스텁은 POST /intents/extract 만 처리)" -ForegroundColor Yellow
+        $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh")
+        if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
+            Write-Host "  -> 404 (이 스텁은 POST $($knownPaths -join ', ') 만 처리)" -ForegroundColor Yellow
             Write-Json -Response $response -Object @{ detail = "Not Found" } -StatusCode 404
             continue
         }
@@ -130,7 +144,34 @@ try {
             continue
         }
 
-        # --- 이 스텁의 핵심: 받은 messages 배열 덤프 ---
+        # --- POST /internal/teams/embedding:refresh (팀 임베딩 계산) ---
+        if ($path -eq "/internal/teams/embedding:refresh") {
+            # 백엔드가 보내는 값을 눈으로 검증할 수 있게 전부 덤프
+            Write-Host "  받은 요청:" -ForegroundColor White
+            Write-Host ("    intro_text       = {0}" -f $body.intro_text) -ForegroundColor Gray
+            Write-Host ("    recruiting_roles = [{0}]" -f (@($body.recruiting_roles) -join ", ")) -ForegroundColor Gray
+            Write-Host ("    required_skills  = [{0}]" -f (@($body.required_skills) -join ", ")) -ForegroundColor Gray
+            Write-Host ("    contest_field    = {0}" -f $body.contest_field) -ForegroundColor Gray
+
+            # 스펙: 미추출 항목(missing_fields)이 있어도 임베딩과 metadata 는 항상 반환된다.
+            $payload = [ordered]@{
+                missing_fields   = @("activity_intensity")
+                embedding_text   = "팀 소개: $($body.intro_text)`n모집 역할: $(@($body.recruiting_roles) -join ', ')`n요구 스킬: $(@($body.required_skills) -join ', ')"
+                embedding_vector = (New-StubVector -Dimension $EmbeddingDimension)
+                metadata = [ordered]@{
+                    recruiting_roles  = @($body.recruiting_roles)
+                    required_skills   = @($body.required_skills)
+                    activity_goal     = "교내 공모전 수상"
+                    activity_style    = "오프라인 모임"
+                    beginner_friendly = $true
+                }
+            }
+            Write-Host "  -> 200 (missing_fields=['activity_intensity'], 임베딩 $EmbeddingDimension 개)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /intents/extract: 받은 messages 배열 덤프 ---
         $messages = @($body.messages)
         Write-Host "  받은 messages ($($messages.Count)개):" -ForegroundColor White
         foreach ($m in $messages) {
@@ -170,10 +211,7 @@ try {
             Write-Host "  -> 200 재질문 (missing_fields=['experience_level'])" -ForegroundColor Yellow
         } else {
             # 완료 단계 — 임베딩 포함
-            $vector = New-Object 'double[]' $EmbeddingDimension
-            for ($i = 0; $i -lt $EmbeddingDimension; $i++) {
-                $vector[$i] = [Math]::Round(($rand.NextDouble() * 2 - 1), 6)
-            }
+            $vector = New-StubVector -Dimension $EmbeddingDimension
             $payload = [ordered]@{
                 missing_fields = @()
                 extracted = [ordered]@{

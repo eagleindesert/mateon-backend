@@ -1,8 +1,11 @@
 # AI 서버 스텁
 
-별도 FastAPI AI 서버(`POST /intents/extract`)를 흉내내는 로컬 스텁이다.
+별도 FastAPI AI 서버를 흉내내는 로컬 스텁이다. 처리하는 엔드포인트:
 
-실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동(`/api/matching/intents/**`)을 검증하기 위한
+- `POST /intents/extract` — 매칭 의도 추출 (`/api/matching/intents/**` 연동 검증)
+- `POST /internal/teams/embedding:refresh` — 팀 임베딩 계산 (팀 생성/수정 시 비동기 호출 검증)
+
+실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한
 도구다. **실제 서버가 준비되면 이 스텁은 필요 없다** — `.env` 의 `AI_BASE_URL` 만 실제 주소로
 바꾸면 된다.
 
@@ -11,9 +14,9 @@
 응답을 흉내내는 것보다, **백엔드가 보내는 요청을 눈으로 확인하는 것**이 이 스텁의 존재 이유다.
 호출마다 요청을 콘솔에 덤프하고 자체 검증한다:
 
-- `id` 가 1 부터 연속 증가하는가 (백엔드가 DB 의 `seq` 대신 재채번하는지)
-- USER 발화만 들어있는가 (`assistant_message` 가 섞이지 않았는지)
-- 호출할 때마다 누적되는가
+- (intents) `id` 가 1 부터 연속 증가하는가 (백엔드가 DB 의 `seq` 대신 재채번하는지)
+- (intents) USER 발화만 들어있는가 (`assistant_message` 가 섞이지 않았는지), 호출할 때마다 누적되는가
+- (teams) `intro_text`/`recruiting_roles`/`required_skills`/`contest_field` 가 제대로 실려 오는가
 - **`X-Internal-Secret` 헤더를 실어 보내는가** (실서버는 이게 없으면 401)
 
 > 시크릿은 마스킹해서 출력한다(`ab****yz (len=12)`). 도착 여부와 길이만 알면 검증에 충분하고,
@@ -50,7 +53,7 @@ pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTER
 
 ## 동작
 
-받은 `messages` 개수로 분기한다:
+`POST /intents/extract` — 받은 `messages` 개수로 분기한다:
 
 | messages 개수 | 응답 |
 |---|---|
@@ -58,6 +61,10 @@ pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTER
 | 2개 이상 | `missing_fields=[]`, `embedding_vector`=1536개 난수 → 완료 |
 
 즉 E2E 에서 메시지를 두 번 보내면 재질문 → 완료 흐름을 그대로 밟는다.
+
+`POST /internal/teams/embedding:refresh` — 항상 임베딩 + `metadata` 를 반환한다.
+`missing_fields=["activity_intensity"]` 로 고정 — 스펙상 미추출 항목이 있어도 벡터는 함께 온다는
+특성을 그대로 재현한다. `metadata.recruiting_roles`/`required_skills` 는 요청 값을 에코한다.
 
 ## 옵션
 

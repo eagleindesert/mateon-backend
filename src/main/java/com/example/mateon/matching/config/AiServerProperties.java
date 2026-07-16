@@ -13,7 +13,9 @@ import java.time.Duration;
  * 별도 FastAPI AI 서버 설정. (config/JwtProperties 와 같은 형태)
  *
  * JwtProperties 가 config/ 에 있는 건 JWT 가 횡단 관심사여서다.
- * AI 설정은 matching 도메인 전용이라 도메인 우선 패키징 원칙에 따라 여기 둔다.
+ * AI 설정은 처음엔 matching 도메인 전용이라 여기 뒀고, 지금은 teams 도메인
+ * (팀 임베딩 갱신, TeamEmbeddingClient)도 공유한다 — 빈은 전역 싱글톤이라
+ * 패키지 위치는 기능에 영향이 없어 물리 이동 없이 그대로 둔다.
  */
 @Getter
 @Setter
@@ -39,7 +41,7 @@ public class AiServerProperties {
     /** 이 시간 넘게 방치된 IN_PROGRESS 세션은 만료로 본다 (지연 만료). */
     private Duration sessionTtl = Duration.ofHours(24);
 
-    /** 임베딩 차원. user_embeddings.embedding 이 vector(1536) 이므로 반드시 일치해야 한다. */
+    /** 임베딩 차원. user_embeddings/team_embeddings 의 embedding 이 vector(1536) 이므로 반드시 일치해야 한다. */
     private int embeddingDimension = 1536;
 
     /**

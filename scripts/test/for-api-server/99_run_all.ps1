@@ -84,6 +84,10 @@ Write-Host "`n===== 11) Matching Intent (AI 의도 추출) =====" -ForegroundCol
 # 닿지 않으면 503(AI_SERVER_UNAVAILABLE)으로 실패하며, 스크립트가 원인을 안내한다.
 & "$PSScriptRoot\11_matching_intent.ps1"
 
+Write-Host "`n===== 12) Team Embedding (팀 임베딩 연동) =====" -ForegroundColor Magenta
+# 임베딩 갱신은 커밋 후 비동기라 AI 서버가 죽어있어도 팀 CRUD 는 전부 성공해야 한다.
+& "$PSScriptRoot\12_team_embedding.ps1"
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력
