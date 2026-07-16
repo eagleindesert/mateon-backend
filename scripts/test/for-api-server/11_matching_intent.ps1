@@ -43,10 +43,12 @@ Invoke-Api -Method POST -Path "/api/matching/intents/session/restart" -Auth `
     -Title "11.0 대화 초기화 (restart)"
 
 # ── 11.1 첫 답변 ───────────────────────────────────────────────────────────
-# completed 여부는 단정하지 않는다 — 실제 AI 가 첫 발화만으로 다 채울 수도 있다.
+# 일부러 정보가 거의 없는 발화를 보낸다. 첫 턴에 슬롯이 다 채워지면 missingFields
+# 재질문 흐름(11.2~11.3)을 못 타므로, AI 가 되물을 수밖에 없게 만든다.
+# (그래도 실제 AI 라 completed 여부를 단정하지는 않는다.)
 $r1 = Invoke-Api -Method POST -Path "/api/matching/intents/messages" -Auth -PassThru `
-    -Title "11.1 첫 답변 전송" -Body @{
-        message = "백엔드 경험은 없지만 프론트엔드를 1년 해봤고, 이번엔 풀스택 프로젝트에서 성장하고 싶습니다. 포트폴리오용 프로젝트를 찾고 있습니다."
+    -Title "11.1 첫 답변 전송 (일부러 모호하게)" -Body @{
+        message = "같이 프로젝트 할 사람을 찾고 있어요."
     }
 
 # AI 서버가 죽어있으면 여기서 끝난다. 원인을 분명히 알려주고 중단한다.
