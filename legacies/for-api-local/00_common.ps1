@@ -24,6 +24,10 @@ $script:MateonConfig = @(
     @{ Name = "PgDatabase";  Default = "mateon_db";                      EnvVar = "MATEON_PG_DB" }         # psql 대상 DB 이름
     @{ Name = "JwtSecret";   Default = "";                               EnvVar = "MATEON_JWT_SECRET" }    # (예약) 현재 미사용
 
+    # AI 서버(별도 FastAPI) — 11_matching_intent.ps1 이 사용한다.
+    # 실제 서버 대신 ../debug/ai-stub/stub-ai-server.ps1 을 띄워 검증할 수 있다.
+    @{ Name = "AiBaseUrl";   Default = "http://localhost:8000";          EnvVar = "MATEON_AI_BASE_URL" }   # AI 서버 주소(백엔드의 ai.base-url 과 맞출 것)
+
     # 테스트 계정 기본값 — 스크립트에 -Email/-Password/-Name 을 안 주면 아래 값이 쓰인다.
     @{ Name = "TestEmail";    Default = "";                              EnvVar = "MATEON_TEST_EMAIL" }    # 기본 테스트 이메일
     @{ Name = "TestPassword"; Default = "";                              EnvVar = "MATEON_TEST_PASSWORD" } # 기본 테스트 비밀번호

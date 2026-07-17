@@ -32,6 +32,11 @@
         DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."),         // 중복 지원 방지
         INVALID_INPUT("잘못된 입력값입니다."),
 
+        // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
+        // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.
+        AI_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),
+        AI_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "AI 서버 응답 처리에 실패했습니다."),
+
         // 채팅 관련 ---
         CHAT_ROOM_NOT_FOUND("채팅방을 찾을 수 없습니다."),
         NOT_ROOM_MEMBER("해당 채팅방의 참여자가 아닙니다."),

@@ -22,6 +22,9 @@ public class TeamRequestDTO {
 
     private String characteristic;
 
+    // 요구 기술 스택 (optional — 미전송/빈 배열 허용, 팀 임베딩 계산에 사용)
+    private List<String> requiredSkills;
+
     @Min(value = 1, message = "모집 인원은 최소 1명 이상이어야 합니다.")
     private Integer capacity;
 
@@ -39,6 +42,7 @@ public class TeamRequestDTO {
         team.setPromotionText(this.promotionText);
         team.setRole(this.role);
         team.setCharacteristic(this.characteristic);
+        team.setRequiredSkills(this.requiredSkills);
         team.setRecruitmentStartDate(this.recruitmentStartDate);
         team.setRecruitmentEndDate(this.recruitmentEndDate);
         team.setLeaderUserId(leaderUserId);

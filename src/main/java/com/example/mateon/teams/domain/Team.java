@@ -25,6 +25,11 @@ public class Team {
     private Integer capacity;
     @Convert(converter = RoleListConverter.class) //
     private List<String> role;
+
+    // 요구 기술 스택 (optional — 프론트가 안 보내도 정상 동작). role 과 같은 CSV 저장.
+    @Convert(converter = RoleListConverter.class)
+    @Column(name = "required_skills", columnDefinition = "text")
+    private List<String> requiredSkills;
     @Column(name = "recruitment_start_date")
     private LocalDate recruitmentStartDate;
 

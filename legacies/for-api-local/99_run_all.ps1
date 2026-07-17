@@ -58,6 +58,11 @@ Write-Host "`n===== 10) Chat (REST + WebSocket/STOMP) =====" -ForegroundColor Ma
 & "$PSScriptRoot\02_auth.ps1" @authArgs | Out-Null
 & "$PSScriptRoot\10_chat.ps1"
 
+Write-Host "`n===== 11) Matching Intent (AI 의도 추출) =====" -ForegroundColor Magenta
+# 별도 FastAPI AI 서버가 필요하다. 없으면 503(AI_SERVER_UNAVAILABLE)으로 실패한다.
+# 스텁으로 검증하려면: pwsh -File ..\debug\ai-stub\stub-ai-server.ps1 -Port 8001
+& "$PSScriptRoot\11_matching_intent.ps1"
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력

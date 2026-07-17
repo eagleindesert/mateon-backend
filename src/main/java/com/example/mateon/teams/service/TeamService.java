@@ -14,11 +14,13 @@ import com.example.mateon.teams.dto.request.TeamRequestDTO;
 import com.example.mateon.teams.dto.response.TeamApplicationResponseDTO;
 import com.example.mateon.teams.dto.response.TeamDetailResponseDTO;
 import com.example.mateon.teams.dto.response.TeamResponseDTO;
+import com.example.mateon.teams.event.TeamEmbeddingRefreshRequestedEvent;
 import com.example.mateon.teams.repository.TeamApplicationRepository;
 import com.example.mateon.teams.repository.TeamRepository;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,7 @@ public class TeamService {
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 1. 팀 모집글 로직
 
@@ -118,6 +121,9 @@ public class TeamService {
         Team team = request.toEntity(user.getId());
         teamRepository.save(team);
 
+        // 커밋 후 비동기로 AI 임베딩 계산 (TeamEmbeddingRefreshListener)
+        eventPublisher.publishEvent(new TeamEmbeddingRefreshRequestedEvent(team.getId()));
+
         Event event = null;
         if (request.getEventId() != null) {
             event = eventRepository.findById(request.getEventId())
@@ -140,8 +146,12 @@ public class TeamService {
         team.setPromotionText(request.getPromotionText());
         team.setRole(request.getRole());
         team.setCharacteristic(request.getCharacteristic());
+        team.setRequiredSkills(request.getRequiredSkills());
         team.setRecruitmentStartDate(request.getRecruitmentStartDate());
         team.setRecruitmentEndDate(request.getRecruitmentEndDate());
+
+        // 커밋 후 비동기로 AI 임베딩 재계산 (변경 필드 diff 없이 항상 재계산 — 멱등)
+        eventPublisher.publishEvent(new TeamEmbeddingRefreshRequestedEvent(team.getId()));
 
         Event event = null;
         if (team.getEventId() != null) {
