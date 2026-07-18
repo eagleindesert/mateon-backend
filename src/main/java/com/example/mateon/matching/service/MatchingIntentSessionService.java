@@ -6,6 +6,7 @@ import com.example.mateon.matching.client.IntentExtractResponse;
 import com.example.mateon.matching.config.AiServerProperties;
 import com.example.mateon.matching.domain.*;
 import com.example.mateon.matching.dto.response.ExtractedDTO;
+import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.repository.MatchingIntentMessageRepository;

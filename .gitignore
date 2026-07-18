@@ -46,3 +46,6 @@ application-secret.properties
 .env.deploy
 **/.env.deploy
 http-client.private.env.json
+
+### Node ###
+node_modules/

@@ -3,6 +3,7 @@ package com.example.mateon.matching.service;
 import com.example.mateon.matching.client.IntentExtractResponse;
 import com.example.mateon.matching.client.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
+import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

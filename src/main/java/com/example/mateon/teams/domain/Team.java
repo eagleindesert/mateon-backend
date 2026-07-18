@@ -52,4 +52,20 @@ public class Team {
     protected void onCreate() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
     @PreUpdate
     protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+
+    // ── 인원 계산 ────────────────────────────────────────────────────────────
+    // capacity 는 "팀장을 포함한 팀 전체 정원"이다. 반면 지원서 집계(APPROVED)에는 팀장이
+    // 절대 잡히지 않는다 — 팀장은 자기 팀에 지원할 수 없기 때문이다(TeamService.applyToTeam).
+    // 그래서 두 값을 그냥 비교하면 항상 1 씩 어긋난다. 그 보정을 여기 한 곳에 모아 둔다
+    // (표시용/마감 판정이 서로 다른 규칙을 쓰다 어긋나는 걸 막으려고 엔티티로 올렸다).
+
+    /** 확정 팀원 수 = 승인된 지원자 + 팀장 1명. 화면에 보여주는 "현재 인원"이 이 값이다. */
+    public static int confirmedMemberCount(int approvedApplicationCount) {
+        return approvedApplicationCount + 1;
+    }
+
+    /** 정원이 찼는지. 팀장을 포함해 센다. capacity 가 없으면 마감 판단을 하지 않는다. */
+    public boolean isFullWith(int approvedApplicationCount) {
+        return capacity != null && confirmedMemberCount(approvedApplicationCount) >= capacity;
+    }
 }

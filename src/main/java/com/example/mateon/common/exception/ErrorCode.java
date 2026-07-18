@@ -32,6 +32,11 @@
         DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."),         // 중복 지원 방지
         INVALID_INPUT("잘못된 입력값입니다."),
 
+        // 매칭/추천 관련 ---
+        // 추천은 의도 추출이 끝나야(user_embeddings + matching_intent_slots) 가능하다.
+        // "아직 준비가 안 됐다"이지 "없다"가 아니라 404 가 아닌 400 으로 준다.
+        MATCHING_INTENT_REQUIRED("먼저 매칭 의도 추출을 완료해주세요."),
+
         // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
         // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.
         AI_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),
