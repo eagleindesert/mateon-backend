@@ -54,10 +54,10 @@ public class MatchingIntentSessionService {
 
         int nextSeq = messageRepository.countBySessionId(session.getId()) + 1;
         messageRepository.save(new MatchingIntentMessage(
-                session, nextSeq, IntentMessageRole.USER, message));
+          session, nextSeq, IntentMessageRole.USER, message));
 
         List<String> userMessages = messageRepository.findMessagesBySessionIdAndRole(
-                session.getId(), IntentMessageRole.USER);
+          session.getId(), IntentMessageRole.USER);
 
         return new ConversationSnapshot(session.getId(), userMessages);
     }
@@ -66,16 +66,17 @@ public class MatchingIntentSessionService {
      * [TX2] AI 응답을 반영한다. assistant_message 를 대화에 남기고, 완료됐으면 슬롯과
      * 임베딩을 저장한다.
      *
-     * <p>슬롯과 임베딩은 같은 트랜잭션이다 — 슬롯만 있고 벡터가 없으면 추천이 조용히 0건을
+     * <p>
+     * 슬롯과 임베딩은 같은 트랜잭션이다 — 슬롯만 있고 벡터가 없으면 추천이 조용히 0건을
      * 내고, 벡터만 있고 슬롯이 없으면 추천 근거를 설명할 수 없다.
      */
     public MatchingIntentResponseDTO applyResult(Long sessionId, Long userId, IntentExtractResponse ai) {
         MatchingIntentSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
         int nextSeq = messageRepository.countBySessionId(sessionId) + 1;
         messageRepository.save(new MatchingIntentMessage(
-                session, nextSeq, IntentMessageRole.ASSISTANT, ai.getAssistantMessage()));
+          session, nextSeq, IntentMessageRole.ASSISTANT, ai.getAssistantMessage()));
 
         ExtractedDTO extracted = new ExtractedDTO(ai.getExtracted());
         boolean completed = ai.isCompleted();
@@ -90,33 +91,37 @@ public class MatchingIntentSessionService {
         return new MatchingIntentResponseDTO(sessionId, ai, slotId);
     }
 
-    /** 진행 중인 세션과 대화를 복원한다. 없으면 empty. */
+    /**
+     * 진행 중인 세션과 대화를 복원한다. 없으면 empty.
+     */
     @Transactional(readOnly = true)
     public Optional<IntentSessionResponseDTO> getCurrentSession(Long userId) {
         return sessionRepository.findByUserIdAndStatus(userId, IntentSessionStatus.IN_PROGRESS)
-                .map(this::toSessionResponse);
+          .map(this::toSessionResponse);
     }
 
-    /** 진행 중인 세션을 버린다. 새 세션은 만들지 않는다 — 다음 메시지 때 자동 생성된다. */
+    /**
+     * 진행 중인 세션을 버린다. 새 세션은 만들지 않는다 — 다음 메시지 때 자동 생성된다.
+     */
     public void restart(Long userId) {
         sessionRepository.findByUserIdAndStatus(userId, IntentSessionStatus.IN_PROGRESS)
-                .ifPresent(MatchingIntentSession::abandon);
+          .ifPresent(MatchingIntentSession::abandon);
     }
 
     // ── 내부 ──────────────────────────────────────────────────────────────
-
     /**
      * 진행 중인 세션을 찾거나 새로 만든다.
      *
-     * <p>지연 만료: 배치 잡 없이, 사용자가 메시지를 보낸 이 순간에 방치 여부를 확인한다.
+     * <p>
+     * 지연 만료: 배치 잡 없이, 사용자가 메시지를 보낸 이 순간에 방치 여부를 확인한다.
      * 만료 여부에 관심 있는 건 사용자 본인의 다음 요청뿐이라 이걸로 충분하다.
      * (COMPLETED/ABANDONED 세션은 애초에 IN_PROGRESS 조회에 걸리지 않아 새 세션이 만들어진다)
      */
     private MatchingIntentSession resolveActiveSession(Long userId) {
         LocalDateTime threshold = LocalDateTime.now().minus(properties.getSessionTtl());
 
-        Optional<MatchingIntentSession> active =
-                sessionRepository.findByUserIdAndStatus(userId, IntentSessionStatus.IN_PROGRESS);
+        Optional<MatchingIntentSession> active
+          = sessionRepository.findByUserIdAndStatus(userId, IntentSessionStatus.IN_PROGRESS);
 
         if (active.isPresent()) {
             MatchingIntentSession session = active.get();
@@ -124,17 +129,19 @@ public class MatchingIntentSessionService {
                 return session;
             }
             log.info("방치된 의도 추출 세션 만료 처리: sessionId={}, updatedAt={}",
-                    session.getId(), session.getUpdatedAt());
+              session.getId(), session.getUpdatedAt());
             session.expire();
             sessionRepository.flush();  // EXPIRED 로 바꾼 걸 먼저 반영해야 부분 유니크 인덱스와 충돌하지 않는다
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
         return sessionRepository.save(new MatchingIntentSession(user));
     }
 
-    /** 사용자당 슬롯 1건 — 있으면 덮어쓴다. */
+    /**
+     * 사용자당 슬롯 1건 — 있으면 덮어쓴다.
+     */
     private Long upsertSlot(Long userId, MatchingIntentSession session, IntentExtractResponse ai) {
         IntentExtractResponse.Extracted e = ai.getExtracted();
         if (e == null) {
@@ -143,12 +150,12 @@ public class MatchingIntentSessionService {
         }
 
         MatchingIntentSlot slot = slotRepository.findByUserId(userId)
-                .orElseGet(() -> new MatchingIntentSlot(session.getUser()));
+          .orElseGet(() -> new MatchingIntentSlot(session.getUser()));
 
         slot.update(session,
-                nullToEmpty(e.getDesiredRoles()), nullToEmpty(e.getSkills()), nullToEmpty(e.getInterests()),
-                e.getActivityGoal(), e.getActivityStyle(), e.getExperienceLevel(),
-                ai.getEmbeddingText());
+          nullToEmpty(e.getDesiredRoles()), nullToEmpty(e.getSkills()), nullToEmpty(e.getInterests()),
+          e.getActivityGoal(), e.getActivityStyle(), e.getExperienceLevel(),
+          ai.getEmbeddingText());
 
         return slotRepository.save(slot).getId();
     }
@@ -156,13 +163,14 @@ public class MatchingIntentSessionService {
     /**
      * FastAPI 가 준 벡터를 user_embeddings 에 그대로 저장한다. Spring 은 임베딩을 만들지 않는다.
      *
-     * <p>차원 검증이 필수인 이유: vector(1536) 컬럼에 다른 길이를 넣으면 DB 예외가
+     * <p>
+     * 차원 검증이 필수인 이유: vector(1536) 컬럼에 다른 길이를 넣으면 DB 예외가
      * GlobalExceptionHandler 의 catch-all 에 걸려 원인 불명 500 이 된다. 앞단에서 502 로 잡는다.
      */
     private void upsertEmbedding(Long userId, double[] vector) {
         if (vector == null || vector.length != properties.getEmbeddingDimension()) {
             log.warn("AI 임베딩 차원 불일치: expected={}, actual={}",
-                    properties.getEmbeddingDimension(), vector == null ? null : vector.length);
+              properties.getEmbeddingDimension(), vector == null ? null : vector.length);
             throw new MateonException(ErrorCode.AI_SERVER_ERROR);
         }
 
@@ -172,30 +180,30 @@ public class MatchingIntentSessionService {
         }
 
         UserEmbedding entity = userEmbeddingRepository.findById(userId)
-                .orElseGet(() -> {
-                    UserEmbedding created = new UserEmbedding();
-                    created.setUserId(userId);
-                    return created;
-                });
+          .orElseGet(() -> {
+              UserEmbedding created = new UserEmbedding();
+              created.setUserId(userId);
+              return created;
+          });
         entity.setEmbedding(embedding);
         userEmbeddingRepository.save(entity);
     }
 
     private IntentSessionResponseDTO toSessionResponse(MatchingIntentSession session) {
-        List<IntentSessionResponseDTO.MessageDTO> messages =
-                messageRepository.findBySessionIdOrderBySeqAsc(session.getId()).stream()
-                        .map(IntentSessionResponseDTO.MessageDTO::new)
-                        .toList();
+        List<IntentSessionResponseDTO.MessageDTO> messages
+          = messageRepository.findBySessionIdOrderBySeqAsc(session.getId()).stream()
+            .map(IntentSessionResponseDTO.MessageDTO::new)
+            .toList();
 
         List<String> missingFields = nullToEmpty(session.getLastMissingFields());
 
         return new IntentSessionResponseDTO(
-                session.getId(),
-                session.getStatus(),
-                missingFields.isEmpty() && session.getLastExtractedJson() != null,
-                missingFields,
-                readExtractedJson(session.getLastExtractedJson()),
-                messages
+          session.getId(),
+          session.getStatus(),
+          missingFields.isEmpty() && session.getLastExtractedJson() != null,
+          missingFields,
+          readExtractedJson(session.getLastExtractedJson()),
+          messages
         );
     }
 
