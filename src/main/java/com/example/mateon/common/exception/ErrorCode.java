@@ -32,6 +32,17 @@
         DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."),         // 중복 지원 방지
         INVALID_INPUT("잘못된 입력값입니다."),
 
+        // 협업 온도/팀원 평가 관련 ---
+        // 평가는 "종료된 팀"에서 "기간 안에" "팀원끼리"만 가능하다. 프론트가 각 실패를 구분해
+        // 안내 문구를 다르게 띄울 수 있어야 해서 코드를 쪼갠다.
+        TEAM_ALREADY_ENDED("이미 종료된 팀입니다."),
+        TEAM_NOT_ENDED("아직 종료되지 않은 팀입니다. 활동 종료 후 평가할 수 있습니다."),
+        REVIEW_PERIOD_EXPIRED("평가 기간이 종료되었습니다."),
+        NOT_TEAM_MEMBER("해당 팀의 팀원이 아닙니다."),
+        CANNOT_REVIEW_SELF("자기 자신은 평가할 수 없습니다."),
+        ALREADY_REVIEWED("이미 평가를 제출했습니다."),
+        INVALID_RATING("평가 점수는 1~5 사이여야 합니다."),
+
         // 매칭/추천 관련 ---
         // 추천은 의도 추출이 끝나야(user_embeddings + matching_intent_slots) 가능하다.
         // "아직 준비가 안 됐다"이지 "없다"가 아니라 404 가 아닌 400 으로 준다.

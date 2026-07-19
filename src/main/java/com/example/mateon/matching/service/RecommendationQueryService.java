@@ -8,11 +8,11 @@ import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
-import com.example.mateon.teams.domain.ApplicationStatus;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamEmbedding;
 import com.example.mateon.teams.repository.TeamApplicationRepository;
 import com.example.mateon.teams.repository.TeamEmbeddingRepository;
+import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.teams.repository.TeamRepository;
 import com.example.mateon.user.domain.UserEmbedding;
 import com.example.mateon.user.repository.UserEmbeddingRepository;
@@ -56,6 +56,7 @@ public class RecommendationQueryService {
     private final TeamRepository teamRepository;
     private final TeamEmbeddingRepository teamEmbeddingRepository;
     private final TeamApplicationRepository teamApplicationRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final EventRepository eventRepository;
 
     /**
@@ -167,22 +168,22 @@ public class RecommendationQueryService {
           : eventRepository.findAllById(eventIds).stream()
             .collect(Collectors.toMap(Event::getId, Function.identity()));
 
-        // 지원서가 없는 팀은 집계 결과에 아예 없다 → 아래에서 0 으로 채운다.
-        Map<Long, Long> memberCounts = teamApplicationRepository
-          .countGroupedByTeamId(teamIds, ApplicationStatus.APPROVED)
+        // 멤버가 없는 팀은 집계 결과에 아예 없다 → 아래에서 0 으로 채운다.
+        Map<Long, Long> memberCounts = teamMemberRepository
+          .countGroupedByTeamId(teamIds)
           .stream()
           .collect(Collectors.toMap(
-            TeamApplicationRepository.TeamMemberCount::getTeamId,
-            TeamApplicationRepository.TeamMemberCount::getMemberCount));
+            TeamMemberRepository.TeamMemberCount::getTeamId,
+            TeamMemberRepository.TeamMemberCount::getMemberCount));
 
         Map<Long, TeamDisplayInfo> result = new HashMap<>();
         for (Long teamId : teamIds) {
             Long eventId = teamsById.get(teamId).getEventId();
             // 활동이 삭제됐으면 eventId 는 남아 있어도 조회가 비는데, 그건 정상 처리(null)한다.
             Event event = eventId != null ? eventsById.get(eventId) : null;
-            // 팀장 보정은 Team 에 모아 뒀다 — /api/teams 와 같은 숫자가 나와야 한다.
+            // team_members 에는 팀장도 들어 있으므로 보정 없이 그대로 쓴다 — /api/teams 와 같은 숫자다.
             result.put(teamId, new TeamDisplayInfo(event,
-              Team.confirmedMemberCount(memberCounts.getOrDefault(teamId, 0L).intValue())));
+              memberCounts.getOrDefault(teamId, 0L).intValue()));
         }
         return result;
     }

@@ -2,5 +2,9 @@
 .auth-token.txt
 .refresh-token.txt
 
+# 멀티 유저 슬롯 토큰 (09_three_users 가 생성: .auth-token-A.txt 등)
+.auth-token-*.txt
+.refresh-token-*.txt
+
 # 서버 주소/자격증명 등 로컬 설정 (커밋 금지)
 .env

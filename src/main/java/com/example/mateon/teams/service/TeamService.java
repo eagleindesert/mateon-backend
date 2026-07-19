@@ -9,6 +9,8 @@ import com.example.mateon.notification.service.NotificationService;
 import com.example.mateon.teams.domain.ApplicationStatus;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamApplication;
+import com.example.mateon.teams.domain.TeamMember;
+import com.example.mateon.teams.domain.TeamMemberRole;
 import com.example.mateon.teams.dto.request.TeamApplicationRequestDTO;
 import com.example.mateon.teams.dto.request.TeamRequestDTO;
 import com.example.mateon.teams.dto.response.TeamApplicationResponseDTO;
@@ -16,14 +18,18 @@ import com.example.mateon.teams.dto.response.TeamDetailResponseDTO;
 import com.example.mateon.teams.dto.response.TeamResponseDTO;
 import com.example.mateon.teams.event.TeamEmbeddingRefreshRequestedEvent;
 import com.example.mateon.teams.repository.TeamApplicationRepository;
+import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.teams.repository.TeamRepository;
 import com.example.mateon.user.domain.User;
+import com.example.mateon.user.domain.UserCollaborationScore;
+import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,8 +40,10 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final TeamApplicationRepository applicationRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final UserCollaborationScoreRepository collaborationScoreRepository;
     private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -70,8 +78,7 @@ public class TeamService {
                     if (team.getEventId() != null) {
                         event = eventRepository.findById(team.getEventId()).orElse(null);
                     }
-                    int currentCount = Team.confirmedMemberCount(
-                            applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
+                    int currentCount = teamMemberRepository.countByTeamIdAndLeftAtIsNull(team.getId());
 
                     return new TeamResponseDTO(team, event, currentCount);
                 })
@@ -90,9 +97,8 @@ public class TeamService {
             event = eventRepository.findById(team.getEventId()).orElse(null);
         }
 
-        // 3. 현재 인원 수 (팀장 포함)
-        int currentCount = Team.confirmedMemberCount(
-                applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
+        // 3. 현재 인원 수 (팀장 포함 — team_members 에 LEADER 로 들어 있다)
+        int currentCount = teamMemberRepository.countByTeamIdAndLeftAtIsNull(team.getId());
 
         // 4. 유저 상태 확인 (로그인 했을 경우에만)
         boolean isLeader = false;
@@ -113,8 +119,14 @@ public class TeamService {
         User leaderUser = userRepository.findById(team.getLeaderUserId())
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
-        // 6. DTO 생성 시 leaderUser 전달
-        return new TeamDetailResponseDTO(team, event, currentCount, isLeader, hasApplied, leaderUser);
+        // 6. 팀장의 협업 온도. 평가를 안 받았으면 행이 없고, 그건 비공개(null)와 같게 다룬다.
+        BigDecimal leaderTemperature = collaborationScoreRepository.findById(leaderUser.getId())
+                .map(UserCollaborationScore::getTemperature)
+                .orElse(null);
+
+        // 7. DTO 생성 시 leaderUser 전달
+        return new TeamDetailResponseDTO(team, event, currentCount, isLeader, hasApplied, leaderUser,
+                leaderTemperature);
     }
 
     public TeamResponseDTO createTeam(TeamRequestDTO request, Long userId) {
@@ -122,6 +134,10 @@ public class TeamService {
         requireSchoolVerified(user); // 팀 모집글 작성은 학교 인증(재학생) 필요
         Team team = request.toEntity(user.getId());
         teamRepository.save(team);
+
+        // 팀장도 멤버다. leader_user_id 와 이중 기록이지만, 인원 집계와 평가 대상 조회가
+        // team_members 한 곳만 보면 되도록 여기서 행을 만들어 둔다.
+        teamMemberRepository.save(TeamMember.of(team, user, TeamMemberRole.LEADER));
 
         // 커밋 후 비동기로 AI 임베딩 계산 (TeamEmbeddingRefreshListener)
         eventPublisher.publishEvent(new TeamEmbeddingRefreshRequestedEvent(team.getId()));
@@ -131,8 +147,8 @@ public class TeamService {
             event = eventRepository.findById(request.getEventId())
                     .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
         }
-        // 갓 만든 팀에도 팀장은 이미 있다 — 지원자 0명이지만 인원은 1명이다.
-        return new TeamResponseDTO(team, event, Team.confirmedMemberCount(0));
+        // 갓 만든 팀의 인원은 팀장 1명.
+        return new TeamResponseDTO(team, event, 1);
     }
 
     public TeamResponseDTO updateTeam(Long teamId, TeamRequestDTO request, Long userId) {
@@ -160,8 +176,7 @@ public class TeamService {
         if (team.getEventId() != null) {
             event = eventRepository.findById(team.getEventId()).orElse(null);
         }
-        int currentCount = Team.confirmedMemberCount(
-                applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
+        int currentCount = teamMemberRepository.countByTeamIdAndLeftAtIsNull(team.getId());
         return new TeamResponseDTO(team, event, currentCount);
     }
 
@@ -273,6 +288,14 @@ public class TeamService {
             // 기존 분석 리포트를 날려서, 다음 마이페이지 접속 시
             // 이 '새로운 활동'을 포함해 다시 분석하도록 유도함.
             applicant.setDreamyReport(null);
+
+            // 승인 = 지원서 상태 변경 + 소속 생성. 같은 트랜잭션에서 함께 움직여야 한다.
+            // 거절 후 재지원 같은 경로로 이미 행이 있을 수 있어 재활성화도 처리한다.
+            teamMemberRepository.findByTeamIdAndUserId(team.getId(), applicant.getId())
+                    .ifPresentOrElse(
+                            member -> member.setLeftAt(null),
+                            () -> teamMemberRepository.save(
+                                    TeamMember.of(team, applicant, TeamMemberRole.MEMBER)));
         }
         // 2. 알림 발송 로직
         String title = isApproved ? "가입승인" : "가입거절";
@@ -288,10 +311,10 @@ public class TeamService {
 
         // 3. 인원 마감 체크 (승인일 때만)
         if (isApproved) {
-            int approvedCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
-            // capacity 는 팀장을 포함한 정원인데 approvedCount 에는 팀장이 없다.
-            // 예전엔 이 둘을 그대로 비교해서 정원보다 1명 더 뽑고 나서야 마감됐다.
-            if (team.isFullWith(approvedCount)) {
+            // 방금 저장한 멤버 행까지 세려면 flush 가 필요하다 (save 는 아직 INSERT 전일 수 있다).
+            teamMemberRepository.flush();
+            int memberCount = teamMemberRepository.countByTeamIdAndLeftAtIsNull(team.getId());
+            if (team.isFullWith(memberCount)) {
                 team.setIsRecruiting(false); // 모집 마감
             }
         }

@@ -4,11 +4,12 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
-import com.example.mateon.teams.domain.ApplicationStatus;
 import com.example.mateon.teams.domain.Team;
-import com.example.mateon.teams.domain.TeamApplication;
-import com.example.mateon.teams.repository.TeamApplicationRepository;
+import com.example.mateon.teams.domain.TeamMember;
+import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.user.domain.User;
+import com.example.mateon.user.domain.UserCollaborationScore;
+import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
 import com.example.mateon.user.dto.MyPageResponseDTO;
 import com.example.mateon.user.dto.PasswordChangeRequest;
@@ -31,7 +32,8 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final TeamApplicationRepository teamApplicationRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final UserCollaborationScoreRepository collaborationScoreRepository;
     private final EventRepository eventRepository;
     private final OpenAiService openAiService;
     private final ObjectMapper objectMapper;
@@ -73,14 +75,16 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 참여한 활동 조회 (승인된 지원서만)
-        List<TeamApplication> approvedApplications = teamApplicationRepository
-                .findByApplicantIdAndStatus(user.getId(), ApplicationStatus.APPROVED);
+        // 2. 참여한 활동 조회.
+        //    예전엔 '승인된 지원서'로만 셌는데, 그러면 내가 팀장으로 만든 팀이 내 활동에서 빠졌다.
+        //    team_members 는 팀장을 LEADER 로 함께 담으므로 한 번의 조회로 둘 다 잡힌다.
+        List<TeamMember> memberships = teamMemberRepository
+                .findByUserIdAndLeftAtIsNull(user.getId());
 
         // 3. 활동 정보를 DTO로 변환 (Team의 title과 Event의 category 사용)
-        List<MyPageResponseDTO.ActivitySummaryDTO> activities = approvedApplications.stream()
-                .map(app -> {
-                    Team team = app.getTeam();
+        List<MyPageResponseDTO.ActivitySummaryDTO> activities = memberships.stream()
+                .map(membership -> {
+                    Team team = membership.getTeam();
                     String activityTitle = team.getTitle();
                     String category = "기타"; // 기본값
 
@@ -157,8 +161,13 @@ public class UserService {
             }
         }
 
-        // 6. DTO 조립 및 반환
+        // 6. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
+        UserCollaborationScore score = collaborationScoreRepository.findById(user.getId()).orElse(null);
+
+        // 7. DTO 조립 및 반환
         return MyPageResponseDTO.builder()
+                .collaborationTemperature(score != null ? score.getTemperature() : null)
+                .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
                 .name(user.getName())
                 .college(user.getCollege())
                 .major(user.getMajor())

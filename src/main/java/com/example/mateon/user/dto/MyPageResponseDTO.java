@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -22,7 +23,12 @@ public class MyPageResponseDTO {
     private String campus; // 캠퍼스
     private boolean schoolVerified; // 학교(재학생) 인증 여부
 
-    // 2. 드림이 리포트 (AI 분석 결과)
+    // 2. 협업 온도. 받은 평가가 2건 미만이면 null 이다 (비공개) — 프론트는 "평가 준비 중"으로 표시한다.
+    //    비공개인 이유는 통계가 아니라 익명성이다: 2인 팀에서 평가 1건이면 누가 줬는지 자명하다.
+    private BigDecimal collaborationTemperature;
+    private int collaborationReviewCount;
+
+    // 3. 드림이 리포트 (AI 분석 결과)
     private AiAnalysisDTO dreamyReport;
 
     // 3. 참여한 활동 (승인된 것만)

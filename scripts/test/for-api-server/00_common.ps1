@@ -42,6 +42,12 @@ $script:MateonConfig = @(
     @{ Name = "UserBPassword"; Default = "";                              EnvVar = "MATEON_USERB_PASSWORD" } # 유저 B 비밀번호
     @{ Name = "UserBName";     Default = "채팅메이트";                    EnvVar = "MATEON_USERB_NAME" }     # 유저 B 이름
 
+    # 3번째 유저(C) 기본값 — 09_three_users 가 생성한다. 협업 온도 평가는 서로 다른 3명이 필요하다
+    # (평가는 자기 자신 제외 + 온도 공개 최소 2건이라, 2명으로는 온도가 끝내 공개되지 않는다).
+    @{ Name = "UserCEmail";    Default = "";                              EnvVar = "MATEON_USERC_EMAIL" }    # 유저 C 이메일
+    @{ Name = "UserCPassword"; Default = "";                              EnvVar = "MATEON_USERC_PASSWORD" } # 유저 C 비밀번호
+    @{ Name = "UserCName";     Default = "협업메이트";                    EnvVar = "MATEON_USERC_NAME" }     # 유저 C 이름
+
     # 카카오 실제 액세스 토큰(선택) — 있으면 08_social_kakao.ps1 이 실제 로그인까지 검증한다.
     @{ Name = "KakaoAccessToken"; Default = "";                          EnvVar = "MATEON_KAKAO_ACCESS_TOKEN" } # 카카오 access token
 )
@@ -192,6 +198,102 @@ function Get-RefreshToken {
     return $null
 }
 
+# ============================================================================
+#  멀티 유저 토큰 슬롯 (A/B/C ...)
+#  ----------------------------------------------------------------------------
+#  기존 스크립트는 전부 .auth-token.txt 하나(= "활성 세션")만 읽는다. 그 구조를 그대로 두고,
+#  슬롯별 사본(.auth-token-A.txt 등)을 옆에 두는 방식으로 확장한다.
+#    Save-UserSlot  : 로그인 결과를 슬롯에 보관
+#    Use-User       : 슬롯 → 활성 세션으로 복사 (이후 -Auth 호출이 그 유저로 나간다)
+#  이렇게 하면 기존 스크립트를 한 줄도 고치지 않고 유저를 갈아끼울 수 있다.
+#
+#  협업 온도처럼 "여러 사람이 서로에게" 요청을 보내야 하는 시나리오에 필요하다.
+# ============================================================================
+function Get-SlotFile {
+    param([Parameter(Mandatory = $true)][string]$Slot, [switch]$Refresh)
+    $suffix = if ($Refresh) { "refresh" } else { "auth" }
+    return (Join-Path $PSScriptRoot ".$suffix-token-$Slot.txt")
+}
+
+function Save-UserSlot {
+    param(
+        [Parameter(Mandatory = $true)][string]$Slot,
+        [string]$AccessToken,
+        [string]$RefreshToken
+    )
+    if ($AccessToken)  { Set-Content -Path (Get-SlotFile $Slot)          -Value $AccessToken  -Encoding utf8 }
+    if ($RefreshToken) { Set-Content -Path (Get-SlotFile $Slot -Refresh) -Value $RefreshToken -Encoding utf8 }
+}
+
+# 슬롯을 비운다. 로그인 실패 시 반드시 호출해야 한다 —
+# 지난 실행의 토큰이 남아 있으면 "로그인 실패했는데 슬롯은 살아 있는" 상태가 되어,
+# 뒤따르는 테스트가 엉뚱한(또는 만료된) 계정으로 조용히 돌아간다.
+function Clear-UserSlot {
+    param([Parameter(Mandatory = $true)][string]$Slot)
+    Remove-Item (Get-SlotFile $Slot)          -Force -ErrorAction SilentlyContinue
+    Remove-Item (Get-SlotFile $Slot -Refresh) -Force -ErrorAction SilentlyContinue
+}
+
+function Get-UserSlotToken {
+    param([Parameter(Mandatory = $true)][string]$Slot)
+    $f = Get-SlotFile $Slot
+    if (Test-Path $f) { return (Get-Content -Path $f -Raw).Trim() }
+    return $null
+}
+
+# 슬롯을 활성 세션으로 올린다. 이후 Invoke-Api -Auth 는 이 유저로 호출된다.
+function Use-User {
+    param([Parameter(Mandatory = $true)][string]$Slot, [switch]$Quiet)
+    $token = Get-UserSlotToken $Slot
+    if (-not $token) {
+        Write-Host "  (!) 슬롯 '$Slot' 에 저장된 토큰이 없습니다. 먼저 .\auth\09_three_users.ps1 을 실행하세요." -ForegroundColor Red
+        return $false
+    }
+    Save-AccessToken $token
+
+    $rf = Get-SlotFile $Slot -Refresh
+    if (Test-Path $rf) { Save-RefreshToken (Get-Content -Path $rf -Raw).Trim() }
+
+    if (-not $Quiet) {
+        Write-Host "  (i) 활성 유저 전환: $Slot (userId=$(Get-JwtSubject -Token $token))" -ForegroundColor DarkCyan
+    }
+    return $true
+}
+
+# 로그인만으로 슬롯을 채운다 (가입/코드 입력 없음).
+#   99_run_all 처럼 "절대 프롬프트가 뜨면 안 되는" 곳에서 쓴다 — 계정이 없으면 조용히 $false 를
+#   돌려주고, 호출부가 해당 테스트를 스킵한다. 계정 생성이 필요하면 auth\09_three_users.ps1 을 쓴다.
+function Connect-UserSlot {
+    param(
+        [Parameter(Mandatory = $true)][string]$Slot,
+        [string]$Email,
+        [string]$Password
+    )
+    # 실패하면 슬롯을 비운다. 이 슬롯은 '이번 로그인 시도의 결과'만 담아야 한다 —
+    # 지난 실행의 토큰이 남으면 호출부가 실패를 감지하고도 스테일 토큰으로 계속 진행하게 된다.
+    if (-not $Email -or -not $Password) {
+        Clear-UserSlot -Slot $Slot
+        return $false
+    }
+
+    $r = Invoke-Api -Method POST -Path "/api/auth/login" -PassThru -NoTrack -Body @{
+        email = $Email; password = $Password
+    }
+    if ($r.data.accessToken) {
+        Save-UserSlot -Slot $Slot -AccessToken $r.data.accessToken -RefreshToken $r.data.refreshToken
+        return $true
+    }
+
+    Clear-UserSlot -Slot $Slot
+    return $false
+}
+
+# 슬롯 토큰에서 userId 를 뽑는다. 평가 대상 지정(revieweeId)에 쓴다.
+function Get-SlotUserId {
+    param([Parameter(Mandatory = $true)][string]$Slot)
+    return (Get-JwtSubject -Token (Get-UserSlotToken $Slot))
+}
+
 # JWT accessToken 의 payload 에서 subject(sub) 를 추출한다.
 #   서버 리팩터링(A안) 이후 subject 는 email 이 아니라 userId(숫자)여야 한다.
 #   base64url 디코딩 후 JSON 의 sub 필드를 반환한다.
@@ -252,6 +354,8 @@ function Invoke-Api {
         $Body,
         [switch]$Auth,
         [switch]$PassThru,   # 지정 시 파싱된 응답 객체를 반환 (미지정 시 콘솔 출력만)
+        [switch]$NoTrack,    # 지정 시 결과 집계에서 제외. 실패해도 정상인 탐색용 호출에 쓴다
+                             # (예: "이미 가입돼 있나?" 확인용 로그인 — 실패가 곧 신규 가입 경로다)
         [string]$Title
     )
 
@@ -313,15 +417,17 @@ function Invoke-Api {
     $statusColor = if ($ok) { "Green" } else { "Red" }
     Write-Host "  Status: $status" -ForegroundColor $statusColor
 
-    # 결과 집계 (요약 출력에 사용)
-    $global:MateonTestResults.Add([pscustomobject]@{
-        Title           = if ($Title) { $Title } else { "$Method $Path" }
-        Method          = $Method
-        Path            = $Path
-        Status          = $status
-        Ok              = $ok
-        IsExpectedBlock = $isExpectedBlock
-    })
+    # 결과 집계 (요약 출력에 사용). -NoTrack 이면 건너뛴다.
+    if (-not $NoTrack) {
+        $global:MateonTestResults.Add([pscustomobject]@{
+            Title           = if ($Title) { $Title } else { "$Method $Path" }
+            Method          = $Method
+            Path            = $Path
+            Status          = $status
+            Ok              = $ok
+            IsExpectedBlock = $isExpectedBlock
+        })
+    }
 
     # 본문을 JSON 으로 예쁘게 출력 (실패 시 원문 그대로)
     $result = $null

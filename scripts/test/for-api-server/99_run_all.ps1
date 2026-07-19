@@ -7,6 +7,7 @@
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
 #        13_recommendation  7회  (팀 생성 2 + 의도 추출 2 + 추천 점수화 3)
+#        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
 #      -> 1회 전체 실행에 대략 20회 안팎. 반복 실행하면 그만큼 누적됩니다.
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
@@ -23,11 +24,14 @@
 #   대신 채팅 등 인증이 필요한 테스트를 위해, 코드 입력 없이 유저 A 로그인만 해서 토큰을 확보한다.
 #   (auth/ 스크립트는 필요할 때 개별 실행: pwsh -File .\auth\02_auth.ps1 ...)
 #   - 전제: 유저 A/B 계정이 이미 존재해야 한다(신규 가입/코드 입력은 하지 않음).
+#   - 15_review(협업 온도)는 유저 C 까지 필요하다. 없으면 그 항목만 조용히 스킵된다.
 param(
     [string]$Email = "",          # 유저 A: 미지정 시 00_common 의 TestEmail
     [string]$Password = "",       # 유저 A: 미지정 시 00_common 의 TestPassword
     [string]$UserBEmail = "",     # 유저 B: 미지정 시 00_common 의 UserBEmail
-    [string]$UserBPassword = ""   # 유저 B: 미지정 시 00_common 의 UserBPassword
+    [string]$UserBPassword = "",  # 유저 B: 미지정 시 00_common 의 UserBPassword
+    [string]$UserCEmail = "",     # 유저 C: 미지정 시 00_common 의 UserCEmail (15_review 전용)
+    [string]$UserCPassword = ""   # 유저 C: 미지정 시 00_common 의 UserCPassword
 )
 
 . "$PSScriptRoot\00_common.ps1"
@@ -41,11 +45,14 @@ Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 20회 호출합�
 Write-Host "      과금을 피하려면 백엔드 AI_BASE_URL 을 로컬 스텁으로 돌려두세요 - 파일 상단 주석 참고." -ForegroundColor DarkGray
 Write-Host ""
 
-$authArgs = @{}
-if ($Email)         { $authArgs.Email         = $Email }
-if ($Password)      { $authArgs.Password      = $Password }
-if ($UserBEmail)    { $authArgs.UserBEmail    = $UserBEmail }
-if ($UserBPassword) { $authArgs.UserBPassword = $UserBPassword }
+# 유저 준비(09_three_users)에 넘길 인자. 09 는 A/B/C 를 슬롯별로 받는다.
+$authArgs = @{ LoginOnly = $true }
+if ($Email)         { $authArgs.EmailA    = $Email }
+if ($Password)      { $authArgs.PasswordA = $Password }
+if ($UserBEmail)    { $authArgs.EmailB    = $UserBEmail }
+if ($UserBPassword) { $authArgs.PasswordB = $UserBPassword }
+if ($UserCEmail)    { $authArgs.EmailC    = $UserCEmail }
+if ($UserCPassword) { $authArgs.PasswordC = $UserCPassword }
 
 # 유저 B 인자 (로그인 전용). 10_chat 과 13_recommendation 이 함께 쓴다 —
 # 둘 다 "나 아닌 상대"가 필요하다(채팅 상대 / 추천 후보 팀의 팀장).
@@ -56,26 +63,14 @@ if ($UserBPassword) { $chatArgs.UserBPassword = $UserBPassword }
 Write-Host "===== 1) Health =====" -ForegroundColor Magenta
 & "$PSScriptRoot\01_health.ps1"
 
-# ===== 2) Auth (비활성화) — 인증 계열은 이 러너에서 실행하지 않는다. =====
-# 필요 시 개별 실행: pwsh -File .\auth\02_auth.ps1 -Email ... -Password ...
-# & "$PSScriptRoot\auth\02_auth.ps1" @authArgs
-
-# ===== (준비) 유저 A 로그인 — 인증 필요 테스트용 토큰 확보 (코드 입력 없음) =====
-# 02_auth 를 실행하지 않으므로 여기서 로그인만 해서 A 세션 토큰을 저장한다.
-# 전제: 유저 A 계정이 이미 존재해야 한다(신규 가입/코드 입력은 하지 않음).
-Write-Host "`n===== (준비) 유저 A 로그인 (토큰 확보) =====" -ForegroundColor Magenta
-$loginEmail    = if ($Email)    { $Email }    else { $script:TestEmail }
-$loginPassword = if ($Password) { $Password } else { $script:TestPassword }
-$loginA = Invoke-Api -Method POST -Path "/api/auth/login" -PassThru -Title "유저 A 로그인" -Body @{
-    email = $loginEmail; password = $loginPassword
-}
-if ($loginA.data.accessToken) {
-    Save-AccessToken $loginA.data.accessToken
-    Save-RefreshToken $loginA.data.refreshToken
-    Write-Host "  (i) 유저 A 로그인/토큰 저장 완료 -> 이후 인증 필요 테스트에서 재사용" -ForegroundColor Green
-} else {
-    Write-Host "  (!) 유저 A 로그인 실패 - 계정 존재 여부를 확인하세요. 인증 필요 테스트가 스킵될 수 있습니다." -ForegroundColor Yellow
-}
+# ===== 2) 유저 준비 (09_three_users) =====
+# 02_auth 대신 09 를 쓴다. 02 는 항상 email/request 부터 밟아 매번 수동 코드 입력을 요구하는데,
+# 09 는 로그인을 먼저 시도해 기존 계정이면 코드 없이 통과한다.
+#   -LoginOnly: 계정이 없어도 가입 절차로 넘어가지 않는다. 무인 실행 중 프롬프트가 뜨면
+#               러너 전체가 멈추기 때문이다. (계정 생성은 09 를 단독 실행)
+# 09 는 A/B/C 슬롯을 채우고 활성 세션을 A 로 맞춰 두므로, 이후 인증 필요 테스트가 그대로 A 로 돈다.
+Write-Host "`n===== 2) 유저 준비 (A/B/C 로그인) =====" -ForegroundColor Magenta
+& "$PSScriptRoot\auth\09_three_users.ps1" @authArgs
 
 Write-Host "`n===== 3) User =====" -ForegroundColor Magenta
 & "$PSScriptRoot\03_user.ps1"
@@ -122,6 +117,14 @@ Write-Host "`n===== 13) Recommendation (유저→팀 추천) =====" -ForegroundC
 # 후보 팀은 유저 B 가 만든다(내가 팀장인 팀은 추천에서 제외되므로). B 계정 인자를 넘긴다.
 # 12 번 뒤에 두는 이유: 팀 임베딩이 저장돼 있어야 추천 후보가 생긴다.
 & "$PSScriptRoot\13_recommendation.ps1" @chatArgs
+
+Write-Host "`n===== 15) Review (협업 온도) =====" -ForegroundColor Magenta
+# 유저 3명이 서로 평가해야 하는 유일한 테스트다. 온도는 받은 평가가 2건 이상이어야 공개되므로
+# (1건이면 누가 줬는지 자명해 익명성이 깨진다) A/B/C 세 명이 필요하다.
+# 슬롯은 위 2) 단계에서 이미 채워졌다. 유저 C 가 없으면 15_review 가 스스로 스킵한다.
+& "$PSScriptRoot\15_review.ps1"
+# 15_review 가 활성 세션을 A 로 되돌려 놓지만, 이후 스크립트가 추가될 수 있으니 여기서도 보장한다.
+Use-User "A" -Quiet | Out-Null
 
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
