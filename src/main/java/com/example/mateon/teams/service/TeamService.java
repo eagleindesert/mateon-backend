@@ -285,9 +285,6 @@ public class TeamService {
         application.setStatus(isApproved ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED);
         if (isApproved) {
             User applicant = application.getApplicant();
-            // 기존 분석 리포트를 날려서, 다음 마이페이지 접속 시
-            // 이 '새로운 활동'을 포함해 다시 분석하도록 유도함.
-            applicant.setDreamyReport(null);
 
             // 승인 = 지원서 상태 변경 + 소속 생성. 같은 트랜잭션에서 함께 움직여야 한다.
             // 거절 후 재지원 같은 경로로 이미 행이 있을 수 있어 재활성화도 처리한다.

@@ -43,7 +43,6 @@ erDiagram
         varchar_100 interest_job_secondary
         varchar_100 interest_job_tertiary
         varchar_200 tagline
-        text dreamy_report "OpenAI 리포트 JSON"
         timestamp created_at "NOT NULL"
         timestamp updated_at "NOT NULL"
     }
@@ -152,7 +151,6 @@ erDiagram
 | `interest_job_secondary` | `varchar(100)` | | 희망직무 2순위 |
 | `interest_job_tertiary` | `varchar(100)` | | 희망직무 3순위 |
 | `tagline` | `varchar(200)` | | 한 줄 소개 |
-| `dreamy_report` | `text` | | OpenAI '드림이' 분석 리포트 JSON. 프로필 수정/새 활동 승인 시 `null` 로 초기화되어 재생성 유도 |
 | `created_at` | `timestamp` | NOT NULL, 불변 | 감사 필드 (`@CreatedDate`) |
 | `updated_at` | `timestamp` | NOT NULL | 감사 필드 (`@LastModifiedDate`) |
 

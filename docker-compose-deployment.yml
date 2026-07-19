@@ -5,7 +5,7 @@
 #   예: ./scripts/docker/deploy-dockerhub.ps1 -Tag v1.0.0 -Platform linux/arm64)
 #
 # 사용법 (배포 서버에서):
-#   1) 이 파일과 .env 를 서버로 복사한다. (.env 에는 MAIL/JWT/OPENAI 시크릿 포함)
+#   1) 이 파일과 .env 를 서버로 복사한다. (.env 에는 MAIL/JWT/AI 시크릿 포함)
 #   2) DOCKERHUB_USERNAME / APP_IMAGE_TAG 를 .env 또는 셸 환경변수로 지정한다.
 #   3) docker compose -f docker-compose-deployment.yml up -d
 #
@@ -22,7 +22,7 @@ services:
     platform: linux/arm64
     container_name: mateon-app
     restart: unless-stopped
-    # 애플리케이션 시크릿(MAIL/JWT/OPENAI 등)은 .env 파일에서 주입
+    # 애플리케이션 시크릿(MAIL/JWT/AI 등)은 .env 파일에서 주입
     env_file:
       - .env
     environment:

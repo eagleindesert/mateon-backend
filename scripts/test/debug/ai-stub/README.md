@@ -43,7 +43,7 @@ pwsh -File scripts/test/for-api-local/11_matching_intent.ps1
 
 `AI_INTERNAL_SECRET` 은 **스텁을 쓸 때도 반드시 있어야 한다**. 값 자체는 아무거나 좋다(스텁은
 `-ExpectedSecret` 을 주지 않으면 검증하지 않는다). 백엔드가 이 값을 필수로 요구하는 건
-`JWT_SECRET`/`OPENAI_API_KEY` 와 같은 관례로, 시크릿 없이 실서버를 호출하다 401 을 맞는 상황을
+`JWT_SECRET` 과 같은 관례로, 시크릿 없이 실서버를 호출하다 401 을 맞는 상황을
 부팅 시점에 막기 위해서다.
 
 시크릿 검증까지 재현하려면 양쪽 값을 맞춘다:

@@ -83,9 +83,6 @@ public class User {
     @Column(length = 200)
     private String tagline;
 
-    @Column(name = "dreamy_report", columnDefinition = "TEXT")
-    private String dreamyReport; // OpenAI 리포트 JSON 문자열 저장
-
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

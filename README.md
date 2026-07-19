@@ -8,7 +8,7 @@
 - **Java 21** / **Spring Boot 4.0**
 - Spring Web MVC, Spring Security (JWT 인증), Spring Data JPA
 - **PostgreSQL 16** (로컬은 Docker Compose 로 자동 기동)
-- Gmail SMTP (이메일 인증), OpenAI API 연동
+- Gmail SMTP (이메일 인증), 별도 AI 서버(의도 추출/임베딩) 연동
 - SSE 기반 실시간 알림, springdoc OpenAPI (Swagger UI)
 
 ## 주요 도메인
@@ -57,10 +57,6 @@ MAIL_PASSWORD=your-gmail-app-password   # Gmail 앱 비밀번호
 JWT_SECRET=최소-256bit-이상의-시크릿-키
 JWT_EXPIRATION=86400000          # access token (ms), 기본 1일
 JWT_REFRESH_EXPIRATION=604800000 # refresh token (ms), 기본 7일
-
-# === OpenAI ===
-OPENAI_API_KEY=sk-...
-OPENAI_API_MODEL=gpt-4o-mini     # 선택, 기본값 gpt-4o-mini
 
 # === DataSource (선택) ===
 # 미설정 시 localhost:5432 / admin / admin 기본값 사용

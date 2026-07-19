@@ -28,22 +28,8 @@ public class MyPageResponseDTO {
     private BigDecimal collaborationTemperature;
     private int collaborationReviewCount;
 
-    // 3. 드림이 리포트 (AI 분석 결과)
-    private AiAnalysisDTO dreamyReport;
-
     // 3. 참여한 활동 (승인된 것만)
     private List<ActivitySummaryDTO> participatedActivities;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class AiAnalysisDTO {
-        private int score; // 적합도 점수 (0~100)
-        private String strength; // 강점
-        private String weakness; // 보완점
-        private String recommendedAction; // 추천 활동
-    }
 
     @Data
     @Builder

@@ -17,8 +17,6 @@ import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,8 +33,6 @@ public class UserService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserCollaborationScoreRepository collaborationScoreRepository;
     private final EventRepository eventRepository;
-    private final OpenAiService openAiService;
-    private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
 
@@ -63,7 +59,6 @@ public class UserService {
                 request.getInterestJobTertiary(),
                 request.getTagline()
         );
-        user.setDreamyReport(null);
 
         userRepository.save(user);
         return UserResponse.from(user);
@@ -115,56 +110,10 @@ public class UserService {
                 })
                 .collect(Collectors.toList());
 
-        // 4. 활동 제목 목록 추출 (AI 분석용)
-        List<String> activityTitles = activities.stream()
-                .map(MyPageResponseDTO.ActivitySummaryDTO::getTitle)
-                .collect(Collectors.toList());
-
-        // 5. 드림이 리포트 생성 또는 조회
-        MyPageResponseDTO.AiAnalysisDTO aiAnalysis;
-        if (user.getDreamyReport() == null || user.getDreamyReport().isEmpty()) {
-            // AI 분석 요청
-            String jsonResponse = openAiService.generateDreamyAnalysis(user, activityTitles);
-            try {
-                aiAnalysis = objectMapper.readValue(jsonResponse, MyPageResponseDTO.AiAnalysisDTO.class);
-                // DB에 저장
-                user.setDreamyReport(jsonResponse);
-                userRepository.save(user);
-            } catch (JsonProcessingException e) {
-                // 파싱 실패 시 기본값
-                aiAnalysis = new MyPageResponseDTO.AiAnalysisDTO(
-                        50,
-                        "분석 중입니다.",
-                        "활동을 더 입력해주세요.",
-                        "활동 추가하기"
-                );
-            }
-        } else {
-            // DB에 저장된 리포트 파싱
-            try {
-                aiAnalysis = objectMapper.readValue(user.getDreamyReport(), MyPageResponseDTO.AiAnalysisDTO.class);
-            } catch (JsonProcessingException e) {
-                // 파싱 실패 시 새로 생성
-                String jsonResponse = openAiService.generateDreamyAnalysis(user, activityTitles);
-                try {
-                    aiAnalysis = objectMapper.readValue(jsonResponse, MyPageResponseDTO.AiAnalysisDTO.class);
-                    user.setDreamyReport(jsonResponse);
-                    userRepository.save(user);
-                } catch (JsonProcessingException ex) {
-                    aiAnalysis = new MyPageResponseDTO.AiAnalysisDTO(
-                            50,
-                            "분석 중입니다.",
-                            "활동을 더 입력해주세요.",
-                            "활동 추가하기"
-                    );
-                }
-            }
-        }
-
-        // 6. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
+        // 4. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
         UserCollaborationScore score = collaborationScoreRepository.findById(user.getId()).orElse(null);
 
-        // 7. DTO 조립 및 반환
+        // 5. DTO 조립 및 반환
         return MyPageResponseDTO.builder()
                 .collaborationTemperature(score != null ? score.getTemperature() : null)
                 .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
@@ -176,7 +125,6 @@ public class UserService {
                 .school(user.getSchool())
                 .campus(user.getCampus())
                 .schoolVerified(user.isSchoolVerified())
-                .dreamyReport(aiAnalysis)
                 .participatedActivities(activities)
                 .build();
     }

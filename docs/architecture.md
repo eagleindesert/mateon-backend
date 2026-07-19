@@ -1,11 +1,11 @@
 # Mateon Backend — 아키텍처
 
 **Mateon** 은 대학생 대상 팀 매칭 / 활동 모집 서비스의 백엔드입니다.
-사용자 인증(로컬 + 소셜 대비 + 학교 재학생 인증), 활동(이벤트) 추천, 팀 모집·지원, 실시간 알림(SSE), AI 커리어 분석을 REST API 로 제공합니다.
+사용자 인증(로컬 + 소셜 대비 + 학교 재학생 인증), 활동(이벤트) 추천, 팀 모집·지원, 실시간 알림(SSE)을 REST API 로 제공합니다.
 
 - **런타임**: Java 21 / Spring Boot 4.0
 - **핵심 스택**: Spring Web MVC · Spring Security(JWT, Stateless) · Spring Data JPA · PostgreSQL 16
-- **외부 연동**: Gmail SMTP(이메일 인증) · OpenAI Chat Completions(커리어 분석) · SSE(실시간 알림)
+- **외부 연동**: Gmail SMTP(이메일 인증) · AI 서버(의도 추출/임베딩, FastAPI) · SSE(실시간 알림)
 - **문서**: springdoc OpenAPI(Swagger UI) / API 명세는 [api-spec.md](api-spec.md), DB 스키마는 [schema-db.md](schema-db.md)
 
 ---
@@ -28,14 +28,12 @@ graph TB
 
     subgraph External["외부 서비스"]
         SMTP["Gmail SMTP<br/>이메일 인증코드 발송"]
-        OPENAI["OpenAI API<br/>드림이 커리어 분석"]
     end
 
     WEB -->|"HTTPS / JSON<br/>Bearer JWT"| API
     API -.->|"SSE (text/event-stream)<br/>실시간 알림 push"| WEB
     API -->|JPA / JDBC| DB
     API -->|SMTP| SMTP
-    API -->|"HTTPS REST"| OPENAI
 ```
 
 ---
@@ -67,7 +65,6 @@ graph TB
         TS["TeamService"]
         NS["NotificationService"]
         MS["MailService"]
-        OAS["OpenAiService"]
     end
 
     subgraph Repository["Repository 계층 (Spring Data JPA)"]
@@ -91,7 +88,7 @@ graph TB
     NC --> NS
 
     AS --> UR & EVR & RTR & MS
-    US --> UR & TAR & ER & OAS
+    US --> UR & TAR & ER
     TS --> TR & TAR & ER & UR & NS
     NS --> NR & UR & EMR
     EMS --> ER
@@ -106,8 +103,8 @@ com.example.mateon
 ├── auth          인증: 로그인/회원가입/JWT/이메일·학교 인증
 │   ├── controller · service · jwt(JwtTokenProvider, JwtAuthenticationFilter)
 │   ├── domain(EmailVerification, RefreshToken) · dto · repository
-├── user          사용자 프로필/마이페이지/AI 분석
-│   ├── controller · service(UserService, OpenAiService)
+├── user          사용자 프로필/마이페이지
+│   ├── controller · service(UserService)
 │   ├── domain(User, AuthProvider) · dto · repository
 ├── events        활동(이벤트) 조회·추천 매칭
 │   ├── controller · service(EventMatchingService)
@@ -237,7 +234,6 @@ sequenceDiagram
     TC->>TS: processApplication
     TS->>DB: status = APPROVED/REJECTED
     alt 승인
-        TS->>DB: 지원자 dreamy_report=null (재분석 유도)
         TS->>TS: 승인 인원 ≥ 정원 시 is_recruiting=false
     end
     TS->>NS: send(지원자, 제목, 내용, type)
@@ -246,21 +242,19 @@ sequenceDiagram
     EM-->>AP: 📨 실시간 알림
 ```
 
-### 마이페이지 & AI 커리어 분석 ('드림이')
+### 마이페이지
 
 ```mermaid
 graph TB
     REQ["GET /api/users/mypage"] --> US["UserService.getMyPage"]
-    US --> ACT["승인된 지원서 → 참여 활동 집계<br/>(team_applications + teams + events)"]
-    US --> CACHE{"user.dreamy_report<br/>존재?"}
-    CACHE -->|있음| PARSE["저장된 JSON 파싱"]
-    CACHE -->|없음| AI["OpenAiService.generateDreamyAnalysis<br/>→ OpenAI Chat Completions"]
-    AI --> SAVE["결과 JSON 을 users.dreamy_report 에 캐싱"]
-    PARSE --> RESP["MyPageResponseDTO<br/>(프로필 + 활동 + AI 분석)"]
-    SAVE --> RESP
+    US --> ACT["참여 활동 집계<br/>(team_members + teams + events)"]
+    US --> TEMP["협업 온도 조회<br/>(user_collaboration_scores)"]
+    ACT --> RESP["MyPageResponseDTO<br/>(프로필 + 협업 온도 + 활동)"]
+    TEMP --> RESP
 ```
 
-> 프로필 수정 또는 새 활동 승인 시 `dreamy_report` 를 `null` 로 비워 다음 조회 때 재분석되도록 유도합니다.
+> 활동 집계는 `team_members` 기준입니다. 승인된 지원서만 세면 본인이 팀장으로 만든 팀이 빠지는데,
+> `team_members` 는 팀장을 `LEADER` 로 함께 담으므로 한 번의 조회로 둘 다 잡힙니다.
 
 ---
 
@@ -308,5 +302,5 @@ graph TB
 | 로컬 개발 | `compose-dev.yml` | 8080 (bootRun) | 5432 | pgAdmin 5050 포함 |
 | 배포(ARM) | `docker-compose-deployment.yml` | 8081→8080 | 5433→5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
 
-- **시크릿 주입**: `MAIL_*`, `JWT_*`, `OPENAI_*` 는 `.env`(로컬) 또는 compose `env_file`/`environment`(배포)로 주입.
+- **시크릿 주입**: `MAIL_*`, `JWT_*`, `AI_*` 는 `.env`(로컬) 또는 compose `env_file`/`environment`(배포)로 주입.
 - **DataSource**: 배포 시 `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mateon_db` 로 compose 네트워크 내 서비스명 접속.
