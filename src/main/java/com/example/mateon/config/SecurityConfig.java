@@ -1,6 +1,7 @@
 package com.example.mateon.config;
 
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +44,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE(/api/notifications/subscribe) 처럼 비동기로 처리된 요청은 끝날 때 컨테이너가
+                        // 필터 체인에 ASYNC 로 재진입한다. authorizeHttpRequests 는 모든 DispatcherType 을
+                        // 인가 검사하는데, JwtAuthenticationFilter 는 OncePerRequestFilter 라 이때 실행되지
+                        // 않아 SecurityContext 가 비어 있다 → 최초 인가를 통과한 요청이 종료 시점에
+                        // AuthorizationDeniedException 을 맞는다. 최초 REQUEST 디스패치는 그대로 검사하므로
+                        // 보안이 느슨해지는 게 아니다.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/", "/health").permitAll() // 헬스체크 허용
                         .requestMatchers("/debug/**").permitAll() // [로컬 전용] 카카오 인가코드 수신 디버그 (컨트롤러는 debug.oauth.enabled 로 격리)
                         .requestMatchers("/api/auth/school/**").authenticated() // 학교 인증은 로그인 후 단계 → 인증 필요

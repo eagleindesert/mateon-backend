@@ -119,6 +119,12 @@ Invoke-Api -Method POST -Path "/api/teams/$teamId/complete" -Auth `
 # ============================================================================
 #  15.7 팀장 A 가 활동 종료 → 평가 개시
 # ============================================================================
+# 종료 전에 B 의 '팀원 평가 요청' 알림 수를 기록해 둔다. 15.7d 에서 증분으로 검증하기 위함이다
+# (15.13 의 협업 온도와 같은 이유 — 누적 데이터라 절대값으로는 이번 실행의 결과를 알 수 없다).
+Use-User "B" | Out-Null
+$notiBefore = Invoke-Api -Method GET -Path "/api/notifications" -Auth -PassThru -NoTrack
+$reviewNotiBefore = @($notiBefore.data | Where-Object { $_.title -eq "팀원 평가 요청" }).Count
+
 Use-User "A" | Out-Null
 Invoke-Api -Method POST -Path "/api/teams/$teamId/complete" -Auth -Title "15.7 활동 종료 (팀장 A)" | Out-Null
 $completeStatus = Get-LastStatus
@@ -129,6 +135,30 @@ Assert-Test -Title "15.7b 활동 종료 성공(2xx)" `
 # 이미 종료된 팀은 다시 종료할 수 없다.
 Invoke-Api -Method POST -Path "/api/teams/$teamId/complete" -Auth `
     -Title "15.7c 중복 종료 (차단 기대)" | Out-Null
+
+# ----------------------------------------------------------------------------
+# 15.7d 종료 알림이 실제로 남는지 확인 (회귀 방지)
+#
+# 예전엔 SSE 전송 실패가 알림 저장 트랜잭션을 롤백시켜, 종료 API 는 200 인데 알림이
+# 통째로 사라졌다. 종료 호출의 HTTP 상태만 보던 15.7b 로는 이걸 못 잡았다.
+#
+# 재현 조건: 06_notification.ps1 이 SSE 를 5초 후 강제로 끊어 죽은 emitter 를 남긴다.
+#            99_run_all.ps1 에서 06 이 15 보다 먼저 돌아야 하므로 실행 순서를 바꾸지 말 것.
+# TeamCompletedNotificationListener 는 @Async + AFTER_COMMIT 이라 잠깐 기다린다.
+#
+# 반드시 '증분'으로 본다. 알림은 계속 쌓이므로 절대 개수로 보면 이전 실행이 남긴 알림 때문에
+# 이번 종료가 통째로 롤백돼도 통과해버린다.
+# ----------------------------------------------------------------------------
+Use-User "B" | Out-Null
+Start-Sleep -Seconds 2
+$noti = Invoke-Api -Method GET -Path "/api/notifications" -Auth -PassThru -NoTrack
+$reviewNotiAfter = @($noti.data | Where-Object { $_.title -eq "팀원 평가 요청" }).Count
+Assert-Test -Title "15.7d 팀 종료 시 평가 요청 알림 수신 (B)" `
+    -Condition ($reviewNotiAfter -gt $reviewNotiBefore) `
+    -Detail "$reviewNotiBefore → $reviewNotiAfter (증분 기대)" | Out-Null
+
+# 아래 15.8 은 'A 입장' 이므로 계정을 되돌려 놓는다.
+Use-User "A" | Out-Null
 
 # ============================================================================
 #  15.8 평가 대상 목록 — 자기 자신은 빠진다
