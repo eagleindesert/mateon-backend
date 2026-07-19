@@ -88,7 +88,7 @@ if ($teamId) {
         eventId              = $null
         title                = "임베딩테스트 팀 (수정됨)"
         promotionText        = "이제 온라인 위주로 모입니다. 대회 입상이 목표입니다."
-        role                 = @("BE", "Design")
+        role                 = @("BE", "Design, 데이터마이닝, 디자인해요")
         requiredSkills       = @("Java", "Redis")
         characteristic       = "빡센 팀"
         capacity             = 5
