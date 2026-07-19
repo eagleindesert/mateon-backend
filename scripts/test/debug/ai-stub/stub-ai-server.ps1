@@ -2,6 +2,7 @@
 # 별도 FastAPI AI 서버의 스텁. 처리하는 엔드포인트:
 #   POST /intents/extract                  (매칭 의도 추출)
 #   POST /internal/teams/embedding:refresh (팀 임베딩 계산)
+#   POST /recommendations/user-to-team     (유저→팀 추천 점수 계산)
 #
 # 실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한 도구다.
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
@@ -9,6 +10,8 @@
 # 진짜 목적: 백엔드가 보내는 요청을 콘솔에 덤프해서
 #   - (intents) messages 의 id 가 1 부터 연속 증가하는지, USER 발화만 들어있는지, 누적되는지
 #   - (teams)   intro_text/recruiting_roles/required_skills/contest_field 가 제대로 실려 오는지
+#   - (recommendations) query_metadata 가 실려 오는지, 후보마다 1536 차원 벡터와
+#     team_embeddings 의 정규화 메타데이터가 붙어 오는지, 제외 대상(내 팀/지원한 팀)이 빠졌는지
 #   - X-Internal-Secret 헤더를 실어 보내는지 (실서버는 이게 없으면 401)
 # 를 눈으로 확인하는 것.
 #
@@ -50,7 +53,7 @@ try {
 }
 
 Write-Host ("=" * 70) -ForegroundColor DarkGray
-Write-Host " AI 서버 스텁 (POST /intents/extract, POST /internal/teams/embedding:refresh)" -ForegroundColor Magenta
+Write-Host " AI 서버 스텁 (intents/extract, teams/embedding:refresh, recommendations/user-to-team)" -ForegroundColor Magenta
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 Write-Host "  리스닝: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  임베딩 차원: $EmbeddingDimension" -ForegroundColor DarkGray
@@ -65,6 +68,9 @@ Write-Host "    1개      -> missing_fields=['experience_level'], 임베딩 null
 Write-Host "    2개 이상 -> missing_fields=[], 임베딩 $EmbeddingDimension 개 (완료)" -ForegroundColor DarkGray
 Write-Host "  동작 (/internal/teams/embedding:refresh): 항상 임베딩 + metadata 반환" -ForegroundColor DarkGray
 Write-Host "    (missing_fields=['activity_intensity'] — 스펙상 미추출 항목이 있어도 벡터는 온다)" -ForegroundColor DarkGray
+Write-Host "  동작 (/recommendations/user-to-team): 역할 일치 여부로 점수 분기" -ForegroundColor DarkGray
+Write-Host "    desired_roles 와 recruiting_roles 가 겹치면 0.9x, 아니면 0.1x + label 생성" -ForegroundColor DarkGray
+Write-Host "    (일부러 점수 오름차순으로 돌려준다 — 백엔드가 내림차순 정렬하는지 확인용)" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  중지: Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
@@ -102,7 +108,7 @@ try {
         Write-Host ("-" * 70) -ForegroundColor DarkGray
         Write-Host ("[{0}] {1} {2}" -f (Get-Date -Format "HH:mm:ss"), $request.HttpMethod, $path) -ForegroundColor Cyan
 
-        $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh")
+        $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh", "/recommendations/user-to-team")
         if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
             Write-Host "  -> 404 (이 스텁은 POST $($knownPaths -join ', ') 만 처리)" -ForegroundColor Yellow
             Write-Json -Response $response -Object @{ detail = "Not Found" } -StatusCode 404
@@ -168,6 +174,73 @@ try {
             }
             Write-Host "  -> 200 (missing_fields=['activity_intensity'], 임베딩 $EmbeddingDimension 개)" -ForegroundColor Green
             Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /recommendations/user-to-team (유저→팀 추천 점수 계산) ---
+        if ($path -eq "/recommendations/user-to-team") {
+            $queryVector = @($body.query_embedding_vector)
+            $queryMeta   = $body.query_metadata
+            $candidates  = @($body.candidates)
+
+            Write-Host "  query_embedding_vector: $($queryVector.Count) 차원" -ForegroundColor Gray
+            if ($queryVector.Count -ne $EmbeddingDimension) {
+                Write-Host "  [!!] 질의 벡터 차원이 $EmbeddingDimension 이 아님" -ForegroundColor Red
+            }
+
+            if ($null -eq $queryMeta) {
+                # 이게 없으면 실서버는 임베딩 유사도만 계산할 수 있고 룰 점수를 못 낸다.
+                Write-Host "  [!!] query_metadata 없음 - 역할 일치 등 룰 점수를 계산할 수 없다" -ForegroundColor Red
+            } else {
+                Write-Host "  query_metadata:" -ForegroundColor White
+                Write-Host ("    desired_roles    = [{0}]" -f (@($queryMeta.desired_roles) -join ", ")) -ForegroundColor Gray
+                Write-Host ("    skills           = [{0}]" -f (@($queryMeta.skills) -join ", ")) -ForegroundColor Gray
+                Write-Host ("    activity_style   = {0}" -f $queryMeta.activity_style) -ForegroundColor Gray
+                Write-Host ("    experience_level = {0}" -f $queryMeta.experience_level) -ForegroundColor Gray
+            }
+
+            Write-Host "  후보 $($candidates.Count)개:" -ForegroundColor White
+            $desiredRoles = @($queryMeta.desired_roles)
+            $recommendations = @()
+            $i = 0
+
+            foreach ($c in $candidates) {
+                $vector = @($c.embedding_vector)
+                $meta   = $c.metadata
+                $roles  = @($meta.recruiting_roles)
+                $dimOk  = if ($vector.Count -eq $EmbeddingDimension) { "OK" } else { "!! $($vector.Count)차원" }
+
+                Write-Host ("    candidate_id={0}  vector={1}  recruiting_roles=[{2}]  required_skills=[{3}]  activity_style={4}  beginner_friendly={5}" -f `
+                    $c.candidate_id, $dimOk, ($roles -join ", "), (@($meta.required_skills) -join ", "), $meta.activity_style, $meta.beginner_friendly) -ForegroundColor Gray
+
+                # 역할이 겹치면 높은 점수 + 역할 근거 문구, 아니면 낮은 점수 + 유사도 문구.
+                # 같은 점수가 안 나오게 후보 순번으로 미세하게 흔든다 (정렬 검증용).
+                $matched = @($roles | Where-Object { $desiredRoles -contains $_ })
+                if ($matched.Count -gt 0) {
+                    $score = [Math]::Round(0.90 + ($i * 0.001), 4)
+                    $label = "$($matched[0]) 역할을 모집하고 있어요"
+                } elseif ($meta.beginner_friendly -eq $true) {
+                    $score = [Math]::Round(0.30 + ($i * 0.001), 4)
+                    $label = "초보자도 편하게 참여할 수 있는 팀이에요"
+                } else {
+                    $score = [Math]::Round(0.10 + ($i * 0.001), 4)
+                    $label = "의미적으로 관심사가 잘 맞아요"
+                }
+
+                $recommendations += [ordered]@{
+                    candidate_id = $c.candidate_id
+                    score        = $score
+                    label        = $label
+                }
+                $i++
+            }
+
+            # 일부러 점수 오름차순으로 돌려준다 — 백엔드가 스스로 내림차순 정렬하는지 확인하려면
+            # 이미 정렬된 응답을 주면 안 된다.
+            $recommendations = @($recommendations | Sort-Object { $_.score })
+
+            Write-Host "  -> 200 (recommendations $($recommendations.Count)건, 점수 오름차순으로 반환)" -ForegroundColor Green
+            Write-Json -Response $response -Object ([ordered]@{ recommendations = $recommendations })
             continue
         }
 

@@ -12,6 +12,9 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     // 특정 활동의 모집 중인 팀 조회
     List<Team> findByEventIdAndIsRecruitingTrue(Long eventId);
 
+    // 모집 중인 팀 전체 조회 (활동 구분 없음 — 전역 추천의 후보 집합)
+    List<Team> findByIsRecruitingTrue();
+
     // 내가 팀장인 팀 조회
     List<Team> findByLeaderUserId(Long leaderUserId);
     // 자율 프로젝트 모집 중인 팀 조회(eventId=null)

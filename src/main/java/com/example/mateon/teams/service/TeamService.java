@@ -70,7 +70,8 @@ public class TeamService {
                     if (team.getEventId() != null) {
                         event = eventRepository.findById(team.getEventId()).orElse(null);
                     }
-                    int currentCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
+                    int currentCount = Team.confirmedMemberCount(
+                            applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
 
                     return new TeamResponseDTO(team, event, currentCount);
                 })
@@ -89,8 +90,9 @@ public class TeamService {
             event = eventRepository.findById(team.getEventId()).orElse(null);
         }
 
-        // 3. 현재 인원 수
-        int currentCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
+        // 3. 현재 인원 수 (팀장 포함)
+        int currentCount = Team.confirmedMemberCount(
+                applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
 
         // 4. 유저 상태 확인 (로그인 했을 경우에만)
         boolean isLeader = false;
@@ -129,7 +131,8 @@ public class TeamService {
             event = eventRepository.findById(request.getEventId())
                     .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
         }
-        return new TeamResponseDTO(team, event, 0);
+        // 갓 만든 팀에도 팀장은 이미 있다 — 지원자 0명이지만 인원은 1명이다.
+        return new TeamResponseDTO(team, event, Team.confirmedMemberCount(0));
     }
 
     public TeamResponseDTO updateTeam(Long teamId, TeamRequestDTO request, Long userId) {
@@ -157,7 +160,8 @@ public class TeamService {
         if (team.getEventId() != null) {
             event = eventRepository.findById(team.getEventId()).orElse(null);
         }
-        int currentCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
+        int currentCount = Team.confirmedMemberCount(
+                applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED));
         return new TeamResponseDTO(team, event, currentCount);
     }
 
@@ -284,9 +288,10 @@ public class TeamService {
 
         // 3. 인원 마감 체크 (승인일 때만)
         if (isApproved) {
-            int currentCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
-            // 만약 (현재 승인된 인원) >= (모집 정원) 이라면
-            if (currentCount >= team.getCapacity()) {
+            int approvedCount = applicationRepository.countByTeamIdAndStatus(team.getId(), ApplicationStatus.APPROVED);
+            // capacity 는 팀장을 포함한 정원인데 approvedCount 에는 팀장이 없다.
+            // 예전엔 이 둘을 그대로 비교해서 정원보다 1명 더 뽑고 나서야 마감됐다.
+            if (team.isFullWith(approvedCount)) {
                 team.setIsRecruiting(false); // 모집 마감
             }
         }
