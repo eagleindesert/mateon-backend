@@ -51,6 +51,7 @@ public class UserService {
 
         user.update(
                 request.getName(),
+                request.getSchool(),
                 request.getCampus(),
                 request.getCollege(),
                 request.getMajor(),
@@ -163,6 +164,7 @@ public class UserService {
                 .major(user.getMajor())
                 .grade(user.getGrade())
                 .interestJobPrimary(user.getInterestJobPrimary())
+                .school(user.getSchool())
                 .campus(user.getCampus())
                 .schoolVerified(user.isSchoolVerified())
                 .dreamyReport(aiAnalysis)

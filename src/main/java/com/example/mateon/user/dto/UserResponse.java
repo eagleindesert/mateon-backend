@@ -18,7 +18,8 @@ public class UserResponse {
     private String schoolEmail;
     private boolean schoolVerified;
     private String name;
-    private User.Campus campus;
+    private String school;
+    private String campus;
     private String college;
     private String major;
     private String grade;
@@ -36,6 +37,7 @@ public class UserResponse {
                 .schoolEmail(user.getSchoolEmail())
                 .schoolVerified(user.isSchoolVerified())
                 .name(user.getName())
+                .school(user.getSchool())
                 .campus(user.getCampus())
                 .college(user.getCollege())
                 .major(user.getMajor())

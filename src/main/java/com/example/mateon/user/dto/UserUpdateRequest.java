@@ -1,6 +1,5 @@
 package com.example.mateon.user.dto;
 
-import com.example.mateon.user.domain.User;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,7 +10,11 @@ public class UserUpdateRequest {
     @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
     private String name;
 
-    private User.Campus campus;
+    @Size(max = 100, message = "학교는 100자 이하여야 합니다.")
+    private String school;
+
+    @Size(max = 50, message = "캠퍼스는 50자 이하여야 합니다.")
+    private String campus;
 
     @Size(max = 100, message = "단과대는 100자 이하여야 합니다.")
     private String college;

@@ -179,6 +179,7 @@ public class AuthService {
                 .schoolEmail(request.getEmail())
                 .schoolVerified(true)
                 .name(request.getName())
+                .school(request.getSchool())
                 .campus(request.getCampus())
                 .college(request.getCollege())
                 .major(request.getMajor())

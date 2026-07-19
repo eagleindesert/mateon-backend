@@ -46,15 +46,30 @@ public class EventMatchingService {
             }
         }
 
-        // 4. 캠퍼스 매칭 (5점)
-        if (user.getCampus() != null && event.getCampusScope() != null) {
-            if (event.getCampusScope() == Event.CampusScope.ALL ||
-                event.getCampusScope().name().equals(user.getCampus().name())) {
+        // 4. 학교/캠퍼스 매칭 (5점)
+        String campusScope = event.getCampusScope();
+        if (campusScope != null && !campusScope.isBlank()) {
+            // campusScope 는 자유 입력이라 학교명("단국대학교")과 캠퍼스명("죽전") 중 무엇이든 들어올 수 있다.
+            if (Event.CAMPUS_SCOPE_ALL.equalsIgnoreCase(campusScope.trim())
+                    || matchesCampusScope(campusScope, user.getSchool())
+                    || matchesCampusScope(campusScope, user.getCampus())) {
                 score += SCORE_CAMPUS;
             }
         }
 
         return score;
+    }
+
+    /**
+     * Event의 대상 범위와 사용자의 학교/캠퍼스가 같은지 검사합니다.
+     * 자유 입력이라 표기가 흔들릴 수 있지만("죽전" vs "죽전캠퍼스"), 필터가 아닌 가산점이므로
+     * 정확 일치로 둡니다.
+     */
+    private boolean matchesCampusScope(String campusScope, String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return campusScope.trim().equalsIgnoreCase(value.trim());
     }
 
     /**

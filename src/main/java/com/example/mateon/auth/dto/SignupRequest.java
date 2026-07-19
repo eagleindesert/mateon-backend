@@ -1,6 +1,5 @@
 package com.example.mateon.auth.dto;
 
-import com.example.mateon.user.domain.User;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -28,8 +27,13 @@ public class SignupRequest {
     @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
     private String name;
 
+    // 학교는 선택사항
+    @Size(max = 100, message = "학교는 100자 이하여야 합니다.")
+    private String school;
+
     // 캠퍼스는 선택사항 (화면에서 선택할 수 있음)
-    private User.Campus campus;
+    @Size(max = 50, message = "캠퍼스는 50자 이하여야 합니다.")
+    private String campus;
 
     // 단과대학은 선택사항
     @Size(max = 100, message = "단과대는 100자 이하여야 합니다.")

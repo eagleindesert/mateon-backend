@@ -43,7 +43,7 @@ public class User {
     @Column(name = "provider_id", length = 100)
     private String providerId;
 
-    // 학교 인증용 이메일(@dankook.ac.kr). 인증 전엔 null, 계정당 1개이므로 unique.
+    // 학교 인증용 이메일(.ac.kr). 인증 전엔 null, 계정당 1개이므로 unique.
     @Column(name = "school_email", unique = true, length = 100)
     private String schoolEmail;
 
@@ -55,9 +55,12 @@ public class User {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private Campus campus;
+    // 학교/캠퍼스는 전국 확장을 위해 자유 입력 문자열이다. 값 표기가 안정화되면 표준화한다.
+    @Column(length = 100)
+    private String school;
+
+    @Column(length = 50)
+    private String campus;
 
     @Column(length = 100)
     private String college;
@@ -91,10 +94,11 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    public void update(String name, Campus campus, String college, String major, String grade,
+    public void update(String name, String school, String campus, String college, String major, String grade,
                        String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
                        String tagline) {
         if (name != null) this.name = name;
+        if (school != null) this.school = school;
         if (campus != null) this.campus = campus;
         if (college != null) this.college = college;
         if (major != null) this.major = major;
@@ -120,10 +124,6 @@ public class User {
     public void linkSocial(AuthProvider provider, String providerId) {
         this.provider = provider;
         this.providerId = providerId;
-    }
-
-    public enum Campus {
-        JUKJEON, CHEONAN
     }
 }
 

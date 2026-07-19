@@ -2,7 +2,6 @@ package com.example.mateon.events.dto;
 
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
-import com.example.mateon.events.models.Event.CampusScope;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
@@ -19,7 +18,7 @@ public class EventResponseDTO {
     private String detailUrl;
     private LocalDate startDate;
     private LocalDate endDate;
-    private CampusScope campusScope;
+    private String campusScope;
     // target_colleges (JSON)
     private String targetColleges;
     private String summarizedDescription;

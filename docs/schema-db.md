@@ -1,13 +1,14 @@
 # Mateon Backend — 데이터베이스 스키마
 
 > 이 문서는 `src/main/java` 의 JPA 엔티티에서 역으로 도출한 PostgreSQL 스키마입니다.
-> DDL 은 `spring.jpa.hibernate.ddl-auto=update` 로 애플리케이션 기동 시 Hibernate 가 자동 생성/갱신하며,
+> DDL 은 Flyway 마이그레이션(`src/main/resources/db/migration`)으로 관리하며,
+> Hibernate 는 `ddl-auto=validate` 로 엔티티와 실제 스키마의 일치 여부만 검증합니다.
 > 물리 컬럼명은 Spring Boot 기본 네이밍 전략(camelCase → snake_case)을 따릅니다.
 
 - **DBMS**: PostgreSQL 16 (`postgres:16-alpine`)
 - **DB 이름**: `mateon_db`
 - **접속**: 로컬 `localhost:5432` (dev) / 배포 compose 네트워크 내 `postgres:5432`
-- **스키마 관리**: JPA `ddl-auto=update` (수동 마이그레이션 스크립트는 없음)
+- **스키마 관리**: Flyway (`src/main/resources/db/migration/V*.sql`) + JPA `ddl-auto=validate`
 
 ---
 
@@ -33,7 +34,8 @@ erDiagram
         varchar_100 school_email UK "nullable"
         boolean school_verified "NOT NULL, default false"
         varchar_50 name "NOT NULL"
-        varchar_20 campus "enum JUKJEON/CHEONAN"
+        varchar_100 school "자유 입력"
+        varchar_50 campus "자유 입력"
         varchar_100 college
         varchar_100 major
         varchar_10 grade
@@ -72,7 +74,7 @@ erDiagram
         text detail_url
         date start_date
         date end_date
-        varchar_20 campus_scope "enum JUKJEON/CHEONAN/ALL"
+        varchar_50 campus_scope "자유 입력, ALL이면 전국"
         varchar_255 target_colleges "JSON 문자열"
         varchar_100 external_id UK "NOT NULL"
         text embedding_vector
@@ -138,10 +140,11 @@ erDiagram
 | `password` | `varchar(255)` | nullable | BCrypt 해시. 소셜 유저는 `null` |
 | `provider` | `varchar(20)` | NOT NULL | `LOCAL`, `KAKAO`, `GOOGLE`, `NAVER`, `APPLE` |
 | `provider_id` | `varchar(100)` | nullable | 소셜 provider 내 고유 ID. 로컬은 `null` |
-| `school_email` | `varchar(100)` | UNIQUE, nullable | 학교(재학생) 인증 이메일 `@dankook.ac.kr` |
+| `school_email` | `varchar(100)` | UNIQUE, nullable | 학교(재학생) 인증 이메일 (`.ac.kr` 도메인) |
 | `school_verified` | `boolean` | NOT NULL, default `false` | 재학생 인증 여부 |
 | `name` | `varchar(50)` | NOT NULL | 이름 |
-| `campus` | `varchar(20)` | enum | `JUKJEON`(죽전), `CHEONAN`(천안) |
+| `school` | `varchar(100)` | | 학교명. 전국 확장을 위해 자유 입력 (예: `단국대학교`) |
+| `campus` | `varchar(50)` | | 캠퍼스명. 자유 입력 (예: `죽전`). 과거 enum 값 `JUKJEON`/`CHEONAN` 도 유효 |
 | `college` | `varchar(100)` | | 단과대학 |
 | `major` | `varchar(100)` | | 전공 |
 | `grade` | `varchar(10)` | | 학년 |
@@ -191,7 +194,7 @@ erDiagram
 | `detail_url` | `text` | | 원문 링크 |
 | `start_date` | `date` | | 시작일 |
 | `end_date` | `date` | | 종료일 |
-| `campus_scope` | `varchar(20)` | enum | `JUKJEON`, `CHEONAN`, `ALL` |
+| `campus_scope` | `varchar(50)` | | 대상 학교/캠퍼스. 자유 입력이며 `ALL` 이면 전국 대상 |
 | `target_colleges` | `varchar(255)` | | 대상 단과대학 (JSON/문자열, `LIKE` 검색 대상) |
 | `external_id` | `varchar(100)` | UNIQUE, NOT NULL | 외부 소스 고유 식별자(중복 수집 방지) |
 | `embedding_vector` | `text` | | 임베딩 벡터(문자열 직렬화) |

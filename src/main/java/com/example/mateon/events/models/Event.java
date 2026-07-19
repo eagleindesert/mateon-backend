@@ -41,9 +41,9 @@ public class Event {
     @Column(name = "end_date")
     private LocalDate endDate; // date 타입
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "campus_scope", length = 20)
-    private CampusScope campusScope; // enum
+    // 대상 학교/캠퍼스. 전국 확장으로 자유 입력 문자열이며, CAMPUS_SCOPE_ALL 이면 제한 없음.
+    @Column(name = "campus_scope", length = 50)
+    private String campusScope;
 
     // JSON 타입은 일반적인 String이나 Object로 매핑 후 직렬화/역직렬화 처리 필요
     private String target_colleges; // json (매핑 단순화를 위해 String으로 둡니다.)
@@ -60,12 +60,12 @@ public class Event {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // timestamp
 
+    // campusScope 가 이 값이면 학교 구분 없이 전국 대상이다.
+    public static final String CAMPUS_SCOPE_ALL = "ALL";
+
     // Enum 정의
     public enum Category {
         CONTEST, EXTERNAL, SCHOOL
-    }
-    public enum CampusScope {
-        JUKJEON, CHEONAN, ALL
     }
     @Column(name = "summarized_description", columnDefinition = "VARCHAR(500)")
     private String summarizedDescription;
