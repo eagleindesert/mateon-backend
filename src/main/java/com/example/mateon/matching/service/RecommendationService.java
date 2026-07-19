@@ -73,6 +73,18 @@ public class RecommendationService {
                 dropped, userId);
         }
 
+        // limit 은 AI 가 점수화해 준 건수를 넘을 수 없다 — 우리는 AI 응답에 담긴 것만 내려보내고
+        // limit 은 그걸 더 자를 뿐 늘리지 못한다. AI 서버에 top_k 상한(실측 10건)이 걸려 있어
+        // 후보를 아무리 많이 보내도 그 이상은 오지 않는다.
+        // 상한 값을 코드에 박지 않고 "후보보다 적게 왔는데 그게 요청 건수에도 못 미친다"는 사실로
+        // 판정한다 — AI 쪽 상한이 바뀌어도 이 진단은 그대로 맞는다.
+        int candidateCount = snapshot.getCandidates().size();
+        if (ranked.size() < candidateCount && ranked.size() < limit) {
+            log.warn("요청한 limit={} 를 채우지 못했습니다 - AI 가 후보 {}건 중 {}건만 점수화했습니다. "
+                + "AI 서버의 top_k 상한을 확인하세요 (백엔드 limit 으로는 늘릴 수 없습니다). userId={}",
+                limit, candidateCount, ranked.size(), userId);
+        }
+
         // ④ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
         try {
             logService.save(userId, eventId, snapshot.getCandidates().size(), ranked);

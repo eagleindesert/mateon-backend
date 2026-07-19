@@ -68,60 +68,76 @@ public class RecommendationQueryService {
         // 하나만 있는 상태는 정상 흐름에서 나오지 않지만(같은 트랜잭션에서 함께 저장된다),
         // 어느 쪽이 없든 사용자가 할 일은 "의도 추출 완료" 하나뿐이라 같은 에러로 묶는다.
         UserEmbedding userEmbedding = userEmbeddingRepository.findById(userId)
-            .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
         MatchingIntentSlot slot = slotRepository.findByUserId(userId)
-            .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
 
         // ── 후보 쪽 ────────────────────────────────────────────────────────────
         List<Team> teams = eventId != null
-            ? teamRepository.findByEventIdAndIsRecruitingTrue(eventId)
-            : teamRepository.findByIsRecruitingTrue();
+          ? teamRepository.findByEventIdAndIsRecruitingTrue(eventId)
+          : teamRepository.findByIsRecruitingTrue();
 
         Set<Long> excluded = excludedTeamIds(userId);
         List<Team> filtered = teams.stream()
-            .filter(team -> !excluded.contains(team.getId()))
-            .toList();
+          .filter(team -> !excluded.contains(team.getId()))
+          .toList();
 
         // 임베딩이 없는 팀은 후보가 될 수 없다 (팀 생성 직후 비동기 갱신이 아직 안 끝났거나 실패).
+        // V10 부터 행이 있어도 벡터가 null 일 수 있다 — 갱신에 한 번도 성공 못 한 팀의 실패 상태만
+        // 기록된 행이다. 여기서 걸러 두면 아래 containsKey 가 "쓸 수 있는 임베딩"을 뜻하게 된다.
+        Map<Long, TeamEmbedding> embeddings = teamEmbeddingRepository
+          .findAllById(filtered.stream().map(Team::getId).toList())
+          .stream()
+          .filter(embedding -> embedding.getEmbedding() != null)
+          .collect(Collectors.toMap(TeamEmbedding::getTeamId, Function.identity()));
+
         // 상한을 임베딩 확인 뒤에 적용하는 이유: 먼저 자르면 임베딩 없는 팀이 자리를 차지해
         // 실제 후보가 상한보다 적어진다.
-        Map<Long, TeamEmbedding> embeddings = teamEmbeddingRepository
-            .findAllById(filtered.stream().map(Team::getId).toList())
-            .stream()
-            .collect(Collectors.toMap(TeamEmbedding::getTeamId, Function.identity()));
+        List<Team> withEmbedding = filtered.stream()
+          .filter(team -> embeddings.containsKey(team.getId()))
+          .toList();
 
-        List<RecommendationSnapshot.Candidate> candidates = filtered.stream()
-            .filter(team -> embeddings.containsKey(team.getId()))
-            // 상한에 걸릴 때 무엇이 남는지가 결정적이어야 한다 — 최신 팀 우선.
-            .sorted(Comparator.comparing(Team::getId).reversed())
-            .limit(MAX_CANDIDATES)
-            .map(team -> new RecommendationSnapshot.Candidate(team, embeddings.get(team.getId())))
-            .toList();
+        // 일부만 누락된 경우는 아래 "후보 0건" 분기에 걸리지 않아 그냥 묻힌다. 50팀 중 3팀이 계속
+        // 추천에서 빠져도 알 수 없으므로 여기서 남긴다 (비동기 갱신 실패의 조기 신호).
+        // 상한 적용 전에 세야 한다 — candidates 는 MAX_CANDIDATES 로 잘려 차이가 부풀려진다.
+        int missingEmbedding = filtered.size() - withEmbedding.size();
+        if (missingEmbedding > 0) {
+            log.warn("임베딩이 없어 추천 후보에서 제외된 팀 {}건 (모집 중 {}건 중). "
+              + "team_embeddings.refresh_status 로 갱신 실패 여부를 확인하세요. userId={}, eventId={}",
+              missingEmbedding, filtered.size(), userId, eventId);
+        }
+
+        List<RecommendationSnapshot.Candidate> candidates = withEmbedding.stream()
+          // 상한에 걸릴 때 무엇이 남는지가 결정적이어야 한다 — 최신 팀 우선.
+          .sorted(Comparator.comparing(Team::getId).reversed())
+          .limit(MAX_CANDIDATES)
+          .map(team -> new RecommendationSnapshot.Candidate(team, embeddings.get(team.getId())))
+          .toList();
 
         // 후보 0건은 정상(모집 중인 팀이 없음)일 수도, 사고(팀은 있는데 임베딩이 하나도 없음)일
         // 수도 있다. 응답은 둘 다 빈 배열이라 밖에서는 구분이 안 되므로 여기서 갈라 남긴다.
         if (candidates.isEmpty()) {
             if (filtered.isEmpty()) {
                 log.info("추천 후보 없음 - 모집 중인 팀이 없습니다. userId={}, eventId={}, 조회={}건, 제외={}건",
-                    userId, eventId, teams.size(), teams.size() - filtered.size());
+                  userId, eventId, teams.size(), teams.size() - filtered.size());
             } else {
                 log.warn("추천 후보 없음 - 모집 중인 팀 {}건이 있으나 임베딩이 하나도 없습니다. "
-                    + "팀 임베딩 비동기 갱신(TeamEmbeddingRefreshListener) 실패를 의심하세요. userId={}, eventId={}",
-                    filtered.size(), userId, eventId);
+                  + "팀 임베딩 비동기 갱신(TeamEmbeddingRefreshListener) 실패를 의심하세요. userId={}, eventId={}",
+                  filtered.size(), userId, eventId);
             }
         }
 
         if (candidates.size() == MAX_CANDIDATES) {
             log.warn("추천 후보가 상한({})에 도달했습니다. 일부 팀이 추천에서 제외됩니다. "
-                + "pgvector 기반 1차 선별 도입을 검토하세요. userId={}, eventId={}",
-                MAX_CANDIDATES, userId, eventId);
+              + "pgvector 기반 1차 선별 도입을 검토하세요. userId={}, eventId={}",
+              MAX_CANDIDATES, userId, eventId);
         }
 
         return new RecommendationSnapshot(
-            userEmbedding.getEmbedding(),
-            slot.getDesiredRoles(), slot.getSkills(),
-            slot.getActivityStyle(), slot.getExperienceLevel(),
-            candidates);
+          userEmbedding.getEmbedding(),
+          slot.getDesiredRoles(), slot.getSkills(),
+          slot.getActivityStyle(), slot.getExperienceLevel(),
+          candidates);
     }
 
     /**
@@ -142,22 +158,22 @@ public class RecommendationQueryService {
 
         // 자율 프로젝트(eventId=null)는 조회할 활동이 없다.
         List<Long> eventIds = teamIds.stream()
-            .map(teamId -> teamsById.get(teamId).getEventId())
-            .filter(Objects::nonNull)
-            .distinct()
-            .toList();
+          .map(teamId -> teamsById.get(teamId).getEventId())
+          .filter(Objects::nonNull)
+          .distinct()
+          .toList();
 
         Map<Long, Event> eventsById = eventIds.isEmpty() ? Map.of()
-            : eventRepository.findAllById(eventIds).stream()
-                .collect(Collectors.toMap(Event::getId, Function.identity()));
+          : eventRepository.findAllById(eventIds).stream()
+            .collect(Collectors.toMap(Event::getId, Function.identity()));
 
         // 지원서가 없는 팀은 집계 결과에 아예 없다 → 아래에서 0 으로 채운다.
         Map<Long, Long> memberCounts = teamApplicationRepository
-            .countGroupedByTeamId(teamIds, ApplicationStatus.APPROVED)
-            .stream()
-            .collect(Collectors.toMap(
-                TeamApplicationRepository.TeamMemberCount::getTeamId,
-                TeamApplicationRepository.TeamMemberCount::getMemberCount));
+          .countGroupedByTeamId(teamIds, ApplicationStatus.APPROVED)
+          .stream()
+          .collect(Collectors.toMap(
+            TeamApplicationRepository.TeamMemberCount::getTeamId,
+            TeamApplicationRepository.TeamMemberCount::getMemberCount));
 
         Map<Long, TeamDisplayInfo> result = new HashMap<>();
         for (Long teamId : teamIds) {
@@ -166,7 +182,7 @@ public class RecommendationQueryService {
             Event event = eventId != null ? eventsById.get(eventId) : null;
             // 팀장 보정은 Team 에 모아 뒀다 — /api/teams 와 같은 숫자가 나와야 한다.
             result.put(teamId, new TeamDisplayInfo(event,
-                Team.confirmedMemberCount(memberCounts.getOrDefault(teamId, 0L).intValue())));
+              Team.confirmedMemberCount(memberCounts.getOrDefault(teamId, 0L).intValue())));
         }
         return result;
     }
@@ -179,7 +195,7 @@ public class RecommendationQueryService {
         teamRepository.findByLeaderUserId(userId).forEach(team -> excluded.add(team.getId()));
         // team 은 LAZY 지만 getId() 는 프록시에서 바로 읽혀 초기화가 일어나지 않는다.
         teamApplicationRepository.findByApplicantId(userId)
-            .forEach(application -> excluded.add(application.getTeam().getId()));
+          .forEach(application -> excluded.add(application.getTeam().getId()));
         return excluded;
     }
 }

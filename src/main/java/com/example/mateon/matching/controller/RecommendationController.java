@@ -30,7 +30,9 @@ public class RecommendationController {
      * <p>추천할 팀이 없으면 빈 배열이다 — "아직 후보가 없음"은 정상 상태라 404 가 아니다.
      *
      * @param eventId 지정 시 해당 활동의 팀만. 생략하면 전체 모집 중인 팀.
-     * @param limit   내려받을 상위 건수.
+     * @param limit   내려받을 상위 건수. 단, AI 서버가 상위 10건까지만 점수를 매겨 돌려주므로
+     *                10 을 넘겨도 실제로는 최대 10건이다 (후보를 아무리 많이 보내도 동일).
+     *                채우지 못하면 RecommendationService 가 warn 을 남긴다.
      */
     @GetMapping("/user-to-team")
     public ResponseEntity<ApiResponse<List<TeamRecommendationResponseDTO>>> recommendTeams(
