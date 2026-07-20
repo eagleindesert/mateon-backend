@@ -1,9 +1,11 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.UserToTeamRecommendationClient;
+import com.example.mateon.matching.client.RecommendationClient;
+import com.example.mateon.matching.client.RecommendationResponse;
+import com.example.mateon.matching.client.RecommendationResponse.Recommendation;
+import com.example.mateon.matching.client.TeamMetadata;
+import com.example.mateon.matching.client.UserMetadata;
 import com.example.mateon.matching.client.UserToTeamRecommendationRequest;
-import com.example.mateon.matching.client.UserToTeamRecommendationResponse;
-import com.example.mateon.matching.client.UserToTeamRecommendationResponse.Recommendation;
 import com.example.mateon.matching.dto.response.TeamRecommendationResponseDTO;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
@@ -34,7 +36,7 @@ public class RecommendationService {
 
     private final RecommendationQueryService queryService;
     private final RecommendationLogService logService;
-    private final UserToTeamRecommendationClient client;
+    private final RecommendationClient client;
 
     /**
      * @param eventId 지정 시 해당 활동의 팀만 후보. null 이면 전역.
@@ -51,7 +53,7 @@ public class RecommendationService {
         }
 
         // ② [TX 밖] FastAPI 호출. 수십 초가 걸려도 DB 커넥션을 잡고 있지 않다.
-        UserToTeamRecommendationResponse ai = client.recommend(buildRequest(snapshot));
+        RecommendationResponse ai = client.userToTeam(buildRequest(snapshot));
 
         // ③ 응답 정리: 우리가 보낸 후보만, 점수 내림차순
         Map<Long, Team> teamsById = snapshot.getCandidates().stream()
@@ -115,25 +117,17 @@ public class RecommendationService {
             candidate.getTeam().getId(),
             candidate.getEmbedding().getEmbedding(),
             // 메타데이터는 teams 원본이 아니라 team_embeddings 의 AI 정규화 값을
-            // 쓴다
-            // (이유는 UserToTeamRecommendationRequest.Metadata 주석
-            // 참고).
-            new UserToTeamRecommendationRequest.Metadata(
-                candidate.getEmbedding()
-                    .getRecruitingRoles(),
-                candidate.getEmbedding()
-                    .getRequiredSkills(),
-                candidate.getEmbedding()
-                    .getActivityStyle(),
-                candidate.getEmbedding()
-                    .getBeginnerFriendly())))
+            // 쓴다 (이유는 TeamMetadata 주석 참고).
+            new TeamMetadata(
+                candidate.getEmbedding().getRecruitingRoles(),
+                candidate.getEmbedding().getRequiredSkills(),
+                candidate.getEmbedding().getActivityStyle(),
+                candidate.getEmbedding().getBeginnerFriendly())))
             .toList();
 
         return new UserToTeamRecommendationRequest(snapshot.getQueryEmbedding(),
-            new UserToTeamRecommendationRequest.QueryMetadata(
-                snapshot.getDesiredRoles(), snapshot.getSkills(),
-                snapshot.getActivityStyle(),
-                snapshot.getExperienceLevel()),
+            new UserMetadata(snapshot.getDesiredRoles(), snapshot.getSkills(),
+                snapshot.getExperienceLevel(), snapshot.getActivityStyle()),
             candidates);
     }
 }

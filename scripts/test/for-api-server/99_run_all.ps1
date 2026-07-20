@@ -7,8 +7,9 @@
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
 #        13_recommendation  7회  (팀 생성 2 + 의도 추출 2 + 추천 점수화 3)
+#        14_reverse_offer   6회  (팀 생성 2 + 의도 추출 2 + 역제안 점수화 2)
 #        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
-#      -> 1회 전체 실행에 대략 20회 안팎. 반복 실행하면 그만큼 누적됩니다.
+#      -> 1회 전체 실행에 대략 26회 안팎. 반복 실행하면 그만큼 누적됩니다.
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
 #        pwsh -File .\debug\ai-stub\stub-ai-server.ps1      # 포트 8000
@@ -117,6 +118,13 @@ Write-Host "`n===== 13) Recommendation (유저→팀 추천) =====" -ForegroundC
 # 후보 팀은 유저 B 가 만든다(내가 팀장인 팀은 추천에서 제외되므로). B 계정 인자를 넘긴다.
 # 12 번 뒤에 두는 이유: 팀 임베딩이 저장돼 있어야 추천 후보가 생긴다.
 & "$PSScriptRoot\13_recommendation.ps1" @chatArgs
+
+Write-Host "`n===== 14) Reverse Offer (역제안: 팀→유저) =====" -ForegroundColor Magenta
+# 13 번과 반대 방향이다 — A 가 팀장이 되어 B 를 추천받고 제안을 보내면 B 가 수락한다.
+# B 의 의도 추출도 이 안에서 수행한다(13 번은 A 만 시켰다). B 계정 인자를 넘긴다.
+& "$PSScriptRoot\14_reverse_offer.ps1" @chatArgs
+# 14 번은 활성 세션을 A 로 되돌려 놓지만, 토큰 파일 기반이라 슬롯과 어긋날 수 있어 맞춰 준다.
+Use-User "A" -Quiet | Out-Null
 
 Write-Host "`n===== 15) Review (협업 온도) =====" -ForegroundColor Magenta
 # 유저 3명이 서로 평가해야 하는 유일한 테스트다. 온도는 받은 평가가 2건 이상이어야 공개되므로

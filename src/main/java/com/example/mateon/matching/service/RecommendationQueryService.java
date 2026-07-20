@@ -7,20 +7,28 @@ import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
+import com.example.mateon.matching.dto.snapshot.UserDisplayInfo;
+import com.example.mateon.matching.dto.snapshot.UserRecommendationSnapshot;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamEmbedding;
+import com.example.mateon.teams.domain.TeamMember;
 import com.example.mateon.teams.repository.TeamApplicationRepository;
 import com.example.mateon.teams.repository.TeamEmbeddingRepository;
 import com.example.mateon.teams.repository.TeamMemberRepository;
+import com.example.mateon.teams.repository.TeamOfferRepository;
 import com.example.mateon.teams.repository.TeamRepository;
+import com.example.mateon.user.domain.User;
+import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.domain.UserEmbedding;
+import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.user.repository.UserEmbeddingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,7 +65,9 @@ public class RecommendationQueryService {
     private final TeamEmbeddingRepository teamEmbeddingRepository;
     private final TeamApplicationRepository teamApplicationRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamOfferRepository teamOfferRepository;
     private final EventRepository eventRepository;
+    private final UserCollaborationScoreRepository collaborationScoreRepository;
 
     /**
      * 질의(사용자)와 후보(팀)를 모아 detach 된 스냅샷으로 돌려준다.
@@ -186,6 +196,132 @@ public class RecommendationQueryService {
               memberCounts.getOrDefault(teamId, 0L).intValue()));
         }
         return result;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  역제안 (팀 → 유저)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 팀을 질의로 삼아 후보 유저들을 모아 detach 된 스냅샷으로 돌려준다.
+     *
+     * <p>질의 벡터는 팀의 기존 team_embeddings 를 그대로 재사용한다 — 팀 embedding_text 가 이미
+     * 모집 역할/요구 스킬 중심으로 렌더링돼 있어 "이 팀이 뭘 필요로 하는가"를 충분히 대변한다.
+     *
+     * @param leaderUserId 요청자. 팀장이 아니면 거절한다.
+     */
+    public UserRecommendationSnapshot gatherForTeam(Long teamId, Long leaderUserId) {
+        // ── 질의 쪽: 팀 + 팀 임베딩 ────────────────────────────────────────────
+        Team team = teamRepository.findById(teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (!team.getLeaderUserId().equals(leaderUserId)) {
+            throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
+        }
+
+        // 행이 있어도 벡터가 null 일 수 있다 (V10 — 갱신에 한 번도 성공 못 한 팀의 실패 기록).
+        // 유저→팀 방향에서는 그런 팀이 그냥 후보에서 빠졌지만, 여기서는 질의 자체가 불가능하다.
+        TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId)
+          .filter(embedding -> embedding.getEmbedding() != null)
+          .orElseThrow(() -> {
+              log.warn("팀 임베딩이 없어 역제안 추천을 할 수 없습니다. "
+                + "team_embeddings.refresh_status 로 비동기 갱신 실패 여부를 확인하세요. teamId={}", teamId);
+              return new MateonException(ErrorCode.TEAM_EMBEDDING_NOT_READY);
+          });
+
+        // ── 후보 쪽: 의도 추출을 마친 유저 전원에서 제외 대상을 뺀다 ──────────
+        List<MatchingIntentSlot> slots = slotRepository.findAllWithUser();
+
+        Set<Long> excluded = excludedUserIds(teamId);
+        List<MatchingIntentSlot> filtered = slots.stream()
+          .filter(slot -> !excluded.contains(slot.getUser().getId()))
+          .toList();
+
+        // 슬롯과 user_embeddings 는 같은 트랜잭션에서 저장되므로 정상 흐름에서는 항상 짝이 맞다.
+        // 그래도 확인하는 이유는 벡터 없이 AI 를 부르면 422 가 나기 때문이다.
+        Map<Long, UserEmbedding> embeddings = userEmbeddingRepository
+          .findAllById(filtered.stream().map(slot -> slot.getUser().getId()).toList())
+          .stream()
+          .filter(embedding -> embedding.getEmbedding() != null)
+          .collect(Collectors.toMap(UserEmbedding::getUserId, Function.identity()));
+
+        List<MatchingIntentSlot> withEmbedding = filtered.stream()
+          .filter(slot -> embeddings.containsKey(slot.getUser().getId()))
+          .toList();
+
+        int missingEmbedding = filtered.size() - withEmbedding.size();
+        if (missingEmbedding > 0) {
+            log.warn("임베딩이 없어 역제안 후보에서 제외된 유저 {}건 (의도 추출 완료 {}건 중). "
+              + "슬롯만 있고 user_embeddings 가 없는 상태입니다. teamId={}",
+              missingEmbedding, filtered.size(), teamId);
+        }
+
+        List<UserRecommendationSnapshot.Candidate> candidates = withEmbedding.stream()
+          // 상한에 걸릴 때 무엇이 남는지가 결정적이어야 한다 — 최근 가입자 우선.
+          .sorted(Comparator.comparing((MatchingIntentSlot slot) -> slot.getUser().getId()).reversed())
+          .limit(MAX_CANDIDATES)
+          .map(slot -> new UserRecommendationSnapshot.Candidate(
+            slot.getUser(), slot, embeddings.get(slot.getUser().getId()).getEmbedding()))
+          .toList();
+
+        // 후보 0건은 정상(추천할 사람이 아직 없음)일 수도, 사고(의도 추출 유저는 있는데 전부
+        // 제외됨)일 수도 있다. 응답은 둘 다 빈 배열이라 밖에서는 구분이 안 된다.
+        if (candidates.isEmpty()) {
+            log.info("역제안 후보 없음. teamId={}, 의도추출완료={}건, 제외={}건",
+              teamId, slots.size(), slots.size() - filtered.size());
+        }
+
+        if (candidates.size() == MAX_CANDIDATES) {
+            log.warn("역제안 후보가 상한({})에 도달했습니다. 일부 유저가 추천에서 제외됩니다. "
+              + "pgvector 기반 1차 선별 도입을 검토하세요. teamId={}", MAX_CANDIDATES, teamId);
+        }
+
+        return new UserRecommendationSnapshot(
+          teamEmbedding.getEmbedding(),
+          teamEmbedding.getRecruitingRoles(), teamEmbedding.getRequiredSkills(),
+          teamEmbedding.getActivityStyle(), teamEmbedding.getBeginnerFriendly(),
+          candidates);
+    }
+
+    /**
+     * 응답에 실을 유저들의 표시 정보를 한 번에 모아 온다.
+     *
+     * <p>{@link #loadDisplayInfo} 와 같은 이유로 상위 N 건을 자른 뒤에 호출한다. User 는 이미
+     * 스냅샷에 들어 있으므로 여기서는 협업 온도만 배치로 붙인다.
+     */
+    public Map<Long, UserDisplayInfo> loadUserDisplayInfo(List<Long> userIds,
+                                                          Map<Long, User> usersById) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        // 평가를 한 번도 안 받았으면 행이 없다. 그건 "0도"가 아니라 비공개(null)와 같게 다룬다.
+        Map<Long, BigDecimal> temperatures = collaborationScoreRepository.findByUserIdIn(userIds)
+          .stream()
+          .filter(score -> score.getTemperature() != null)
+          .collect(Collectors.toMap(UserCollaborationScore::getUserId,
+            UserCollaborationScore::getTemperature));
+
+        Map<Long, UserDisplayInfo> result = new HashMap<>();
+        for (Long userId : userIds) {
+            result.put(userId, new UserDisplayInfo(usersById.get(userId), temperatures.get(userId)));
+        }
+        return result;
+    }
+
+    /**
+     * 이 팀에 추천해 봐야 제안을 보낼 수 없는 사람들 — 이미 팀원(팀장 포함)이거나, 이 팀에
+     * 지원서를 냈거나, 이 팀에게서 이미 제안을 받은 유저.
+     */
+    private Set<Long> excludedUserIds(Long teamId) {
+        Set<Long> excluded = new HashSet<>();
+        teamMemberRepository.findByTeamIdAndLeftAtIsNull(teamId).stream()
+          // user 는 LAZY 지만 getId() 는 프록시에서 바로 읽혀 초기화가 일어나지 않는다.
+          .map(TeamMember::getUser)
+          .forEach(user -> excluded.add(user.getId()));
+        teamApplicationRepository.findByTeamId(teamId)
+          .forEach(application -> excluded.add(application.getApplicant().getId()));
+        excluded.addAll(teamOfferRepository.findTargetUserIdsByTeamId(teamId));
+        return excluded;
     }
 
     /**

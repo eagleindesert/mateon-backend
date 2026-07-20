@@ -48,6 +48,14 @@
         // "아직 준비가 안 됐다"이지 "없다"가 아니라 404 가 아닌 400 으로 준다.
         MATCHING_INTENT_REQUIRED("먼저 매칭 의도 추출을 완료해주세요."),
 
+        // 역제안(팀→유저) 관련 ---
+        // 팀 임베딩은 팀 생성/수정 후 비동기로 계산된다. 아직이거나 실패한 상태에서는 팀을
+        // 질의 벡터로 쓸 수 없다. "없다"가 아니라 "아직 준비가 안 됐다"라 404 가 아닌 400 이다
+        // (MATCHING_INTENT_REQUIRED 와 같은 성격).
+        TEAM_EMBEDDING_NOT_READY("팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
+        TEAM_RECRUITMENT_CLOSED("모집이 마감되었거나 종료된 팀입니다."),
+        OFFER_ALREADY_RESPONDED("이미 처리된 제안입니다."),
+
         // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
         // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.
         AI_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),

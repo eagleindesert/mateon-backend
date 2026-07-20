@@ -8,7 +8,8 @@ import lombok.Setter;
 import java.util.List;
 
 /**
- * FastAPI POST /recommendations/user-to-team 응답 본문.
+ * FastAPI 추천 응답 본문. 두 방향(user-to-team / team-to-user)이 같은 스키마를 쓴다 —
+ * 엔드포인트만 다르고 응답 모양은 동일하다는 게 AI 명세다.
  *
  * <p>@JsonNaming 을 쓰지 않고 @JsonProperty 만 쓰는 이유, @JsonIgnoreProperties 를 클래스에
  * 명시하는 이유는 {@link IntentExtractResponse} 참조.
@@ -20,7 +21,7 @@ import java.util.List;
 @Getter
 @Setter
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class UserToTeamRecommendationResponse {
+public class RecommendationResponse {
 
     private List<Recommendation> recommendations;
 
@@ -29,7 +30,10 @@ public class UserToTeamRecommendationResponse {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Recommendation {
 
-        /** 우리가 보낸 candidate_id(= teamId). 보낸 적 없는 값이 오면 호출자가 무시한다. */
+        /**
+         * 우리가 보낸 candidate_id. 방향에 따라 teamId(user-to-team) 또는 userId(team-to-user)다.
+         * 보낸 적 없는 값이 오면 호출자가 무시한다.
+         */
         @JsonProperty("candidate_id")
         private Long candidateId;
 

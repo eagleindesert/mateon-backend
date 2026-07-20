@@ -19,6 +19,7 @@ import com.example.mateon.teams.dto.response.TeamResponseDTO;
 import com.example.mateon.teams.event.TeamEmbeddingRefreshRequestedEvent;
 import com.example.mateon.teams.repository.TeamApplicationRepository;
 import com.example.mateon.teams.repository.TeamMemberRepository;
+import com.example.mateon.teams.repository.TeamOfferRepository;
 import com.example.mateon.teams.repository.TeamRepository;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
@@ -40,6 +41,7 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final TeamApplicationRepository applicationRepository;
+    private final TeamOfferRepository offerRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
@@ -190,6 +192,9 @@ public class TeamService {
         }
 
         applicationRepository.deleteByTeamId(teamId);
+        // 제안도 함께 지운다. DB 는 FK CASCADE 로 정리하지만, 지원서와 대칭을 맞추고
+        // 영속성 컨텍스트에 남은 제안이 팀 삭제 뒤에 flush 되는 일을 막는다.
+        offerRepository.deleteByTeamId(teamId);
         teamRepository.delete(team);
     }
 

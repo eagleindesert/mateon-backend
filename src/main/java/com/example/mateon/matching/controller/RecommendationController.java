@@ -2,7 +2,9 @@ package com.example.mateon.matching.controller;
 
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.matching.dto.response.TeamRecommendationResponseDTO;
+import com.example.mateon.matching.dto.response.UserRecommendationResponseDTO;
 import com.example.mateon.matching.service.RecommendationService;
+import com.example.mateon.matching.service.TeamToUserRecommendationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -22,6 +24,7 @@ import java.util.List;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+    private final TeamToUserRecommendationService teamToUserRecommendationService;
 
     /**
      * 지원할 만한 모집 중인 팀을 적합도 순으로 추천한다.
@@ -43,5 +46,29 @@ public class RecommendationController {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(ApiResponse.success(
                 recommendationService.recommendTeams(userId, eventId, limit)));
+    }
+
+    /**
+     * 역제안 — 이 팀에 맞는 유저를 적합도 순으로 추천한다. 팀장만 호출할 수 있다.
+     *
+     * <p>여기서 나온 유저에게 POST /api/teams/{teamId}/offers 로 제안을 보내면, 그 유저가
+     * 수락 여부를 결정한다 (지원과 승인 주체가 반대인 경로).
+     *
+     * <p>후보는 매칭 의도 추출을 마친 유저뿐이다. 이미 이 팀의 팀원/지원자이거나 이 팀에게서
+     * 제안을 받은 적이 있는 유저는 제외된다. 추천할 유저가 없으면 빈 배열이다 (404 아님).
+     *
+     * @param teamId 추천을 받을 팀. 요청자가 이 팀의 팀장이 아니면 403.
+     * @param limit  내려받을 상위 건수. user-to-team 과 마찬가지로 AI 가 점수를 매겨 준
+     *               건수를 넘을 수 없다.
+     */
+    @GetMapping("/team-to-user")
+    public ResponseEntity<ApiResponse<List<UserRecommendationResponseDTO>>> recommendUsers(
+            @RequestParam Long teamId,
+            @RequestParam(defaultValue = "10") int limit,
+            Authentication authentication
+    ) {
+        Long leaderUserId = Long.valueOf(authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success(
+                teamToUserRecommendationService.recommendUsers(teamId, leaderUserId, limit)));
     }
 }

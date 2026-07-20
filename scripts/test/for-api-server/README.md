@@ -50,6 +50,7 @@
 | `15_review.ps1` | 협업 온도 `/api/teams/{id}/complete`, `/reviews` — 3명이 서로 평가하는 전 과정 | **필요** |
 | `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만) | **필요** |
 | `11_matching_intent.ps1` | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동 | **필요** |
+| `14_reverse_offer.ps1` | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요) | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
 ## 설정(CONFIG)
