@@ -52,6 +52,7 @@
 | `11_matching_intent.ps1` | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동 | **필요** |
 | `14_reverse_offer.ps1` | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요) | **필요** |
 | `16_recommendation_reason.ps1` | 추천 상세 이유 `/api/matching/recommendations/reason/{방향}` — 양방향 생성 + **캐시 hit**(재요청 시 AI 재호출 없음) 검증 (A·B 필요) | **필요** |
+| `17_proposal_assembly.ps1` | 최종 제안 조립 `/api/matching/proposals/{방향}` — AI 가 지원/제안 문구 초안을 쓴다. **저장하지 않는 게 계약**이라 재요청 시 새 문구가 나와야 하고(16 번과 반대), 초안 → `/apply` 발송까지 이어 검증 (A·B 필요) | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
 ## 설정(CONFIG)

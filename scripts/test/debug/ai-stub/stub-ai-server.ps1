@@ -4,6 +4,9 @@
 #   POST /internal/teams/embedding:refresh (팀 임베딩 계산)
 #   POST /recommendations/user-to-team     (유저→팀 추천 점수 계산)
 #   POST /recommendations/team-to-user     (팀→유저 역제안 추천 점수 계산)
+#   POST /recommendations/reason           (선택된 한 쌍의 상세 이유)
+#   POST /proposals/user-to-team           (최종 제안 조립 - 지원 문구 초안)
+#   POST /proposals/team-to-user           (최종 역제안 조립 - 제안 문구 초안)
 #
 # 실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한 도구다.
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
@@ -54,7 +57,7 @@ try {
 }
 
 Write-Host ("=" * 70) -ForegroundColor DarkGray
-Write-Host " AI 서버 스텁 (intents/extract, teams/embedding:refresh, recommendations 양방향+reason)" -ForegroundColor Magenta
+Write-Host " AI 서버 스텁 (intents, teams/embedding, recommendations 양방향+reason, proposals 양방향)" -ForegroundColor Magenta
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 Write-Host "  리스닝: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  임베딩 차원: $EmbeddingDimension" -ForegroundColor DarkGray
@@ -77,6 +80,9 @@ Write-Host "    query=팀(recruiting_roles), candidates=유저(desired_roles) - 
 Write-Host "  동작 (/recommendations/reason): 받은 세 요약을 그대로 찍고 [stub#N] 문장 반환" -ForegroundColor DarkGray
 Write-Host "    N 은 호출 일련번호 — 같은 쌍을 두 번 물었는데 N 이 같으면 백엔드 캐시가 동작한 것" -ForegroundColor DarkGray
 Write-Host "    candidate_summary/target_summary 가 비면 [!!] 로 표시된다 (백엔드 조립 실패)" -ForegroundColor DarkGray
+Write-Host "  동작 (/proposals/*): 받은 식별자를 에코하고 [stub#N] 초안(summary+message) 반환" -ForegroundColor DarkGray
+Write-Host "    sender_id/receiver_id 가 방향에 맞는지 스텁이 직접 대조해 [OK]/[!!] 로 표시" -ForegroundColor DarkGray
+Write-Host "    초안은 캐시하지 않는 게 정상이라 같은 쌍을 두 번 물으면 N 이 올라가야 한다" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  중지: Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
@@ -86,6 +92,10 @@ $rand = New-Object System.Random
 # /recommendations/reason 호출 일련번호. 생성된 문장에 박아 넣어 백엔드의 이유 캐시가
 # 동작하는지 밖에서 확인할 수 있게 한다 (같은 쌍을 두 번 물었는데 번호가 같으면 캐시 hit).
 $script:ReasonCallCount = 0
+
+# /proposals/* 호출 일련번호. 위와 같은 장치인데 기대하는 결론이 반대다 — 제안 초안은 캐시하지
+# 않기로 했으므로, 같은 쌍을 두 번 물으면 번호가 반드시 올라가야 한다.
+$script:ProposalCallCount = 0
 
 # 난수 임베딩 벡터 생성 (두 엔드포인트가 공유)
 function New-StubVector {
@@ -120,7 +130,8 @@ try {
 
         $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh",
                         "/recommendations/user-to-team", "/recommendations/team-to-user",
-                        "/recommendations/reason")
+                        "/recommendations/reason",
+                        "/proposals/user-to-team", "/proposals/team-to-user")
         if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
             Write-Host "  -> 404 (이 스텁은 POST $($knownPaths -join ', ') 만 처리)" -ForegroundColor Yellow
             Write-Json -Response $response -Object @{ detail = "Not Found" } -StatusCode 404
@@ -368,6 +379,76 @@ try {
             }
 
             Write-Host "  -> 200 (reason 생성 #$($script:ReasonCallCount), $($payload.reason.Length)자)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /proposals/user-to-team, /proposals/team-to-user (최종 제안 조립) ---
+        #
+        # 두 방향이 같은 스키마(ProposalAssemblyRequest)를 쓰고 경로만 다르다. 응답 ProposalSchema
+        # 는 받은 식별자를 그대로 에코하고 direction/summary/message 를 얹는다.
+        #
+        # 여기서 눈으로 볼 것:
+        #   - sender_id/receiver_id 가 방향에 맞게 뒤집혔는가 (user-to-team 이면 sender=user_id)
+        #   - synergy_score 가 추천 목록에서 본 점수와 같은가 (조립 단계에서 재계산하지 않는다)
+        #   - candidate_summary/target_summary 가 채워져 나가는가 (reason 과 같은 리스크)
+        #   - contest_id 가 null 인가 (자율 프로젝트 팀. 실서버는 이걸 거부할 수 있다)
+        if ($path -eq "/proposals/user-to-team" -or $path -eq "/proposals/team-to-user") {
+            $direction = if ($path -eq "/proposals/user-to-team") { "USER_TO_TEAM" } else { "TEAM_TO_USER" }
+            Write-Host "  direction(경로에서): $direction" -ForegroundColor White
+
+            Write-Host ("  user_id={0}  team_id={1}  contest_id={2}  intent_id={3}" -f `
+                $body.user_id, $body.team_id,
+                $(if ($null -eq $body.contest_id) { "null(자율 프로젝트)" } else { $body.contest_id }),
+                $body.intent_id) -ForegroundColor Gray
+
+            # 방향에 맞는 sender/receiver 를 스텁이 직접 계산해 비교한다. 자리를 바꿔 보내는
+            # 실수는 응답만 봐서는 절대 드러나지 않는다 (AI 가 되돌려 주기만 하므로).
+            $expectedSender   = if ($direction -eq "USER_TO_TEAM") { $body.user_id } else { $body.team_id }
+            $expectedReceiver = if ($direction -eq "USER_TO_TEAM") { $body.team_id } else { $body.user_id }
+            if ($body.sender_id -eq $expectedSender -and $body.receiver_id -eq $expectedReceiver) {
+                Write-Host ("  [OK] sender_id={0} receiver_id={1} - 방향에 맞다" -f `
+                    $body.sender_id, $body.receiver_id) -ForegroundColor Green
+            } else {
+                Write-Host ("  [!!] sender/receiver 가 뒤집혔다. 받은 sender={0} receiver={1}, 기대 sender={2} receiver={3}" -f `
+                    $body.sender_id, $body.receiver_id, $expectedSender, $expectedReceiver) -ForegroundColor Red
+            }
+
+            if ($null -eq $body.synergy_score) {
+                Write-Host "  [!!] synergy_score 가 없다 - 추천 이력에서 못 가져온 것" -ForegroundColor Red
+            } else {
+                Write-Host "  synergy_score: $($body.synergy_score)" -ForegroundColor Gray
+            }
+
+            foreach ($field in @("candidate_summary", "target_summary")) {
+                $value = $body.$field
+                Write-Host "  ${field}:" -ForegroundColor White
+                if ([string]::IsNullOrWhiteSpace($value)) {
+                    Write-Host "    [!!] 비어 있음 - 백엔드가 요약을 조립하지 못했다" -ForegroundColor Red
+                } else {
+                    Write-Host "    $value" -ForegroundColor Gray
+                }
+            }
+
+            # 일련번호를 문장에 박는다. 제안 초안은 캐시하지 않기로 했으므로 같은 쌍을 두 번
+            # 요청하면 번호가 반드시 증가해야 한다 (reason 과 기대가 반대다).
+            $script:ProposalCallCount++
+            $payload = [ordered]@{
+                user_id                   = $body.user_id
+                team_id                   = $body.team_id
+                contest_id                = $body.contest_id
+                sender_id                 = $body.sender_id
+                receiver_id               = $body.receiver_id
+                intent_id                 = $body.intent_id
+                direction                 = $direction
+                synergy_score             = $body.synergy_score
+                # 명세상 항상 null 인 예약 필드. 백엔드가 이걸 읽지 않는지 확인하려고 실어 보낸다.
+                portfolio_role_fit_score  = $null
+                summary                   = "[stub#$($script:ProposalCallCount)] $($body.candidate_summary) 를 바탕으로 함께하고 싶습니다."
+                message                   = "[stub#$($script:ProposalCallCount)] 안녕하세요. $($body.target_summary) 에 관심이 있어 연락드립니다."
+            }
+
+            Write-Host "  -> 200 (제안 조립 #$($script:ProposalCallCount), direction=$direction)" -ForegroundColor Green
             Write-Json -Response $response -Object $payload
             continue
         }

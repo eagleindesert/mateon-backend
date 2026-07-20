@@ -7,6 +7,7 @@ import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
 import com.example.mateon.matching.domain.UserToTeamRecommendationItem;
+import com.example.mateon.matching.dto.snapshot.ProposalSnapshot;
 import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
@@ -388,6 +389,76 @@ public class RecommendationQueryService {
           RecommendationSummaryFactory.scoreContext(item.getScore(), item.getRankNo(),
             item.getLabel()),
           null);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  최종 제안 조립
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // 위 gatherReason* 과 재료가 같다(추천 아이템 + 요약 두 개). 다른 점은 세 가지뿐이다:
+    //   ① 캐시 분기가 없다 — 초안은 저장하지 않으므로 조기 반환할 값이 없다.
+    //   ② scoreContext 문자열이 아니라 score 원값을 넘긴다 (AI 가 숫자로 받는다).
+    //   ③ contestId / intentId 를 함께 담는다 (AI 서버가 되돌려 줄 명목 식별자).
+    //
+    // 그래도 gatherReason* 과 합치지 않는다 — 반환 타입과 캐시 유무가 달라, 합치면 호출자마다
+    // 쓰지 않는 필드를 들고 다니게 된다.
+
+    /**
+     * 유저→팀 방향의 제안 조립 재료. 후보는 선택된 팀, 대상은 요청자 본인이다.
+     *
+     * <p>권한 검사가 따로 없는 건 {@link #gatherReasonForUserToTeam} 과 같은 이유다 — 자기
+     * 로그에 없는 팀은 애초에 찾히지 않는다.
+     */
+    public ProposalSnapshot gatherProposalForUserToTeam(Long userId, Long teamId) {
+        // synergy_score 는 재계산하지 않는다(AI 명세). 추천 이력이 그 값의 유일한 출처이므로,
+        // 없으면 조립 자체가 불가능하다 — 추천을 거치지 않은 지원은 기존 /apply 로 하면 된다.
+        UserToTeamRecommendationItem item = userToTeamLogRepository
+          .findLatestItem(userId, teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+
+        MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(userId)
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+        Team team = teamRepository.findById(teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+        // 추천 시점엔 있었어도 그 뒤 사라졌을 수 있다. 요약 조립이 null 을 견딘다.
+        TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
+
+        return new ProposalSnapshot(userId, teamId,
+          team.getEventId(),   // 자율 프로젝트면 null — 정상이다
+          slot.getId(),
+          item.getScore(),
+          RecommendationSummaryFactory.teamSummary(teamEmbedding, team),
+          RecommendationSummaryFactory.userSummary(slot, slot.getUser()));
+    }
+
+    /**
+     * 팀→유저(역제안) 방향의 제안 조립 재료. 후보는 선택된 유저, 대상은 요청한 팀이다.
+     *
+     * @param leaderUserId 요청자. 팀장이 아니면 거절한다 — {@link #gatherForTeam} 과 같은 규칙이다.
+     */
+    public ProposalSnapshot gatherProposalForTeamToUser(Long teamId, Long targetUserId,
+                                                        Long leaderUserId) {
+        // 팀장 검증이 먼저다. 남의 팀 추천 이력의 존재 여부를 404/200 차이로 흘리지 않는다.
+        Team team = teamRepository.findById(teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (!team.getLeaderUserId().equals(leaderUserId)) {
+            throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
+        }
+
+        TeamToUserRecommendationItem item = teamToUserLogRepository
+          .findLatestItem(teamId, targetUserId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+
+        MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(targetUserId)
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+        TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
+
+        return new ProposalSnapshot(targetUserId, teamId,
+          team.getEventId(),
+          slot.getId(),
+          item.getScore(),
+          RecommendationSummaryFactory.userSummary(slot, slot.getUser()),
+          RecommendationSummaryFactory.teamSummary(teamEmbedding, team));
     }
 
     /**

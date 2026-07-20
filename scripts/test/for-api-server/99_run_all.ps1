@@ -9,7 +9,9 @@
 #        13_recommendation  7회  (팀 생성 2 + 의도 추출 2 + 추천 점수화 3)
 #        14_reverse_offer   6회  (팀 생성 2 + 의도 추출 2 + 역제안 점수화 2)
 #        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
-#      -> 1회 전체 실행에 대략 26회 안팎. 반복 실행하면 그만큼 누적됩니다.
+#        16_recommendation_reason 8회 (팀 1 + 의도 4 + 점수화 2 + 이유 2, 캐시 hit 는 제외)
+#        17_proposal_assembly    10회 (팀 1 + 의도 4 + 점수화 2 + 조립 3)
+#      -> 1회 전체 실행에 대략 44회 안팎. 반복 실행하면 그만큼 누적됩니다.
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
 #        pwsh -File .\debug\ai-stub\stub-ai-server.ps1      # 포트 8000
@@ -42,7 +44,7 @@ Reset-TestResults
 
 # 과금 경고는 파일 상단 주석만으로는 놓치기 쉬워 실행 시에도 보여준다.
 Write-Host ""
-Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 20회 호출합니다 (과금 발생)." -ForegroundColor Yellow
+Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 44회 호출합니다 (과금 발생)." -ForegroundColor Yellow
 Write-Host "      과금을 피하려면 백엔드 AI_BASE_URL 을 로컬 스텁으로 돌려두세요 - 파일 상단 주석 참고." -ForegroundColor DarkGray
 Write-Host ""
 
@@ -139,6 +141,12 @@ Write-Host "`n===== 16) Recommendation Reason (추천 상세 이유) =====" -For
 # 추천 아이템을 근거로 삼는데, 앞 스크립트들이 -Cleanup 으로 팀을 지웠는지에 따라 그 쌍이
 # 있을 수도 없을 수도 있어 의존하면 불안정해진다.
 & "$PSScriptRoot\16_recommendation_reason.ps1" @chatArgs
+Use-User "A" -Quiet | Out-Null
+
+Write-Host "`n===== 17) Proposal Assembly (최종 제안 조립) =====" -ForegroundColor Magenta
+# 16 번과 같은 이유로 추천 이력을 자체 생성한다. 조립은 아무것도 저장하지 않지만, 마지막에
+# 초안을 기존 /apply 로 실제 발송해 보므로 유저 A 의 지원서가 1건 늘어난다.
+& "$PSScriptRoot\17_proposal_assembly.ps1" @chatArgs
 Use-User "A" -Quiet | Out-Null
 
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
