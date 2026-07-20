@@ -51,6 +51,7 @@
 | `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만) | **필요** |
 | `11_matching_intent.ps1` | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동 | **필요** |
 | `14_reverse_offer.ps1` | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요) | **필요** |
+| `16_recommendation_reason.ps1` | 추천 상세 이유 `/api/matching/recommendations/reason/{방향}` — 양방향 생성 + **캐시 hit**(재요청 시 AI 재호출 없음) 검증 (A·B 필요) | **필요** |
 | `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
 
 ## 설정(CONFIG)

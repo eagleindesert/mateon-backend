@@ -5,11 +5,16 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
+import com.example.mateon.matching.domain.UserToTeamRecommendationItem;
+import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserRecommendationSnapshot;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
+import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
+import com.example.mateon.matching.repository.UserToTeamRecommendationLogRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamEmbedding;
 import com.example.mateon.teams.domain.TeamMember;
@@ -68,6 +73,9 @@ public class RecommendationQueryService {
     private final TeamOfferRepository teamOfferRepository;
     private final EventRepository eventRepository;
     private final UserCollaborationScoreRepository collaborationScoreRepository;
+    // 상세 이유는 추천 이력을 근거로 삼는다 — 여기서만 점수/순위/근거 문구와 캐시를 읽는다.
+    private final UserToTeamRecommendationLogRepository userToTeamLogRepository;
+    private final TeamToUserRecommendationLogRepository teamToUserLogRepository;
 
     /**
      * 질의(사용자)와 후보(팀)를 모아 detach 된 스냅샷으로 돌려준다.
@@ -306,6 +314,80 @@ public class RecommendationQueryService {
             result.put(userId, new UserDisplayInfo(usersById.get(userId), temperatures.get(userId)));
         }
         return result;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  상세 이유 (lazy)
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // 두 메서드 모두 요약 문자열 조립까지 여기서 끝낸다. 폴백이 slot/user/embedding/team 네
+    // 엔티티를 오가는데 그걸 TX 밖으로 들고 나가면 LazyInitializationException 표면적만 넓어진다
+    // (ReasonSnapshot 이 엔티티를 하나도 담지 않는 이유).
+
+    /**
+     * 유저→팀 방향의 상세 이유 재료. 후보는 선택된 팀, 대상은 요청자 본인이다.
+     *
+     * <p>권한 검사가 따로 없는 건 조회 자체가 곧 검사이기 때문이다 — 자기 로그에 없는 팀은
+     * 애초에 찾히지 않는다.
+     */
+    public ReasonSnapshot gatherReasonForUserToTeam(Long userId, Long teamId) {
+        // 추천 이력이 이유의 근거다. 없으면 "추천받은 적 없는 팀의 이유를 요청"한 것이라 404 다.
+        UserToTeamRecommendationItem item = userToTeamLogRepository
+          .findLatestItem(userId, teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+
+        // 캐시가 있으면 요약을 조립할 이유도, 나머지를 읽을 이유도 없다.
+        if (item.getReason() != null && !item.getReason().isBlank()) {
+            return new ReasonSnapshot(item.getId(), null, null, null, item.getReason());
+        }
+
+        MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(userId)
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+        Team team = teamRepository.findById(teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+        // 추천 시점엔 있었어도 그 뒤 사라졌을 수 있다. 요약 조립이 null 을 견디므로 그대로 넘긴다.
+        TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
+
+        return new ReasonSnapshot(item.getId(),
+          RecommendationSummaryFactory.teamSummary(teamEmbedding, team),
+          RecommendationSummaryFactory.userSummary(slot, slot.getUser()),
+          RecommendationSummaryFactory.scoreContext(item.getScore(), item.getRankNo(),
+            item.getLabel()),
+          null);
+    }
+
+    /**
+     * 팀→유저(역제안) 방향의 상세 이유 재료. 후보는 선택된 유저, 대상은 요청한 팀이다.
+     *
+     * @param leaderUserId 요청자. 팀장이 아니면 거절한다 — {@link #gatherForTeam} 과 같은 규칙이다.
+     */
+    public ReasonSnapshot gatherReasonForTeamToUser(Long teamId, Long targetUserId,
+                                                     Long leaderUserId) {
+        // 팀장 검증이 먼저다. 남의 팀 추천 이력을 캐시 hit 로 흘리지 않으려면 순서가 중요하다.
+        Team team = teamRepository.findById(teamId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (!team.getLeaderUserId().equals(leaderUserId)) {
+            throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
+        }
+
+        TeamToUserRecommendationItem item = teamToUserLogRepository
+          .findLatestItem(teamId, targetUserId)
+          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+
+        if (item.getReason() != null && !item.getReason().isBlank()) {
+            return new ReasonSnapshot(item.getId(), null, null, null, item.getReason());
+        }
+
+        MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(targetUserId)
+          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+        TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
+
+        return new ReasonSnapshot(item.getId(),
+          RecommendationSummaryFactory.userSummary(slot, slot.getUser()),
+          RecommendationSummaryFactory.teamSummary(teamEmbedding, team),
+          RecommendationSummaryFactory.scoreContext(item.getScore(), item.getRankNo(),
+            item.getLabel()),
+          null);
     }
 
     /**

@@ -23,4 +23,14 @@ public interface MatchingIntentSlotRepository extends JpaRepository<MatchingInte
      */
     @Query("SELECT s FROM MatchingIntentSlot s JOIN FETCH s.user")
     List<MatchingIntentSlot> findAllWithUser();
+
+    /**
+     * 슬롯 1건 + 그 유저. 상세 이유의 요약을 조립할 때 쓴다.
+     *
+     * <p>{@link #findByUserId} 와 달리 user 를 함께 가져오는 이유: 요약 조립의 폴백 마지막 층이
+     * users 행(전공/관심 직무/한 줄 소개)이라 슬롯만으로는 부족하다. 한 건짜리 조회라 N+1 이
+     * 걱정돼서가 아니라, 프록시를 TX 밖에서 만지지 않으려는 것이다.
+     */
+    @Query("SELECT s FROM MatchingIntentSlot s JOIN FETCH s.user WHERE s.user.id = :userId")
+    Optional<MatchingIntentSlot> findByUserIdWithUser(Long userId);
 }

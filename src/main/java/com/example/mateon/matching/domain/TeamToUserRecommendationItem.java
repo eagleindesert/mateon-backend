@@ -41,6 +41,13 @@ public class TeamToUserRecommendationItem {
     @Column(name = "label", columnDefinition = "text")
     private String label;
 
+    /**
+     * AI 가 만든 추천 상세 이유. 의미와 채워지는 시점은
+     * {@link UserToTeamRecommendationItem#getReason()} 과 같다 — null 은 "아직 만든 적 없음".
+     */
+    @Column(name = "reason", columnDefinition = "text")
+    private String reason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

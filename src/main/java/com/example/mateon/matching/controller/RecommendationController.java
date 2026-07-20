@@ -1,10 +1,15 @@
 package com.example.mateon.matching.controller;
 
 import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.matching.dto.request.RecommendationReasonRequestDTO;
+import com.example.mateon.matching.dto.request.UserReasonRequestDTO;
+import com.example.mateon.matching.dto.response.RecommendationReasonResponseDTO;
 import com.example.mateon.matching.dto.response.TeamRecommendationResponseDTO;
 import com.example.mateon.matching.dto.response.UserRecommendationResponseDTO;
+import com.example.mateon.matching.service.RecommendationReasonService;
 import com.example.mateon.matching.service.RecommendationService;
 import com.example.mateon.matching.service.TeamToUserRecommendationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,6 +30,7 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
     private final TeamToUserRecommendationService teamToUserRecommendationService;
+    private final RecommendationReasonService recommendationReasonService;
 
     /**
      * 지원할 만한 모집 중인 팀을 적합도 순으로 추천한다.
@@ -70,5 +76,51 @@ public class RecommendationController {
         Long leaderUserId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(ApiResponse.success(
                 teamToUserRecommendationService.recommendUsers(teamId, leaderUserId, limit)));
+    }
+
+    // ── 상세 이유 (lazy) ─────────────────────────────────────────────────────
+    //
+    // 추천 목록의 label 은 짧은 한 줄이고, 여기서 얻는 reason 은 긴 설명이다. 사용자가 카드를
+    // 선택한 시점에만 부른다 — 목록의 모든 후보에 대해 미리 만들면 LLM 호출이 후보 수만큼 나간다.
+    //
+    // 조회인데 GET 이 아닌 이유: AI 호출을 유발하고 결과를 캐시하는 부수효과가 있다.
+
+    /**
+     * 추천받은 팀 하나에 대해 "왜 이 팀인가"를 생성한다.
+     *
+     * <p>같은 팀을 다시 요청하면 처음 생성한 문장을 그대로 돌려준다 (AI 재호출 없음). 따라서
+     * 문구는 한 번 정해지면 바뀌지 않는다.
+     *
+     * <p>추천에 뜬 적 없는 팀이면 404 RECOMMENDATION_NOT_FOUND 다. 먼저
+     * GET /user-to-team 을 호출해 목록을 받아야 한다.
+     */
+    @PostMapping("/reason/user-to-team")
+    public ResponseEntity<ApiResponse<RecommendationReasonResponseDTO>> explainTeam(
+            @Valid @RequestBody RecommendationReasonRequestDTO request,
+            Authentication authentication
+    ) {
+        Long userId = Long.valueOf(authentication.getName());
+        String reason = recommendationReasonService.explainTeam(userId, request.getTeamId());
+        return ResponseEntity.ok(ApiResponse.success(
+                new RecommendationReasonResponseDTO(reason)));
+    }
+
+    /**
+     * 역제안으로 추천받은 유저 한 명에 대해 "왜 이 사람인가"를 생성한다. 팀장만 호출할 수 있다.
+     *
+     * <p>캐시 규칙과 404 조건은 유저→팀 방향과 같다 (선행 호출은 GET /team-to-user).
+     *
+     * @param request teamId 의 팀장이 아니면 403.
+     */
+    @PostMapping("/reason/team-to-user")
+    public ResponseEntity<ApiResponse<RecommendationReasonResponseDTO>> explainUser(
+            @Valid @RequestBody UserReasonRequestDTO request,
+            Authentication authentication
+    ) {
+        Long leaderUserId = Long.valueOf(authentication.getName());
+        String reason = recommendationReasonService.explainUser(
+                request.getTeamId(), request.getUserId(), leaderUserId);
+        return ResponseEntity.ok(ApiResponse.success(
+                new RecommendationReasonResponseDTO(reason)));
     }
 }

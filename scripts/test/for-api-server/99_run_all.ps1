@@ -134,6 +134,13 @@ Write-Host "`n===== 15) Review (협업 온도) =====" -ForegroundColor Magenta
 # 15_review 가 활성 세션을 A 로 되돌려 놓지만, 이후 스크립트가 추가될 수 있으니 여기서도 보장한다.
 Use-User "A" -Quiet | Out-Null
 
+Write-Host "`n===== 16) Recommendation Reason (추천 상세 이유) =====" -ForegroundColor Magenta
+# 13/14 번의 추천을 재사용하지 않고 자체적으로 추천 이력을 만든다 — 이유는 (질의, 후보) 쌍의
+# 추천 아이템을 근거로 삼는데, 앞 스크립트들이 -Cleanup 으로 팀을 지웠는지에 따라 그 쌍이
+# 있을 수도 없을 수도 있어 의존하면 불안정해진다.
+& "$PSScriptRoot\16_recommendation_reason.ps1" @chatArgs
+Use-User "A" -Quiet | Out-Null
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력

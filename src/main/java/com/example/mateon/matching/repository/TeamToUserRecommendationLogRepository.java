@@ -3,6 +3,7 @@ package com.example.mateon.matching.repository;
 import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
 import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,4 +26,12 @@ public interface TeamToUserRecommendationLogRepository
             """)
     Optional<TeamToUserRecommendationItem> findLatestItem(@Param("teamId") Long teamId,
                                                           @Param("userId") Long userId);
+
+    /**
+     * 생성된 상세 이유를 캐시한다. 정방향과 같은 규약이다 —
+     * {@code UserToTeamRecommendationLogRepository.updateReason} 주석 참고.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE TeamToUserRecommendationItem i SET i.reason = :reason WHERE i.id = :itemId")
+    int updateReason(@Param("itemId") Long itemId, @Param("reason") String reason);
 }

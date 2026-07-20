@@ -22,11 +22,12 @@ import org.springframework.web.client.RestTemplate;
  * <ul>
  *   <li>POST /recommendations/user-to-team — 유저가 팀을 찾는다 (지원)</li>
  *   <li>POST /recommendations/team-to-user — 팀이 유저를 찾는다 (역제안)</li>
+ *   <li>POST /recommendations/reason — 선택된 한 쌍의 상세 이유 (lazy)</li>
  * </ul>
  *
- * <p>두 방향을 한 빈에 둔 이유: 엔드포인트만 다르고 요청/응답 스키마와 인증 헤더, 실패 처리
- * 규약이 전부 같다. 클라이언트를 복사하면 401/422 진단 로그가 두 벌이 되고 한쪽만 고쳐지는
- * 사고가 난다.
+ * <p>셋을 한 빈에 둔 이유: 엔드포인트와 스키마만 다르고 인증 헤더와 실패 처리 규약이 전부 같다.
+ * 클라이언트를 복사하면 401/422 진단 로그가 여러 벌이 되고 한쪽만 고쳐지는 사고가 난다.
+ * (그래서 {@link #call} 은 응답 타입만 제네릭으로 받고 나머지는 공유한다.)
  *
  * <p>AI 서버는 stateless — 점수만 계산해 돌려주고 저장하지 않는다. 후보를 고르고(모집 중 여부,
  * 본인 팀 제외 등) 결과를 저장하는 건 호출자 몫이다.
@@ -39,6 +40,7 @@ public class RecommendationClient {
 
     private static final String USER_TO_TEAM_PATH = "/recommendations/user-to-team";
     private static final String TEAM_TO_USER_PATH = "/recommendations/team-to-user";
+    private static final String REASON_PATH = "/recommendations/reason";
 
     /** AI 서버가 요구하는 내부 인증 헤더. 값이 없거나 틀리면 AI 가 401 로 거절한다. */
     private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
@@ -56,30 +58,64 @@ public class RecommendationClient {
 
     /** 유저 한 명에게 맞는 팀들을 점수화한다. */
     public RecommendationResponse userToTeam(UserToTeamRecommendationRequest request) {
-        return call(USER_TO_TEAM_PATH, request);
+        RecommendationResponse body = call(USER_TO_TEAM_PATH, request, RecommendationResponse.class);
+        if (body.getRecommendations() == null) {
+            log.warn("AI {} 응답에 recommendations 가 없습니다", USER_TO_TEAM_PATH);
+            throw new MateonException(ErrorCode.AI_SERVER_ERROR);
+        }
+        return body;
     }
 
     /** 팀 하나에 맞는 유저들을 점수화한다 (역제안). */
     public RecommendationResponse teamToUser(TeamToUserRecommendationRequest request) {
-        return call(TEAM_TO_USER_PATH, request);
+        RecommendationResponse body = call(TEAM_TO_USER_PATH, request, RecommendationResponse.class);
+        if (body.getRecommendations() == null) {
+            log.warn("AI {} 응답에 recommendations 가 없습니다", TEAM_TO_USER_PATH);
+            throw new MateonException(ErrorCode.AI_SERVER_ERROR);
+        }
+        return body;
     }
 
-    private RecommendationResponse call(String path, Object request) {
+    /**
+     * 추천된 한 쌍의 상세 이유를 생성한다 (사용자가 카드를 선택한 시점에 lazy 호출).
+     *
+     * <p>점수를 다시 계산하지 않는다 — 추천 단계에서 나온 값을 score_context 에 서술로 실어
+     * 보낼 뿐이다.
+     *
+     * @return 비어있지 않은 이유 문자열. AI 가 빈 값을 주면 예외 (호출자가 빈 이유를 캐시해
+     *         영구히 남기는 걸 막는다).
+     */
+    public String reason(RecommendationReasonRequest request) {
+        RecommendationReasonResponse body =
+                call(REASON_PATH, request, RecommendationReasonResponse.class);
+
+        if (body.getReason() == null || body.getReason().isBlank()) {
+            log.warn("AI {} 가 빈 reason 을 반환했습니다", REASON_PATH);
+            throw new MateonException(ErrorCode.AI_SERVER_ERROR);
+        }
+        return body.getReason();
+    }
+
+    /**
+     * 세 엔드포인트가 공유하는 호출부. 응답 <b>본문이 null 인지</b>까지만 여기서 보고, 스키마별
+     * 필수 필드 검증은 각 메서드가 한다 (여기서 알 수 있는 건 "본문이 왔다"까지다).
+     */
+    private <T> T call(String path, Object request, Class<T> responseType) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set(INTERNAL_SECRET_HEADER, properties.getInternalSecret());
 
-            ResponseEntity<RecommendationResponse> response = restTemplate.exchange(
+            ResponseEntity<T> response = restTemplate.exchange(
                     properties.getBaseUrl() + path,
                     HttpMethod.POST,
                     new HttpEntity<>(request, headers),
-                    RecommendationResponse.class
+                    responseType
             );
 
-            RecommendationResponse body = response.getBody();
-            if (body == null || body.getRecommendations() == null) {
-                log.warn("AI {} 응답이 비었거나 recommendations 없음: {}", path, body);
+            T body = response.getBody();
+            if (body == null) {
+                log.warn("AI {} 응답 본문이 비었습니다", path);
                 throw new MateonException(ErrorCode.AI_SERVER_ERROR);
             }
             return body;

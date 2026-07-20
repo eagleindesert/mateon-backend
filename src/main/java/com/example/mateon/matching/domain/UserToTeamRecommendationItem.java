@@ -40,6 +40,16 @@ public class UserToTeamRecommendationItem {
     @Column(name = "label", columnDefinition = "text")
     private String label;
 
+    /**
+     * AI 가 만든 추천 상세 이유 (POST /recommendations/reason). 사용자가 카드를 선택한 시점에
+     * 채워지는 lazy 값이라, null 은 "이유가 없다"가 아니라 <b>"아직 만든 적 없다"</b>는 뜻이다.
+     *
+     * <p>추천 당시에 함께 저장되지 않는 유일한 필드다 — 목록에 뜬 모든 후보의 이유를 미리
+     * 생성하면 LLM 호출이 후보 수만큼 나간다.
+     */
+    @Column(name = "reason", columnDefinition = "text")
+    private String reason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
