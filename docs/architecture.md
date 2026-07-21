@@ -144,7 +144,7 @@ sequenceDiagram
     end
     F->>SC: 필터 체인 진행
     SC->>SC: 경로별 인가 판정
-    Note over SC: permitAll: /health, /api/auth/**(school 제외), /api/events/**, swagger<br/>authenticated: /api/auth/school/**, /api/users/**, /api/events/recommended, 그 외
+    Note over SC: permitAll: /health, /api/auth/**(school 제외), /api/events/**(GET), swagger<br/>authenticated: /api/auth/school/**, /api/users/**, /api/events/recommended, POST /api/events, 그 외
     alt 인가 통과
         SC->>Ctrl: 요청 전달
         Ctrl->>Svc: userId = Long.valueOf(auth.getName())
@@ -205,8 +205,11 @@ graph LR
     end
 ```
 
-- `GET /api/events/search` — 필터(단과대/카테고리) 적용 후, 로그인 상태면 관련도순 정렬.
+- `GET /api/events/search` — 필터(단과대/카테고리/분야) 적용 후, 로그인 상태면 관련도순 정렬.
+  카테고리(`category`)는 활동 종류(공모전/대외활동/교내), 분야(`field`)는 주제(과학·공학, 디자인 등)로 축이 다르다.
+  분야 필터만 메모리에서 거른다 — 나머지 조합이 native query 라 분기가 8가지로 늘어나는 걸 피했고, 어차피 아래에서 목록 전체를 메모리에 올려 정렬한다.
 - `GET /api/events/recommended` — 카테고리별 최고 점수 활동 1개씩 추천(**인증 필요**).
+- `POST /api/events` — 활동 등록(**인증 필요**). `embeddingVector` 는 채우지 않는다 — 관련도 계산이 키워드/전공/캠퍼스 문자열 매칭이라 없어도 동작한다.
 
 ### 팀 지원 → 승인/거절 → 실시간 알림
 

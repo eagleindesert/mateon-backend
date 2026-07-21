@@ -3,16 +3,24 @@ package com.example.mateon.events.controller;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
+import com.example.mateon.events.dto.EventRequestDTO;
 import com.example.mateon.events.dto.EventResponseDTO;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
+import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.events.service.EventMatchingService;
+import com.example.mateon.events.service.EventService;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,11 +38,25 @@ public class EventController {
     private final EventRepository eventRepository;
     private final EventMatchingService eventMatchingService;
     private final UserRepository userRepository;
+    private final EventService eventService;
+
+    /**
+     * 활동(공모전 등) 등록 [인증 필수]
+     * 인증 여부는 SecurityConfig 의 POST /api/events 매처가 강제한다.
+     */
+    @PostMapping
+    public ResponseEntity<ApiResponse<EventResponseDTO>> createEvent(
+            @Valid @RequestBody EventRequestDTO request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(eventService.createEvent(request)));
+    }
 
     @GetMapping("/search")
     public ApiResponse<List<EventResponseDTO>> searchEvents(
             @RequestParam(required = false) String college,
             @RequestParam(required = false) Category category,
+            @RequestParam(required = false) Field field,
             Authentication authentication  // 인증된 사용자 정보 (선택적)
     ) {
         List<Event> events;
@@ -57,6 +79,15 @@ public class EventController {
         // 4. 전체 조회
         else {
             events = eventRepository.findAll();
+        }
+
+        // 분야 필터는 메모리에서 적용한다. 위 4가지 분기에 분야까지 넣으면 native query 조합이
+        // 8가지로 늘어나는데, 이 메서드는 어차피 아래에서 목록 전체를 메모리에 올려 점수 정렬을
+        // 하므로 비용 구조는 그대로다.
+        if (field != null) {
+            events = events.stream()
+                    .filter(e -> field == e.getField())
+                    .collect(Collectors.toList());
         }
 
         // 인증된 사용자가 있으면 키워드 매칭으로 정렬

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -60,7 +61,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/chat/**").authenticated() // 채팅 REST API는 인증 필요
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
                         .requestMatchers("/api/events/recommended").authenticated() // 추천 API는 인증 필요
-                        .requestMatchers("/api/events/**").permitAll() // 기존 Event API 허용
+                        // 활동 등록은 로그인 필요. 아래 permitAll 보다 반드시 위에 있어야 한다
+                        // (first-match-wins 라, 순서가 뒤집히면 POST 가 비인증으로 열린다).
+                        .requestMatchers(HttpMethod.POST, "/api/events").authenticated()
+                        .requestMatchers("/api/events/**").permitAll() // 기존 Event 조회 API 허용
                         .requestMatchers("/api/matching/**").authenticated() // 의도 추출/추천 API는 인증 필요
                         .anyRequest().authenticated()
                 )

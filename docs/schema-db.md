@@ -67,6 +67,7 @@ erDiagram
     events {
         bigint id PK
         varchar_20 category "enum CONTEST/EXTERNAL/SCHOOL"
+        varchar_50 field "enum 분야 20종, 선택"
         varchar_255 title
         text description
         text image_url
@@ -75,7 +76,7 @@ erDiagram
         date end_date
         varchar_50 campus_scope "자유 입력, ALL이면 전국"
         varchar_255 target_colleges "JSON 문자열"
-        varchar_100 external_id UK "NOT NULL"
+        varchar_100 external_id "선택"
         text embedding_vector
         varchar_500 summarized_description
         text recommended_targets
@@ -185,7 +186,8 @@ erDiagram
 | 컬럼 | 타입 | 제약 | 설명 |
 | --- | --- | --- | --- |
 | `id` | `bigint` | PK, IDENTITY | |
-| `category` | `varchar(20)` | enum | `CONTEST`(공모전), `EXTERNAL`(대외활동), `SCHOOL`(교내) |
+| `category` | `varchar(20)` | enum | 활동 **종류**: `CONTEST`(공모전), `EXTERNAL`(대외활동), `SCHOOL`(교내) |
+| `field` | `varchar(50)` | enum, CHECK | 활동 **분야**(선택, V19 신설). `category` 와는 다른 축이다 — 같은 공모전이라도 분야는 과학/공학일 수도 디자인일 수도 있다. 값 20종은 `Event.Field` 참고. 값을 늘리면 `events_field_check` 도 마이그레이션으로 함께 갱신해야 한다 |
 | `title` | `varchar(255)` | | 제목 |
 | `description` | `text` | | 상세 설명 |
 | `image_url` | `text` | | 이미지 URL |
@@ -194,7 +196,7 @@ erDiagram
 | `end_date` | `date` | | 종료일 |
 | `campus_scope` | `varchar(50)` | | 대상 학교/캠퍼스. 자유 입력이며 `ALL` 이면 전국 대상 |
 | `target_colleges` | `varchar(255)` | | 대상 단과대학 (JSON/문자열, `LIKE` 검색 대상) |
-| `external_id` | `varchar(100)` | UNIQUE, NOT NULL | 외부 소스 고유 식별자(중복 수집 방지) |
+| `external_id` | `varchar(100)` | | 외부 소스 고유 식별자(선택). API 로 직접 등록한 활동은 비어 있다. V18 에서 `UNIQUE`/`NOT NULL` 해제 — 크롤러를 붙인다면 중복 수집 방지는 수집기 쪽에서 처리해야 한다 |
 | `embedding_vector` | `text` | | 임베딩 벡터(문자열 직렬화) |
 | `summarized_description` | `varchar(500)` | | 요약 설명 |
 | `recommended_targets` | `text` | | 추천 대상 |
