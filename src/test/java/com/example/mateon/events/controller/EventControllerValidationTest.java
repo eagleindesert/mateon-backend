@@ -23,8 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 클라이언트 입력 오류가 서버 장애로 보이면 프론트가 원인을 찾을 수 없다.
  *
  * <p>
- * 의존성에 null 을 넣는다. 여기서 검증하는 요청들은 전부 <b>인자 바인딩 단계에서</b> 실패해
- * 컨트롤러 메서드 본문에 진입하지 않으므로 리포지토리/서비스가 호출될 일이 없다.
+ * 서비스에 null 을 넣는다. 여기서 검증하는 요청들은 전부 <b>인자 바인딩 단계에서</b> 실패해
+ * 컨트롤러 메서드 본문에 진입하지 않으므로 서비스가 호출될 일이 없다.
  */
 class EventControllerValidationTest {
 
@@ -33,7 +33,7 @@ class EventControllerValidationTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new EventController(null, null, null, null))
+                .standaloneSetup(new EventController(null))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
