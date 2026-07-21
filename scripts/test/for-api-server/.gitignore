@@ -11,6 +11,7 @@
 
 # Event 테스트가 등록한 활동 id (04_00_event_init 가 생성)
 .event-ids.json
+.event-loaded.json
 
 # 실제 공모전 정보 삽입 파일
 04_00_event_init_real.ps1
