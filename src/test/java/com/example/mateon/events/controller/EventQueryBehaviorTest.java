@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -199,6 +200,17 @@ class EventQueryBehaviorTest {
             mockMvc.perform(get("/api/events/recommended"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("deprecated 신호(Deprecation/Sunset 헤더)를 함께 내려준다")
+        void announcesDeprecation() throws Exception {
+            when(eventRepository.findAll()).thenReturn(List.of(event(1L, Category.CONTEST, null)));
+
+            mockMvc.perform(get("/api/events/recommended").principal(auth()))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Deprecation", "true"))
+                    .andExpect(header().exists("Sunset"));
         }
     }
 
