@@ -8,3 +8,6 @@
 
 # 서버 주소/자격증명 등 로컬 설정 (커밋 금지)
 .env
+
+# Event 테스트가 등록한 활동 id (04_00_event_init 가 생성)
+.event-ids.json

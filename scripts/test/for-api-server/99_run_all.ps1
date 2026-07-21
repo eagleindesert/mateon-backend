@@ -79,7 +79,10 @@ Write-Host "`n===== 3) User =====" -ForegroundColor Magenta
 & "$PSScriptRoot\03_user.ps1"
 
 Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
-& "$PSScriptRoot\04_event.ps1"
+# 등록(init)과 조회를 나눠 돈다. 조회 스크립트는 init 이 남긴 .event-ids.json 을 읽어
+# '방금 등록한 활동이 검색에 잡히는지' 를 증분 검증하므로 순서가 중요하다.
+& "$PSScriptRoot\04_00_event_init.ps1"
+& "$PSScriptRoot\04_01_event.ps1"
 
 Write-Host "`n===== 5) Team =====" -ForegroundColor Magenta
 & "$PSScriptRoot\05_team.ps1"
