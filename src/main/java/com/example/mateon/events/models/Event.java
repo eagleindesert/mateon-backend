@@ -46,11 +46,32 @@ public class Event {
     @Column(name = "end_date")
     private LocalDate endDate; // date 타입
 
-    // 대상 학교/캠퍼스. 전국 확장으로 자유 입력 문자열이며, CAMPUS_SCOPE_ALL 이면 제한 없음.
+    // 주최/주관 (예: 업스테이지). 공모전 공고에 늘 붙어 나오는 정보다.
+    @Column(name = "organizer", length = 200)
+    private String organizer;
+
+    // 대상 대학교. 비어 있으면 전국 대상이다.
+    // target_colleges 와 같은 LIKE 부분일치로 검색하므로 "단국대학교,고려대학교" 처럼 여러 개도 가능하다.
+    @Column(name = "target_school", length = 200)
+    private String targetSchool;
+
+    /**
+     * 대상 학교/캠퍼스. 전국 확장으로 자유 입력 문자열이며, CAMPUS_SCOPE_ALL 이면 제한 없음.
+     *
+     * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 행과 프론트 호환을 위해
+     *             값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
+     */
+    @Deprecated
     @Column(name = "campus_scope", length = 50)
     private String campusScope;
 
-    // JSON 타입은 일반적인 String이나 Object로 매핑 후 직렬화/역직렬화 처리 필요
+    /**
+     * 대상 단과대학. JSON 타입은 일반적인 String이나 Object로 매핑 후 직렬화/역직렬화 처리 필요.
+     *
+     * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 행과 프론트 호환을 위해
+     *             값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
+     */
+    @Deprecated
     private String target_colleges; // json (매핑 단순화를 위해 String으로 둡니다.)
 
     // 외부 크롤러가 수집한 원본 식별자. API 로 직접 등록한 활동에는 없으므로 선택 필드다(V18).
@@ -66,7 +87,12 @@ public class Event {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt; // timestamp
 
-    // campusScope 가 이 값이면 학교 구분 없이 전국 대상이다.
+    /**
+     * campusScope 가 이 값이면 학교 구분 없이 전국 대상이다.
+     *
+     * @deprecated {@link #campusScope} 와 함께 폐기 예정. 전국 대상은 targetSchool 을 비워 표현한다.
+     */
+    @Deprecated
     public static final String CAMPUS_SCOPE_ALL = "ALL";
 
     // Enum 정의
@@ -79,6 +105,10 @@ public class Event {
      * 활동의 '분야'. Category(종류)와는 다른 축이다 —
      * 같은 CONTEST 라도 분야는 과학/공학일 수도, 디자인일 수도 있다.
      * 공모전 사이트의 분야 필터 칩과 같은 목록이며, label 은 화면에 그대로 노출되는 한글 표기다.
+     *
+     * <p>
+     * 공고 하나에 분야가 여럿이면(예: "기획/아이디어, 과학/공학") 분야마다 행을 나눠 등록하고
+     * 같은 externalId 를 공유시킨다. 컬럼은 분야 하나만 담을 수 있기 때문이다.
      *
      * <p>
      * [주의] 여기에 값을 추가/삭제하면 DB 의 events_field_check 제약도 마이그레이션으로 함께
@@ -104,6 +134,7 @@ public class Event {
         CONTENTS("콘텐츠"),
         SOCIAL_CONTRIBUTION_EXCHANGE("사회공헌/교류"),
         DISTRIBUTION_LOGISTICS("유통/물류"),
+        PLANNING_IDEA("기획/아이디어"),
         ETC("기타");
 
         private final String label;

@@ -34,10 +34,10 @@ import java.util.List;
 public class EventController {
 
     // /recommended 종료 예정 시각. 프론트 전환 일정에 맞춰 조정한다.
-    private static final ZonedDateTime RECOMMENDED_SUNSET_AT =
-            ZonedDateTime.of(2026, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC);
-    private static final String RECOMMENDED_SUNSET_HEADER =
-            DateTimeFormatter.RFC_1123_DATE_TIME.format(RECOMMENDED_SUNSET_AT);
+    private static final ZonedDateTime RECOMMENDED_SUNSET_AT
+      = ZonedDateTime.of(2026, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC);
+    private static final String RECOMMENDED_SUNSET_HEADER
+      = DateTimeFormatter.RFC_1123_DATE_TIME.format(RECOMMENDED_SUNSET_AT);
 
     private final EventService eventService;
 
@@ -54,17 +54,27 @@ public class EventController {
     }
 
     /**
-     * 활동 검색. 필터(단과대/카테고리/분야)는 모두 선택이며, 로그인 상태면 관련도순으로 정렬된다.
+     * 활동 검색. 필터(대학교/단과대/카테고리/분야)는 모두 선택이며, 결과는 활동 시작일 최신순이다.
+     * 로그인 여부와 무관하게 순서가 같다(이유는 {@code EventService#search} 참고).
+     *
+     * @param college 대상 단과대학.
+     * <b>deprecated</b> — 대상 범위는 {@code school} 로 일원화한다. 아직 보내는
+     * 클라이언트가 있어 계속 받지만, 신규 사용은 하지 않는다.
+     * @param school 대상 대학교. 부분일치이며 "전체"는 필터 미적용으로 취급한다.
      */
     @GetMapping("/search")
     public ApiResponse<List<EventResponseDTO>> searchEvents(
       @RequestParam(required = false) String college,
+      @RequestParam(required = false) String school,
       @RequestParam(required = false) Category category,
-      @RequestParam(required = false) Field field,
-      Authentication authentication // 인증된 사용자 정보 (선택적)
+      @RequestParam(required = false) Field field
     ) {
-        return ApiResponse.success(
-          eventService.search(college, category, field, currentUserId(authentication)));
+        // 지우기 전에 '아직 누가 보내고 있는지'를 알아야 한다. 파라미터 하나만 폐기 대상이라
+        // /recommended 처럼 Deprecation 헤더를 붙이지는 않고 서버 로그로만 추적한다.
+        if (college != null && !college.isBlank()) {
+            log.warn("deprecated 검색 파라미터 사용: college={} (school 로 전환 필요)", college);
+        }
+        return ApiResponse.success(eventService.search(college, school, category, field));
     }
 
     /**
@@ -73,11 +83,11 @@ public class EventController {
      *
      * @param category 카테고리 (CONTEST, EXTERNAL, SCHOOL). null이면 모든 카테고리에서 각각 1개씩 반환
      * @deprecated 관련도 점수(EventMatchingService)가 어휘 매칭이라 순위를 신뢰할 수 없다.
-     *             활동 본문에 희망직무 문자열이 그대로 들어있어야 점수가 붙어서 "서버 운영자"와
-     *             "백엔드 개발자"는 0점이 되는 반면, 부분 문자열 오탐(희망직무 "AI" ↔ 본문 "email")은
-     *             만점을 받는다. 즉 이 API 의 순서는 관련도가 아니라 공고문의 어휘/길이를 반영한다.
-     *             대체 방식이 정해지기 전까지 동작은 그대로 두되 신규 사용은 하지 않는다.
-     *             호출하면 Deprecation/Sunset 응답 헤더와 서버 경고 로그가 남는다.
+     * 활동 본문에 희망직무 문자열이 그대로 들어있어야 점수가 붙어서 "서버 운영자"와
+     * "백엔드 개발자"는 0점이 되는 반면, 부분 문자열 오탐(희망직무 "AI" ↔ 본문 "email")은
+     * 만점을 받는다. 즉 이 API 의 순서는 관련도가 아니라 공고문의 어휘/길이를 반영한다.
+     * 대체 방식이 정해지기 전까지 동작은 그대로 두되 신규 사용은 하지 않는다.
+     * 호출하면 Deprecation/Sunset 응답 헤더와 서버 경고 로그가 남는다.
      */
     @Deprecated
     @GetMapping("/recommended")
@@ -96,7 +106,7 @@ public class EventController {
         response.setHeader("Deprecation", "true");
         response.setHeader("Sunset", RECOMMENDED_SUNSET_HEADER);
         log.warn("deprecated 엔드포인트 호출: GET /api/events/recommended (userId={}, category={})",
-                userId, category);
+          userId, category);
 
         return ApiResponse.success(eventService.recommend(category, userId));
     }

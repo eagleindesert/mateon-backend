@@ -13,6 +13,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,9 +26,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -71,86 +77,47 @@ class EventQueryBehaviorTest {
         when(matchingService.calculateRelevanceScore(any(), any())).thenReturn(0);
     }
 
+    /**
+     * 필터·정렬 자체는 여기서 검증하지 않는다 — Specification(EventSearchSpecs)으로 옮겨가서
+     * 리포지토리를 목으로 두면 실행되지 않기 때문이다. 그쪽은 EventSearchIntegrationTest 의 몫이고,
+     * 여기서는 응답이 어떤 모양으로 나가는지만 본다.
+     */
     @Nested
     @DisplayName("GET /api/events/search")
     class Search {
 
         @Test
-        @DisplayName("분야 필터를 주면 그 분야의 활동만 남는다")
-        void filtersByField() throws Exception {
-            Event it = event(1L, Category.CONTEST, Field.SCIENCE_ENGINEERING_TECH_IT);
-            Event design = event(2L, Category.CONTEST, Field.DESIGN_PHOTO_ART_VIDEO);
-            Event noField = event(3L, Category.CONTEST, null);
-            when(eventRepository.findAll()).thenReturn(List.of(it, design, noField));
-
-            mockMvc.perform(get("/api/events/search").param("field", "SCIENCE_ENGINEERING_TECH_IT"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.length()").value(1))
-                    .andExpect(jsonPath("$.data[0].id").value(1));
-        }
-
-        @Test
-        @DisplayName("비로그인이면 점수 정렬 없이 조회 순서를 그대로 유지한다")
-        void keepsRepositoryOrderWhenAnonymous() throws Exception {
-            when(eventRepository.findAll()).thenReturn(List.of(
-                    event(2L, Category.CONTEST, null),
-                    event(1L, Category.CONTEST, null)));
+        @DisplayName("응답에 새 필드(organizer/targetSchool)가 실리고 기존 필드도 그대로 남는다")
+        void responseKeepsExistingContractAndAddsNewFields() throws Exception {
+            Event event = college(school(event(1L, Category.CONTEST, Field.PLANNING_IDEA), "단국대학교"), "SW융합대학");
+            event.setOrganizer("업스테이지");
+            campus(event, "죽전");
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Sort.class)))
+                    .thenReturn(List.of(event));
 
             mockMvc.perform(get("/api/events/search"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].id").value(2))
-                    .andExpect(jsonPath("$.data[1].id").value(1));
+                    .andExpect(jsonPath("$.data[0].organizer").value("업스테이지"))
+                    .andExpect(jsonPath("$.data[0].targetSchool").value("단국대학교"))
+                    // 아래 넷은 폐기 예정이지만 프론트가 아직 읽는다. 응답에서 사라지면 안 된다.
+                    .andExpect(jsonPath("$.data[0].campusScope").value("죽전"))
+                    .andExpect(jsonPath("$.data[0].targetColleges").value("SW융합대학"))
+                    .andExpect(jsonPath("$.data[0].field").value("PLANNING_IDEA"))
+                    .andExpect(jsonPath("$.data[0].fieldLabel").value("기획/아이디어"));
         }
 
         @Test
-        @DisplayName("로그인하면 관련도 점수가 높은 순으로 정렬한다")
-        void sortsByScoreWhenAuthenticated() throws Exception {
-            Event low = event(1L, Category.CONTEST, null);
-            Event high = event(2L, Category.CONTEST, null);
-            when(eventRepository.findAll()).thenReturn(List.of(low, high));
-            score(low, 10);
-            score(high, 30);
+        @DisplayName("시작일 최신순 정렬을 DB 에 맡긴다")
+        void delegatesSortingToDatabase() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Sort.class)))
+                    .thenReturn(List.of());
 
-            mockMvc.perform(get("/api/events/search").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].id").value(2))
-                    .andExpect(jsonPath("$.data[1].id").value(1));
-        }
+            mockMvc.perform(get("/api/events/search")).andExpect(status().isOk());
 
-        @Test
-        @DisplayName("점수가 같으면 최근에 등록된 활동이 앞에 온다")
-        void breaksScoreTieByRecency() throws Exception {
-            Event older = event(1L, Category.CONTEST, null, LocalDateTime.of(2026, 1, 1, 0, 0));
-            Event newer = event(2L, Category.CONTEST, null, LocalDateTime.of(2026, 7, 1, 0, 0));
-            when(eventRepository.findAll()).thenReturn(List.of(older, newer));
-            score(older, 10);
-            score(newer, 10);
-
-            mockMvc.perform(get("/api/events/search").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].id").value(2))
-                    .andExpect(jsonPath("$.data[1].id").value(1));
-        }
-
-        @Test
-        @DisplayName("단과대학 필터를 주면 해당 전용 조회를 사용한다")
-        void usesCollegeQueryWhenCollegeGiven() throws Exception {
-            when(eventRepository.findByTargetCollegeName("SW융합대학"))
-                    .thenReturn(List.of(event(9L, Category.SCHOOL, null)));
-
-            mockMvc.perform(get("/api/events/search").param("college", "SW융합대학"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].id").value(9));
-        }
-
-        @Test
-        @DisplayName("단과대학이 '전체'면 필터로 치지 않고 전체를 조회한다")
-        void treatsAllCollegeAsNoFilter() throws Exception {
-            when(eventRepository.findAll()).thenReturn(List.of(event(1L, Category.CONTEST, null)));
-
-            mockMvc.perform(get("/api/events/search").param("college", "전체"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].id").value(1));
+            ArgumentCaptor<Sort> sort = ArgumentCaptor.forClass(Sort.class);
+            verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), sort.capture());
+            assertThat(sort.getValue().getOrderFor("startDate")).isNotNull();
+            assertThat(sort.getValue().getOrderFor("startDate").isDescending()).isTrue();
         }
     }
 
@@ -235,6 +202,28 @@ class EventQueryBehaviorTest {
         event.setField(field);
         event.setTitle("활동 " + id);
         event.setCreatedAt(createdAt);
+        return event;
+    }
+
+    private Event school(Event event, String targetSchool) {
+        event.setTargetSchool(targetSchool);
+        return event;
+    }
+
+    @SuppressWarnings("deprecation") // 단과대 필터가 살아 있는 동안은 이 축도 계속 검증한다.
+    private Event college(Event event, String targetColleges) {
+        event.setTarget_colleges(targetColleges);
+        return event;
+    }
+
+    @SuppressWarnings("deprecation") // 응답에서 사라지지 않았는지 확인해야 하므로 계속 채운다.
+    private Event campus(Event event, String campusScope) {
+        event.setCampusScope(campusScope);
+        return event;
+    }
+
+    private Event external(Event event, String externalId) {
+        event.setExternalId(externalId);
         return event;
     }
 }

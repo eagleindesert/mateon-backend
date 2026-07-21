@@ -8,9 +8,11 @@ import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.events.repository.EventSearchSpecs;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,21 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class EventService {
+
+    /**
+     * 활동 시작일 최신순.
+     *
+     * <p>
+     * DB 입력 시각(createdAt)이 아니라 공고가 가진 시작일로 줄 세운다. 크롤러가 과거 공고 수십 건을
+     * 한 번에 넣으면 createdAt 이 전부 같은 시각이 되어 순서가 사실상 무작위가 되기 때문이다.
+     * startDate 는 공고에서 온 값이라 언제 수집했는지와 무관하다.
+     *
+     * <p>
+     * 시작일이 없는 활동은 뒤로 보내고, 시작일이 같으면 나중에 등록된 것(id 큰 쪽)을 앞에 둔다 —
+     * 공모전은 시작일이 겹치는 경우가 흔한데, 2차 기준이 없으면 매 조회마다 순서가 달라진다.
+     */
+    private static final Sort BY_START_DATE =
+            Sort.by(Sort.Order.desc("startDate").nullsLast(), Sort.Order.desc("id"));
 
     private final EventRepository eventRepository;
     private final EventMatchingService eventMatchingService;
@@ -41,30 +58,26 @@ public class EventService {
     }
 
     /**
-     * 활동 검색. 로그인한 사용자면(userId != null) 관련도가 높은 순으로 정렬해 돌려준다.
+     * 활동 검색. 시작일이 최근인 활동부터 내려준다({@link #BY_START_DATE}).
      *
-     * @param userId 비로그인이면 null
+     * <p>
+     * 로그인 여부와 무관하게 순서가 같다. 한때는 로그인한 사용자에게 관련도 점수순으로 정렬해
+     * 줬지만, 그 점수(EventMatchingService)는 공고문의 어휘를 반영할 뿐이라 순위를 신뢰할 수
+     * 없었다 — /recommended 를 deprecated 처리한 이유와 같다. 신뢰할 수 없는 순서보다
+     * 설명 가능한 순서가 낫다.
+     *
+     * <p>
+     * 필터와 정렬은 전부 DB 에서 끝난다(EventSearchSpecs). 예전에는 목록 전체를 메모리에 올려
+     * 걸렀는데, 그건 사용자별 점수 정렬 때문에 어차피 전건이 필요했던 시절의 구조다. 그 전제가
+     * 사라졌으므로 테이블을 통째로 읽을 이유가 없다.
+     *
+     * @param college 대상 단과대학. deprecated — school 로 전환 중이다.
+     * @param school 대상 대학교
      */
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> search(String college, Category category, Field field, Long userId) {
-        List<Event> events = findByCollegeAndCategory(college, category);
-
-        // 분야 필터는 메모리에서 적용한다. 위 조회는 native query 조합이라 분야까지 넣으면 분기가
-        // 8가지로 늘어나는데, 어차피 아래 정렬에서 목록 전체를 메모리에 올리므로 비용 구조는 같다.
-        if (field != null) {
-            events = events.stream()
-                    .filter(event -> field == event.getField())
-                    .collect(Collectors.toList());
-        }
-
-        User user = userId == null ? null : userRepository.findById(userId).orElse(null);
-        if (user != null) {
-            events = events.stream()
-                    .sorted(byRelevance(scoreAll(events, user)))
-                    .collect(Collectors.toList());
-        }
-
-        return toResponse(events);
+    public List<EventResponseDTO> search(String college, String school, Category category, Field field) {
+        return toResponse(
+                eventRepository.findAll(EventSearchSpecs.of(college, school, category, field), BY_START_DATE));
     }
 
     /**
@@ -74,51 +87,39 @@ public class EventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> recommend(Category category, Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         List<Event> candidates = category != null
-                ? eventRepository.findByCategory(category)
-                : eventRepository.findAll();
+          ? eventRepository.findByCategory(category)
+          : eventRepository.findAll();
 
         // 점수는 여기서 한 번만 계산해 비교자에 넘긴다. 비교자 안에서 계산하면 정렬 중
         // 같은 활동의 점수를 O(n log n) 번 다시 구하게 된다.
         Comparator<Event> byRelevance = byRelevance(scoreAll(candidates, user));
 
         List<Event> recommended = category != null
-                ? candidates.stream().sorted(byRelevance).limit(1).collect(Collectors.toList())
-                : bestPerCategory(candidates, byRelevance);
+          ? candidates.stream().sorted(byRelevance).limit(1).collect(Collectors.toList())
+          : bestPerCategory(candidates, byRelevance);
 
         return toResponse(recommended);
     }
 
-    /** 여러 카테고리가 섞여 보이도록 무작위 정렬해 전체를 돌려준다. */
+    /**
+     * 여러 카테고리가 섞여 보이도록 무작위 정렬해 전체를 돌려준다.
+     */
     @Transactional(readOnly = true)
     public List<EventResponseDTO> findAllRandomly() {
         return toResponse(eventRepository.findAllRandomly());
     }
 
-    private List<Event> findByCollegeAndCategory(String college, Category category) {
-        // '전체'는 필터를 걸지 않겠다는 뜻이라 미지정과 같이 취급한다.
-        boolean hasCollege = college != null && !college.trim().isEmpty() && !college.equalsIgnoreCase("전체");
-
-        if (hasCollege && category != null) {
-            return eventRepository.findByCategoryAndTargetCollege(category.name(), college);
-        }
-        if (hasCollege) {
-            return eventRepository.findByTargetCollegeName(college);
-        }
-        if (category != null) {
-            return eventRepository.findByCategory(category);
-        }
-        return eventRepository.findAll();
-    }
-
-    /** 카테고리마다 가장 앞순위인 활동 1개씩 고른 뒤, 그 대표들끼리 다시 줄 세운다. */
+    /**
+     * 카테고리마다 가장 앞순위인 활동 1개씩 고른 뒤, 그 대표들끼리 다시 줄 세운다.
+     */
     private List<Event> bestPerCategory(List<Event> events, Comparator<Event> byRelevance) {
         Map<Category, Event> best = new HashMap<>();
         for (Event event : events) {
             best.merge(event.getCategory(), event,
-                    (current, candidate) -> byRelevance.compare(candidate, current) < 0 ? candidate : current);
+              (current, candidate) -> byRelevance.compare(candidate, current) < 0 ? candidate : current);
         }
         return best.values().stream().sorted(byRelevance).collect(Collectors.toList());
     }
@@ -134,6 +135,7 @@ public class EventService {
     /**
      * 관련도 점수 내림차순, 같으면 최신순.
      * 등록일이 없는 활동끼리는 순서를 정하지 않는다(0 반환) — 정렬이 안정적이라 원래 순서가 유지된다.
+     * (검색은 DB 정렬(BY_START_DATE)을 쓴다. 이 비교자는 점수를 메모리에서 매기는 recommend 전용이다.)
      */
     private static Comparator<Event> byRelevance(Map<Event, Integer> scores) {
         return (e1, e2) -> {
@@ -151,7 +153,7 @@ public class EventService {
 
     private List<EventResponseDTO> toResponse(List<Event> events) {
         return events.stream()
-                .map(EventResponseDTO::new)
-                .collect(Collectors.toList());
+          .map(EventResponseDTO::new)
+          .collect(Collectors.toList());
     }
 }
