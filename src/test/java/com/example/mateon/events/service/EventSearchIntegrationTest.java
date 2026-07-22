@@ -175,7 +175,9 @@ class EventSearchIntegrationTest {
                       LocalDate startDate) {
         Event event = new Event();
         event.setCategory(category);
-        event.setField(field);
+        // field 는 이제 NOT NULL 이다. 분야가 관심사가 아닌 케이스는 null 로 넘어오므로
+        // ETC 로 채워 저장만 성립시킨다(테스트가 검색하는 분야와 겹치지 않는다).
+        event.setField(field != null ? field : Field.ETC);
         event.setTitle(tag + " " + UUID.randomUUID());
         event.setTarget_colleges(targetColleges);
         event.setTargetSchool(targetSchool);

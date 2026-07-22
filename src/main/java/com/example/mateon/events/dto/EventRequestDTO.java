@@ -19,8 +19,9 @@ public class EventRequestDTO {
     @NotBlank(message = "활동 제목은 필수입니다.")
     private String title;
 
-    // 활동 분야(선택). category(종류)와는 다른 축이라 따로 받는다.
+    // 활동 분야(필수). category(종류)와는 다른 축이라 따로 받는다.
     // 공고의 분야가 여럿이면 분야마다 따로 등록하고 externalId 를 같게 준다(Event.Field 주석 참고).
+    @NotNull(message = "활동 분야는 필수입니다.")
     private Field field;
 
     private String description;

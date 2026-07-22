@@ -21,12 +21,12 @@ public class Event {
     private Long id; // bigint, auto_increment
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 20, nullable = false)
     private Category category; // enum
 
-    // 활동 분야(선택). 기존 데이터에는 값이 없으므로 null 을 허용한다.
+    // 활동의 핵심 분야라 필수다. V21 에서 NOT NULL 로 전환했다.
     @Enumerated(EnumType.STRING)
-    @Column(name = "field", length = 50)
+    @Column(name = "field", length = 50, nullable = false)
     private Field field;
 
     private String title; // varchar(255)
@@ -59,7 +59,7 @@ public class Event {
      * 대상 학교/캠퍼스. 전국 확장으로 자유 입력 문자열이며, CAMPUS_SCOPE_ALL 이면 제한 없음.
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 행과 프론트 호환을 위해
-     *             값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
+     * 값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
      */
     @Deprecated
     @Column(name = "campus_scope", length = 50)
@@ -69,7 +69,7 @@ public class Event {
      * 대상 단과대학. JSON 타입은 일반적인 String이나 Object로 매핑 후 직렬화/역직렬화 처리 필요.
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 행과 프론트 호환을 위해
-     *             값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
+     * 값은 계속 읽고 내려주지만, 새로 등록하는 활동에는 채우지 않는다.
      */
     @Deprecated
     private String target_colleges; // json (매핑 단순화를 위해 String으로 둡니다.)
@@ -96,9 +96,9 @@ public class Event {
     public static final String CAMPUS_SCOPE_ALL = "ALL";
 
     // Enum 정의
-    // 활동의 '종류'. 프론트 탭(공모전/대외활동/교내)과 /recommended 의 묶음 단위다.
+    // 활동의 '종류'. 프론트 탭(공모전/대외활동/교내/기타)과 /recommended 의 묶음 단위다.
     public enum Category {
-        CONTEST, EXTERNAL, SCHOOL
+        CONTEST, EXTERNAL, SCHOOL, ETC
     }
 
     /**
