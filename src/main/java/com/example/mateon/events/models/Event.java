@@ -29,6 +29,8 @@ public class Event {
     @Column(name = "field", length = 50, nullable = false)
     private Field field;
 
+    // 활동 제목은 필수다. V22 에서 NOT NULL 로 전환했다.
+    @Column(length = 255, nullable = false)
     private String title; // varchar(255)
 
     @Column(columnDefinition = "text")
