@@ -15,7 +15,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -92,8 +94,8 @@ class EventQueryBehaviorTest {
             Event event = college(school(event(1L, Category.CONTEST, Field.PLANNING_IDEA), "단국대학교"), "SW융합대학");
             event.setOrganizer("업스테이지");
             campus(event, "죽전");
-            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Sort.class)))
-                    .thenReturn(List.of(event));
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(event)));
 
             mockMvc.perform(get("/api/events/search"))
                     .andExpect(status().isOk())
@@ -107,17 +109,72 @@ class EventQueryBehaviorTest {
         }
 
         @Test
-        @DisplayName("시작일 최신순 정렬을 DB 에 맡긴다")
+        @DisplayName("시작일 최신순 정렬을 DB 에 맡긴다 (Pageable 에 실어 보낸다)")
         void delegatesSortingToDatabase() throws Exception {
-            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Sort.class)))
-                    .thenReturn(List.of());
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
 
             mockMvc.perform(get("/api/events/search")).andExpect(status().isOk());
 
-            ArgumentCaptor<Sort> sort = ArgumentCaptor.forClass(Sort.class);
-            verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), sort.capture());
-            assertThat(sort.getValue().getOrderFor("startDate")).isNotNull();
-            assertThat(sort.getValue().getOrderFor("startDate").isDescending()).isTrue();
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
+            assertThat(pageable.getValue().getSort().getOrderFor("startDate")).isNotNull();
+            assertThat(pageable.getValue().getSort().getOrderFor("startDate").isDescending()).isTrue();
+        }
+
+        @Test
+        @DisplayName("요청한 page/size 를 그대로 DB 조회에 넘긴다")
+        void passesRequestedPageAndSizeToDatabase() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/events/search").param("page", "2").param("size", "5"))
+                    .andExpect(status().isOk());
+
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
+            assertThat(pageable.getValue().getPageNumber()).isEqualTo(2);
+            assertThat(pageable.getValue().getPageSize()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("size 가 상한을 넘으면 상한(100)으로 잘라 조회한다 — 과부하 방지가 목적이므로")
+        void capsPageSizeToMax() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/events/search").param("size", "100000"))
+                    .andExpect(status().isOk());
+
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
+            // EventService.MAX_PAGE_SIZE 와 같은 값. (패키지가 달라 상수를 직접 참조하지 않는다.)
+            assertThat(pageable.getValue().getPageSize()).isEqualTo(100);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/events")
+    class GetAll {
+
+        @Test
+        @DisplayName("요청한 size 를 무작위 조회 LIMIT 으로 넘긴다")
+        void passesSizeAsRandomLimit() throws Exception {
+            when(eventRepository.findAllRandomly(anyInt())).thenReturn(List.of());
+
+            mockMvc.perform(get("/api/events").param("size", "5")).andExpect(status().isOk());
+
+            verify(eventRepository).findAllRandomly(5);
+        }
+
+        @Test
+        @DisplayName("size 가 상한을 넘으면 상한(100)으로 잘라 조회한다")
+        void capsRandomLimitToMax() throws Exception {
+            when(eventRepository.findAllRandomly(anyInt())).thenReturn(List.of());
+
+            mockMvc.perform(get("/api/events").param("size", "100000")).andExpect(status().isOk());
+
+            verify(eventRepository).findAllRandomly(100);
         }
     }
 

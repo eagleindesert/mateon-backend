@@ -67,14 +67,16 @@ public class EventController {
       @RequestParam(required = false) String college,
       @RequestParam(required = false) String school,
       @RequestParam(required = false) Category category,
-      @RequestParam(required = false) Field field
+      @RequestParam(required = false) Field field,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size
     ) {
         // 지우기 전에 '아직 누가 보내고 있는지'를 알아야 한다. 파라미터 하나만 폐기 대상이라
         // /recommended 처럼 Deprecation 헤더를 붙이지는 않고 서버 로그로만 추적한다.
         if (college != null && !college.isBlank()) {
             log.warn("deprecated 검색 파라미터 사용: college={} (school 로 전환 필요)", college);
         }
-        return ApiResponse.success(eventService.search(college, school, category, field));
+        return ApiResponse.success(eventService.search(college, school, category, field, page, size));
     }
 
     /**
@@ -112,11 +114,14 @@ public class EventController {
     }
 
     /**
-     * 기본 전체 조회 (무작위 정렬)
+     * 기본 조회 (무작위 정렬). 카테고리가 섞인 표본을 size 건까지 내려준다.
+     * RANDOM 정렬이라 페이지 간 순서를 보장할 수 없어 page 는 받지 않고 size 로만 응답 크기를 묶는다.
      */
     @GetMapping
-    public ApiResponse<List<EventResponseDTO>> getAllEvents() {
-        return ApiResponse.success(eventService.findAllRandomly());
+    public ApiResponse<List<EventResponseDTO>> getAllEvents(
+      @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.success(eventService.findAllRandomly(size));
     }
 
     /**

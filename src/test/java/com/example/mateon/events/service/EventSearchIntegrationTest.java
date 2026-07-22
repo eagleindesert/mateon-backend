@@ -154,9 +154,13 @@ class EventSearchIntegrationTest {
 
     // --- 헬퍼 ---
 
-    /** 검색 결과에서 이번 테스트가 심은 활동의 id 만 순서대로 뽑는다. */
+    /**
+     * 검색 결과에서 이번 테스트가 심은 활동의 id 만 순서대로 뽑는다.
+     * 이 테스트들은 필터·정렬 결과 전건을 검증하므로, 페이지 크기는 상한(MAX_PAGE_SIZE)까지 열어
+     * 심은 활동이 한 페이지 안에 다 들어오게 한다.
+     */
     private List<Long> searchIds(String college, String school, Category category, Field field) {
-        return eventService.search(college, school, category, field).stream()
+        return eventService.search(college, school, category, field, 0, EventService.MAX_PAGE_SIZE).stream()
                 .filter(dto -> dto.getTitle() != null && dto.getTitle().contains(tag))
                 .map(EventResponseDTO::getId)
                 .toList();

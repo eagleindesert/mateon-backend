@@ -133,3 +133,50 @@ if ($hasToken) {
 
 # 4.3 전체 활동 조회 (랜덤)
 Invoke-Api -Method GET -Path "/api/events" -Title "4.3 전체 활동 조회 (랜덤)"
+
+# ==========================================================================
+# 4.4 페이지네이션 — 응답 크기를 잘라 트래픽 과부하를 막는다.
+#   원격 DB 는 데이터가 계속 쌓이므로 '총 몇 건'이 아니라 '관찰 가능한 상한/동작'만 본다:
+#     - size 로 요청한 개수 이하만 온다 (기본 20, 명시 size, 상한 100).
+#     - page 를 넘기면 다른 활동이 온다 (겹치지 않는다).
+#   search 는 진짜 오프셋 페이징이고, /api/events(랜덤)는 offset 없이 size 캡만 지원한다.
+# ==========================================================================
+Write-Host "`n---------- 4.4 페이지네이션 ----------" -ForegroundColor Magenta
+
+# (a) 기본 size: 파라미터를 안 주면 한 페이지 기본값(20) 이하만 온다.
+$defaultPage = Invoke-Api -Method GET -Path "/api/events/search" -PassThru -Title "4.4 검색 기본 페이지 (size 미지정)"
+Assert-Test -Title "4.4 size 미지정 시 20건 이하로 잘린다" `
+    -Condition (@($defaultPage.data).Count -le 20) -Detail "count=$(@($defaultPage.data).Count)"
+
+# (b) size 지정: 요청한 개수 이하만 온다.
+$size3 = Invoke-Api -Method GET -Path "/api/events/search?size=3" -PassThru -Title "4.4 검색 size=3"
+Assert-Test -Title "4.4 size=3 이면 3건 이하만 온다" `
+    -Condition (@($size3.data).Count -le 3) -Detail "count=$(@($size3.data).Count)"
+
+# (c) size 상한: 큰 값을 보내도 서버가 상한(100)으로 잘라 전건 조회를 막는다. 과부하 방지의 핵심 계약이다.
+$hugeSize = Invoke-Api -Method GET -Path "/api/events/search?size=100000" -PassThru -Title "4.4 검색 size=100000 (상한 100)"
+Assert-Test -Title "4.4 과도한 size 는 100건으로 상한 처리된다" `
+    -Condition (@($hugeSize.data).Count -le 100) -Detail "count=$(@($hugeSize.data).Count)"
+
+# (d) page 이동: page=0 과 page=1 은 서로 다른 활동을 준다(겹치지 않는다).
+#   첫 페이지가 꽉 찼을 때만 의미가 있다 - 데이터가 2건 미만이면 넘길 다음 페이지가 없다.
+$page0 = Invoke-Api -Method GET -Path "/api/events/search?page=0&size=2" -PassThru -Title "4.4 검색 page=0&size=2"
+$page1 = Invoke-Api -Method GET -Path "/api/events/search?page=1&size=2" -PassThru -Title "4.4 검색 page=1&size=2"
+$ids0 = @($page0.data | ForEach-Object { $_.id })
+$ids1 = @($page1.data | ForEach-Object { $_.id })
+if ($ids0.Count -eq 2) {
+    $overlap = @($ids0 | Where-Object { $ids1 -contains $_ }).Count
+    Assert-Test -Title "4.4 page=0 과 page=1 의 활동이 겹치지 않는다" `
+        -Condition ($overlap -eq 0) -Detail "page0=[$($ids0 -join ',')] page1=[$($ids1 -join ',')]"
+} else {
+    Write-Host "  (i) 검색 결과가 2건 미만이라 페이지 이동 검증을 건너뜁니다." -ForegroundColor Yellow
+}
+
+# (e) 전체 조회(랜덤)도 size 로 크기를 묶는다. page 는 지원하지 않는다(매 호출 랜덤 표본).
+$randSize5 = Invoke-Api -Method GET -Path "/api/events?size=5" -PassThru -Title "4.4 전체 조회 size=5"
+Assert-Test -Title "4.4 전체 조회도 size=5 면 5건 이하만 온다" `
+    -Condition (@($randSize5.data).Count -le 5) -Detail "count=$(@($randSize5.data).Count)"
+
+$randHuge = Invoke-Api -Method GET -Path "/api/events?size=100000" -PassThru -Title "4.4 전체 조회 size=100000 (상한 100)"
+Assert-Test -Title "4.4 전체 조회도 과도한 size 는 100건으로 상한 처리된다" `
+    -Condition (@($randHuge.data).Count -le 100) -Detail "count=$(@($randHuge.data).Count)"

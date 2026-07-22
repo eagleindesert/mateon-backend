@@ -12,6 +12,8 @@ import com.example.mateon.events.repository.EventSearchSpecs;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,12 @@ public class EventService {
      */
     private static final Sort BY_START_DATE =
             Sort.by(Sort.Order.desc("startDate").nullsLast(), Sort.Order.desc("id"));
+
+    /**
+     * 한 페이지 최대 건수. 목적이 과부하 방지이므로 클라이언트가 아무리 큰 size 를 보내도 여기서 자른다 —
+     * 상한이 없으면 size=100000 한 방으로 전건 조회와 같아져 페이지네이션이 무의미해진다.
+     */
+    static final int MAX_PAGE_SIZE = 100;
 
     private final EventRepository eventRepository;
     private final EventMatchingService eventMatchingService;
@@ -71,13 +79,30 @@ public class EventService {
      * 걸렀는데, 그건 사용자별 점수 정렬 때문에 어차피 전건이 필요했던 시절의 구조다. 그 전제가
      * 사라졌으므로 테이블을 통째로 읽을 이유가 없다.
      *
+     * <p>
+     * 결과는 페이지 단위로 잘라 내려준다. 필터가 없으면 테이블 전체가 응답으로 나가 데이터가 쌓일수록
+     * 트래픽이 무한정 커지기 때문이다. 정렬은 {@link #BY_START_DATE} 를 {@link Pageable} 에 실어
+     * DB 에서 끝낸다 — 2차 기준(id desc)이 있어 페이지 경계가 매 조회마다 흔들리지 않는다.
+     *
      * @param college 대상 단과대학. deprecated — school 로 전환 중이다.
      * @param school 대상 대학교
+     * @param page 0-기반 페이지 번호. 음수는 0 으로 취급한다.
+     * @param size 페이지당 건수. {@link #MAX_PAGE_SIZE} 로 상한을 두고, 1 미만은 1 로 올린다.
      */
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> search(String college, String school, Category category, Field field) {
+    public List<EventResponseDTO> search(String college, String school, Category category, Field field,
+                                         int page, int size) {
+        Pageable pageable = PageRequest.of(clampPage(page), clampSize(size), BY_START_DATE);
         return toResponse(
-                eventRepository.findAll(EventSearchSpecs.of(college, school, category, field), BY_START_DATE));
+                eventRepository.findAll(EventSearchSpecs.of(college, school, category, field), pageable).getContent());
+    }
+
+    private static int clampPage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private static int clampSize(int size) {
+        return Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     }
 
     /**
@@ -105,11 +130,16 @@ public class EventService {
     }
 
     /**
-     * 여러 카테고리가 섞여 보이도록 무작위 정렬해 전체를 돌려준다.
+     * 여러 카테고리가 섞여 보이도록 무작위 정렬한 표본을 size 건까지 돌려준다.
+     *
+     * <p>
+     * offset 페이징은 걸지 않는다 — {@code ORDER BY RANDOM()} 은 호출마다 재정렬되므로 페이지를
+     * 넘기면 중복·누락이 생긴다. 이 엔드포인트의 목적은 홈 화면용 '섞인 표본'이지 전건 순회가 아니라,
+     * {@link #MAX_PAGE_SIZE} 로 상한을 둔 LIMIT 로 응답 크기만 묶는다.
      */
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> findAllRandomly() {
-        return toResponse(eventRepository.findAllRandomly());
+    public List<EventResponseDTO> findAllRandomly(int size) {
+        return toResponse(eventRepository.findAllRandomly(clampSize(size)));
     }
 
     /**
