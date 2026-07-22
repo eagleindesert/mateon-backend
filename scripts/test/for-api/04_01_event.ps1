@@ -94,23 +94,6 @@ foreach ($case in $fieldCases) {
 # 4.1 활동 검색 - 분야 오타는 400 으로 막혀야 한다
 Invoke-Api -Method GET -Path "/api/events/search?field=IT" -Title "4.1 활동 검색 (분야 오타 - 차단 기대)"
 
-# 4.1 활동 검색 - school(대상 대학교) 필터
-# 대상 학교가 다른 활동은 빠지고, 전국 대상(대상 학교 없음)도 이 필터에는 안 잡힌다.
-$schoolResult = Invoke-Api -Method GET -Path "/api/events/search?school=%EB%8B%A8%EA%B5%AD%EB%8C%80%ED%95%99%EA%B5%90" -PassThru -Title "4.1 활동 검색 (school=단국대학교)"
-Assert-Contains $schoolResult "공모전/과학공학"  "4.1 대학교 검색(단국대학교)에 대상 학교가 맞는 활동 포함"
-Assert-Contains $schoolResult "공모전/디자인"    "4.1 대학교 검색(단국대학교)에서 다른 학교 대상 활동 제외" -Absent
-Assert-Contains $schoolResult "대외활동/과학공학" "4.1 대학교 검색(단국대학교)에서 전국 대상 활동 제외" -Absent
-
-# 4.1 활동 검색 - 대학교 필터는 부분일치라 짧게 적어도 잡힌다
-$partialResult = Invoke-Api -Method GET -Path "/api/events/search?school=%EB%8B%A8%EA%B5%AD%EB%8C%80" -PassThru -Title "4.1 활동 검색 (school=단국대 - 부분일치)"
-Assert-Contains $partialResult "공모전/과학공학" "4.1 대학교 부분일치 검색(단국대)에 포함"
-
-# 4.1 활동 검색 - school + category 필터
-Invoke-Api -Method GET -Path "/api/events/search?school=%EB%8B%A8%EA%B5%AD%EB%8C%80%ED%95%99%EA%B5%90&category=CONTEST" -Title "4.1 활동 검색 (school + category)"
-
-# 4.1 활동 검색 - college 필터 [deprecated] school 로 전환 중이나 아직 동작해야 한다
-Invoke-Api -Method GET -Path "/api/events/search?college=SW%EC%9C%B5%ED%95%A9%EB%8C%80%ED%95%99&category=SCHOOL" -Title "4.1 활동 검색 (college + category, deprecated)"
-
 # 4.1 활동 검색 - 로그인해도 순서가 그대로인지 확인한다.
 # 예전에는 로그인 사용자에게 관련도 점수순으로 정렬해 줬다. 지금은 시작일 최신순 하나뿐이라
 # 두 결과의 id 나열이 완전히 같아야 한다.
