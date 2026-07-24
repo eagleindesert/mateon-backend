@@ -30,7 +30,7 @@ public final class EventSearchSpecs {
      * <p>
      * <b>폐기 예정.</b> '전체'를 별도 문자열로 흘려보내는 방식 자체가 미전송(null)으로 충분한 걸
      * 우회하는 형태다. 프론트가 '전체' 선택 시 파라미터를 아예 보내지 않도록 전환되면, 이 상수와
-     * {@link #contains} 의 관련 분기, v6-2.md 의 "'전체' 입력 시" 문구를 함께 걷어낸다.
+     * {@link #contains} 의 관련 분기, docs/api-spec 의 "'전체' 입력 시" 문구를 함께 걷어낸다.
      * 전환 완료 전까지는 프론트 호환을 위해 그대로 둔다.
      */
     private static final String NO_FILTER = "전체";
