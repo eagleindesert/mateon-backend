@@ -1,8 +1,8 @@
 # parallel-chat (for-api-server) — 두 창으로 실시간 채팅 눈으로 확인하기
 
-원격 서버(`for-api-server`) 를 대상으로 실행하는 버전입니다. [`../../for-api-local/parallel-chat`](../../for-api-local/parallel-chat/README.md)
-와 화면 동작은 동일하며, 계정 준비 시 이메일 인증코드를 **사람이 직접 입력**한다는 점만 다릅니다
-(원격 DB 는 `docker exec` 로 조회할 수 없기 때문 — 상위 폴더 [README](../README.md#인증코드-확인-방법) 참고).
+서버를 대상으로 실행하는 버전입니다. 계정 준비 시 이메일 인증코드를
+**사람이 직접 입력**합니다(원격 DB 는 `docker exec` 로 조회할 수 없기 때문 — 상위 폴더
+[README](../README.md#인증코드-확인-방법) 참고).
 
 `10_chat.ps1` 은 한 프로세스 안에서 소켓 2개로 **자동 검증**(PASS/FAIL)을 하지만,
 여기 스크립트는 **두 개의 PowerShell 창을 띄워** 사람이 직접 A·B 유저로 메시지를

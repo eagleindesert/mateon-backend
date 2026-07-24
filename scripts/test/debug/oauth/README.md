@@ -50,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\get-kakao-token.ps1
 #    그 인가코드를 같은 셸의 프롬프트에 붙여넣으면 → access token 교환 후 이 폴더 .env 에 기록됨.
 
 # 2) 실제 카카오 로그인 정상 경로 테스트 (토큰은 이 폴더 .env 에만 있으므로 -KakaoAccessToken 으로 전달)
-powershell -ExecutionPolicy Bypass -File ..\..\for-api-local\08_social_kakao.ps1 -KakaoAccessToken <획득한_토큰>
+powershell -ExecutionPolicy Bypass -File ..\..\for-api\auth\08_social_kakao.ps1 -KakaoAccessToken <획득한_토큰>
 ```
 
 > 인가코드는 일회용·단기 만료다. `access token 교환 실패`가 뜨면 authorize 부터 다시 한다.

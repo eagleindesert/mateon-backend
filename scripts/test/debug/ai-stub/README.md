@@ -36,7 +36,7 @@ pwsh -File scripts/test/debug/ai-stub/stub-ai-server.ps1 -Port 8001
 ./gradlew bootRun
 
 # 3) E2E 실행
-pwsh -File scripts/test/for-api-local/11_matching_intent.ps1
+pwsh -File scripts/test/for-api/11_matching_intent.ps1
 ```
 
 포트를 바꿨다면 백엔드의 `AI_BASE_URL` 과 반드시 맞춰야 한다.

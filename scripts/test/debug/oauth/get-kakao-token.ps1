@@ -2,7 +2,7 @@
 # 사용법:
 #   powershell -ExecutionPolicy Bypass -File .\get-kakao-token.ps1
 #
-# 동작 (DB·docker·for-api-local 의존 없이 완전 자립):
+# 동작 (DB·docker 의존 없이 완전 자립):
 #   1) 카카오 authorize URL 을 출력한다(사람이 브라우저로 접속해 로그인/동의).
 #   2) 로그인하면 카카오가 redirect_uri(=/debug/oauth)로 인가코드를 보낸다. Spring 디버그
 #      컨트롤러가 완료 페이지에 그 인가코드를 노출한다(주소창 ?code=... 에도 남는다).

@@ -17,13 +17,13 @@
 #   2) 원격 백엔드의 ai.base-url 이 살아있는 FastAPI 를 가리켜야 한다.
 #      AI 서버가 죽어있으면 503(AI_SERVER_UNAVAILABLE)이 나며, 그 자체도 유효한 검증이다.
 #
-# [for-api-local 판과의 차이]
+# [주의사항]
 #   (1) DB 검증 없음. 이 폴더에는 Invoke-PgSql/PgContainer 가 없다(원격 DB 에 docker 가 닿지 않음).
 #       user_embeddings 의 벡터 차원이나 슬롯 CSV 는 여기서 확인할 수 없고, slotId 채번 여부로
 #       "슬롯이 저장됐다"까지만 간접 확인한다. 벡터까지 보려면 원격 DB 에 직접 접속해야 한다:
 #         SELECT vector_dims(embedding) FROM user_embeddings WHERE user_id=<id>;
-#   (2) 시나리오가 고정이 아니다. local 판은 스텁 AI 라 "1번째=재질문, 2번째=완료"가 보장되지만,
-#       원격은 실제 FastAPI 라 몇 번 되물을지 알 수 없다. 그래서 missingFields 를 보고 답을
+#   (2) 시나리오가 고정이 아니다. 스텁 AI 를 쓰면 "1번째=재질문, 2번째=완료"가 보장되지만,
+#       실서버는 실제 FastAPI 라 몇 번 되물을지 알 수 없다. 그래서 missingFields 를 보고 답을
 #       골라 넣으며 완료될 때까지 반복한다.
 . "$PSScriptRoot\00_common.ps1"
 

@@ -5,12 +5,10 @@
 # - curl.exe 를 사용하여 API 를 호출한다.
 # - 로그인 시 발급된 accessToken 을 .auth-token.txt 에 저장/재사용한다.
 #
-# [for-api-local 과의 차이]
-#   local 판은 인증코드를 docker 로 로컬 PostgreSQL(email_verifications.code)에서 직접 읽는다.
-#   원격 서버는 로컬 조회가 닿지 않으므로, 이 서버 판은 인증코드를 사람이 직접 입력한다
-#   (Get-EmailVerificationCode 가 콘솔에서 Read-Host 로 받는다). 코드는 서버가 발송한 메일에서
-#   확인하거나, 원격 DB 에 pgAdmin/psql 로 접속해 email_verifications.code 를 조회해 넣는다.
-#   그래서 DB 직접 조작 헬퍼(Set-SchoolVerified/Grant-SchoolEmailCode/Invoke-PgSql)는 여기 없다.
+# 원격 서버는 로컬 DB 조회가 닿지 않으므로, 인증코드는 사람이 직접 입력한다
+# (Get-EmailVerificationCode 가 콘솔에서 Read-Host 로 받는다). 코드는 서버가 발송한 메일에서
+# 확인하거나, 원격 DB 에 pgAdmin/psql 로 접속해 email_verifications.code 를 조회해 넣는다.
+# 그래서 DB 직접 조작 헬퍼(Set-SchoolVerified/Grant-SchoolEmailCode/Invoke-PgSql)는 여기 없다.
 
 # ============================================================================
 #  설정 (CONFIG) — 여기 Default 만 고치면 모든 스크립트에 반영됩니다.
