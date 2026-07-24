@@ -104,14 +104,25 @@ if (-not (Test-Path variable:global:MateonTestResults)) {
     $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
 }
 
+# 이 파일을 dot-source 한 스크립트가 "시작된 시점"의 집계 개수.
+# Write-TestSummary 가 기본으로 이 지점부터 요약하므로, 개별 스크립트를 단독 실행하면
+# 그 스크립트만의 성공/실패가, 99_run_all.ps1 안에서 실행되면(여러 스크립트가 같은 프로세스에서
+# $global:MateonTestResults 를 공유) 그 스크립트가 새로 추가한 결과만 집계된다.
+$script:TestSectionStart = $global:MateonTestResults.Count
+
 # 집계 초기화 (99_run_all.ps1 시작 시 호출)
 function Reset-TestResults {
     $global:MateonTestResults = New-Object System.Collections.Generic.List[object]
+    $script:TestSectionStart = 0
 }
 
 # 성공/실패 개수와 실패 목록을 출력한다.
+#   -From : 이 인덱스 이후의 결과만 요약한다. 기본값은 "이 스크립트가 시작된 시점"이라,
+#           개별 실행/99_run_all 실행 모두 별도 지정 없이 "이 스크립트만의" 요약이 나온다.
+#           전체 실행 총합을 보려면 -From 0 을 넘긴다(99_run_all.ps1 이 마지막에 이렇게 쓴다).
 function Write-TestSummary {
-    $results = $global:MateonTestResults
+    param([int]$From = $script:TestSectionStart)
+    $results = @($global:MateonTestResults | Select-Object -Skip $From)
     $total   = $results.Count
     $failedItems = @($results | Where-Object { -not $_.Ok })
     $passed  = $total - $failedItems.Count

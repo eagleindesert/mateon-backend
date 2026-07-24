@@ -29,6 +29,8 @@
 
 Write-Host "`n########## 11. Matching Intent (매칭 의도 추출) - /api/matching/intents [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 if (-not (Get-AccessToken)) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
     return
@@ -172,3 +174,7 @@ Write-Host "  (i) 임베딩 벡터(user_embeddings)는 이 폴더에서 확인�
 Write-Host "      SELECT vector_dims(embedding) FROM user_embeddings WHERE user_id=$userId;  -- 1536 기대" -ForegroundColor DarkGray
 
 Write-Host "`n########## 11. Matching Intent 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

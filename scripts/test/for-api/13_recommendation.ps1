@@ -43,6 +43,8 @@ if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
 Write-Host "`n########## 13. Recommendation (유저→팀 추천) - /api/matching/recommendations [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 $tokenA = Get-AccessToken
 if (-not $tokenA) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
@@ -315,3 +317,7 @@ Write-Host "        JOIN user_to_team_recommendation_items i ON i.log_id = l.id"
 Write-Host "       WHERE l.user_id = $userIdA ORDER BY l.id DESC, i.rank_no;" -ForegroundColor DarkGray
 
 Write-Host "`n########## 13. Recommendation 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

@@ -50,6 +50,8 @@ if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
 Write-Host "`n########## 16. Recommendation Reason (추천 상세 이유) [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 $tokenA = Get-AccessToken
 if (-not $tokenA) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
@@ -255,3 +257,7 @@ Write-Host "    -- 캐시를 함께 지워야 AI 를 다시 부른다. 이후 �
 Write-Host "    -- target_summary 가 '모집 역할: BE / 요구 스킬: ...' 형태(2층)로 나와야 한다." -ForegroundColor DarkGray
 
 Write-Host "`n########## 16. Recommendation Reason 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

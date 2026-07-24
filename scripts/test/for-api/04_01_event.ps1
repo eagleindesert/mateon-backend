@@ -8,6 +8,8 @@
 # 파일이 없으면(= init 미실행) 증분 검증만 건너뛰고 나머지 조회 테스트는 그대로 돈다.
 . "$PSScriptRoot\00_common.ps1"
 
+try {
+
 Write-Host "`n########## 4-1. Event (활동) 조회 - /api/events ##########" -ForegroundColor Magenta
 
 $hasToken = [bool](Get-AccessToken)
@@ -202,7 +204,9 @@ if ($runTag -and $createdEventIds.Count -gt 0) {
         -Condition $allPresent -Detail "created=$($createdIds.Count) found=$($kwIds.Count)"
 
     # (b) 존재하지 않는 키워드로 검색하면 이번 실행분이 하나도 안 잡힌다 (키워드가 실제로 거른다).
-    $noneResult = Invoke-Api -Method GET -Path "/api/events/search?keyword=${runTag}_없는키워드&size=100" -PassThru -Title "4.5 키워드 검색 (매칭 없음)"
+    # 한글 파라미터는 이 레포 관례대로 퍼센트 인코딩해 보낸다(curl.exe 로 raw 한글 URL 전달 회피).
+    $encNoneKw = [uri]::EscapeDataString("${runTag}_없는키워드")
+    $noneResult = Invoke-Api -Method GET -Path "/api/events/search?keyword=$encNoneKw&size=100" -PassThru -Title "4.5 키워드 검색 (매칭 없음)"
     $noneIds = @($noneResult.data | ForEach-Object { $_.id })
     $anyLeak = $false
     foreach ($id in $createdIds) { if ($noneIds -contains $id) { $anyLeak = $true } }
@@ -272,4 +276,8 @@ if ($runTag -and $createdEventIds.Count -gt 0) {
     }
 } else {
     Write-Host "  (i) runTag 없음 - 키워드 검색 검증은 건너뜁니다. (먼저 .\04_00_event_init.ps1 실행)" -ForegroundColor Yellow
+}
+
+} finally {
+    Write-TestSummary | Out-Null
 }

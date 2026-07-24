@@ -32,6 +32,8 @@ if (-not $Email) { $Email = $script:TestEmail }
 
 Write-Host "`n########## 7. School Email Auth - /api/auth/school [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 if (-not (Get-AccessToken)) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 을 실행하세요." -ForegroundColor Red
     return
@@ -92,3 +94,7 @@ $allowedStatus = Get-LastStatus
 Assert-Test -Title "7.4 인증 후 팀 생성 허용(2xx)" `
     -Condition ($allowedStatus -and [int]$allowedStatus -lt 400) `
     -Detail "status=$allowedStatus, teamId=$($created.data.id)" | Out-Null
+
+} finally {
+    Write-TestSummary | Out-Null
+}

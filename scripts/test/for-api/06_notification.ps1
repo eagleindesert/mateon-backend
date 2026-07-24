@@ -3,6 +3,8 @@
 # 사전 조건: 02_auth.ps1 로 로그인하여 .auth-token.txt 가 생성되어 있어야 한다.
 . "$PSScriptRoot\00_common.ps1"
 
+try {
+
 Write-Host "`n########## 6. Notification (알림) - /api/notifications [인증 필요] ##########" -ForegroundColor Magenta
 
 $token = Get-AccessToken
@@ -35,3 +37,7 @@ Write-Host "`n  (i) SSE 수신 종료 (max-time 5s)" -ForegroundColor Green
 Assert-Test -Title "6.1b SSE 구독 시 connect 이벤트 수신" `
     -Condition ($sseOut -match "event:\s*connect") `
     -Detail "received=$($sseOut.Length) chars" | Out-Null
+
+} finally {
+    Write-TestSummary | Out-Null
+}

@@ -6,6 +6,8 @@
 # 뒤이어 도는 04_01_event.ps1 이 "방금 등록한 활동이 검색에 잡히는지"를 검증할 수 있게 한다.
 . "$PSScriptRoot\00_common.ps1"
 
+try {
+
 Write-Host "`n########## 4-0. Event (활동) 데이터 준비 - POST /api/events ##########" -ForegroundColor Magenta
 
 $hasToken = [bool](Get-AccessToken)
@@ -139,4 +141,8 @@ if ($createdEventIds.Count -gt 0) {
     Write-Host "`n  (i) 등록한 eventId 를 저장했습니다: $stateFile" -ForegroundColor DarkCyan
 } else {
     Remove-Item $stateFile -Force -ErrorAction SilentlyContinue
+}
+
+} finally {
+    Write-TestSummary | Out-Null
 }

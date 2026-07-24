@@ -154,8 +154,8 @@ Use-User "A" -Quiet | Out-Null
 
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
-# 성공/실패 개수 및 실패 항목 요약 출력
-$failedCount = Write-TestSummary
+# 성공/실패 개수 및 실패 항목 요약 출력 (전체 스크립트 합산 - From 0)
+$failedCount = Write-TestSummary -From 0
 
 # 실패가 있으면 0 이 아닌 종료 코드로 종료 (CI 등에서 활용 가능)
 exit $failedCount

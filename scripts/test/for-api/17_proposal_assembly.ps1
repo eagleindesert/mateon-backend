@@ -50,6 +50,8 @@ if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
 Write-Host "`n########## 17. Proposal Assembly (최종 제안 조립) [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 $tokenA = Get-AccessToken
 if (-not $tokenA) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
@@ -317,3 +319,7 @@ Write-Host "    - candidate_summary/target_summary 에 [!!] 가 없는가" -Fore
 Write-Host "    - contest_id 가 null(자율 프로젝트)로 나갔는가 - 실서버가 이걸 거부하는지 확인 필요" -ForegroundColor DarkGray
 
 Write-Host "`n########## 17. Proposal Assembly 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

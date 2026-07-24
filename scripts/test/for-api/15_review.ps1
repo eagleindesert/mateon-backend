@@ -29,6 +29,8 @@ param(
 
 Write-Host "`n########## 15. Review (협업 온도) - /api/teams/{id}/reviews [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 # --- 선행 조건: 슬롯 토큰 3개 ---
 $idA = Get-SlotUserId "A"; $idB = Get-SlotUserId "B"; $idC = Get-SlotUserId "C"
 if (-not ($idA -and $idB -and $idC)) {
@@ -265,4 +267,8 @@ Assert-Test -Title "15.14b 평가를 못 받은 B 는 온도 비공개(null)" `
 # --- 정리 ---
 Use-User "A" | Out-Null
 Write-Host "`n[정리] teamId=$teamId 는 남겨 둡니다(종료 상태). 활성 세션 = 유저 A." -ForegroundColor DarkGray
+
+} finally {
+    Write-TestSummary | Out-Null
+}
 

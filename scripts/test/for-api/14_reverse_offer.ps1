@@ -51,6 +51,8 @@ if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
 Write-Host "`n########## 14. Reverse Offer (역제안: 팀→유저) [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 $tokenA = Get-AccessToken
 if (-not $tokenA) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
@@ -389,3 +391,7 @@ Write-Host "      SELECT * FROM team_offers WHERE team_id IN ($teamMainId, $team
 
 Use-Token $tokenA
 Write-Host "`n########## 14. Reverse Offer 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

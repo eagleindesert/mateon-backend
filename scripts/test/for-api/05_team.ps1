@@ -29,6 +29,8 @@ param(
 if (-not $UserBEmail)    { $UserBEmail    = $script:UserBEmail }
 if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
+try {
+
 Write-Host "`n########## 5. Team (팀 모집/지원) - /api/teams [인증 필요] ##########" -ForegroundColor Magenta
 
 if (-not (Get-AccessToken)) {
@@ -190,4 +192,8 @@ if ($tokenA) { Save-AccessToken $tokenA }
 if ($teamId) {
     Write-Host "`n[5.5 팀 모집글 삭제] 예시만 표기 - 생성한 테스트 팀을 지우려면 주석을 해제하세요." -ForegroundColor Yellow
     # Invoke-Api -Method DELETE -Path "/api/teams/$teamId" -Auth -Title "5.5 팀 모집글 삭제"
+}
+
+} finally {
+    Write-TestSummary | Out-Null
 }

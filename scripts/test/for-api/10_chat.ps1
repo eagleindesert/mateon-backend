@@ -27,6 +27,8 @@ if (-not $UserBPassword) { $UserBPassword = $script:UserBPassword }
 
 Write-Host "`n########## 10. Chat (채팅) - /api/chat + WebSocket(STOMP) [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 # ============================================================================
 #  STOMP over (native) WebSocket 최소 클라이언트
 #  - 서버 WebSocketConfig 가 /ws-stomp 에 네이티브 WebSocket 을 등록해 두었다.
@@ -269,3 +271,7 @@ if ($lastMsgId) {
 # ============================================================================
 Use-Token $tokenA
 Write-Host "`n[정리] 저장 토큰을 유저 A 로 복구했습니다." -ForegroundColor DarkGray
+
+} finally {
+    Write-TestSummary | Out-Null
+}

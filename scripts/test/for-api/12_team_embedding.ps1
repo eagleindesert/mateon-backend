@@ -37,6 +37,8 @@ param(
 
 Write-Host "`n########## 12. Team Embedding (팀 임베딩 연동) - /api/teams [인증 필요] ##########" -ForegroundColor Magenta
 
+try {
+
 if (-not (Get-AccessToken)) {
     Write-Host "(!) accessToken 이 없습니다. 먼저 .\auth\02_auth.ps1 (또는 99_run_all) 을 실행하세요." -ForegroundColor Red
     return
@@ -130,3 +132,7 @@ Write-Host "      - DB: SELECT embedding_text, activity_goal, missing_fields, ve
 Write-Host "            FROM team_embeddings WHERE team_id=$teamId;" -ForegroundColor DarkGray
 
 Write-Host "`n########## 12. Team Embedding 테스트 완료 ##########" -ForegroundColor Magenta
+
+} finally {
+    Write-TestSummary | Out-Null
+}

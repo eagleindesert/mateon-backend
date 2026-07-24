@@ -41,6 +41,8 @@ if (-not $NameC)     { $NameC     = $script:UserCName }
 
 Write-Host "`n########## 9. 유저 3명 준비 (협업 온도 시나리오용) ##########" -ForegroundColor Magenta
 
+try {
+
 # ----------------------------------------------------------------------------
 # 한 계정을 '로그인 가능한 상태'로 만들고 토큰을 슬롯에 저장한다.
 #   1) 로그인 시도 → 성공하면 끝 (코드 입력 불필요)
@@ -175,4 +177,8 @@ Assert-Test -Title "9.5 세 유저가 서로 다른 계정" `
 if ($okA) {
     Use-User "A" | Out-Null
     Write-Host "`n[정리] 활성 세션 = 유저 A. 다른 유저로 호출하려면 스크립트에서 Use-User 'B' 를 부르세요." -ForegroundColor DarkGray
+}
+
+} finally {
+    Write-TestSummary | Out-Null
 }

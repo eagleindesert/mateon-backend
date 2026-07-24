@@ -25,6 +25,8 @@ if (-not $KakaoAccessToken) { $KakaoAccessToken = $script:KakaoAccessToken }
 
 Write-Host "`n########## 8. Social Login (Kakao) - /api/auth/social/kakao ##########" -ForegroundColor Magenta
 
+try {
+
 # 마지막 API 호출의 HTTP 상태(문자열)를 집계 트래커에서 읽어온다.
 function Get-LastStatus {
     if ($global:MateonTestResults.Count -eq 0) { return $null }
@@ -96,3 +98,7 @@ $gatedStatus = Get-LastStatus
 Assert-Test -Title "8.4 미인증 카카오 유저 팀 생성 차단(4xx)" `
     -Condition ($gatedStatus -and [int]$gatedStatus -ge 400) `
     -Detail "status=$gatedStatus (SCHOOL_NOT_VERIFIED 기대)" | Out-Null
+
+} finally {
+    Write-TestSummary | Out-Null
+}
