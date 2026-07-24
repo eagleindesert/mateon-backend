@@ -124,6 +124,39 @@ class EventSearchIntegrationTest {
     }
 
     @Test
+    @DisplayName("키워드는 제목·설명·주최 중 하나만 맞아도 잡고, 어디에도 없으면 빠진다")
+    void filtersByKeywordAcrossTitleDescriptionOrganizer() {
+        // 개발 DB 의 기존 행과 섞이지 않도록 이번 실행에서만 유일한 검색어를 쓴다.
+        String kw = "kw" + UUID.randomUUID().toString().replace("-", "");
+        Long inTitle = saveText(kw + " 공모전", null, null);
+        Long inDescription = saveText(null, "설명에 " + kw + " 포함", null);
+        Long inOrganizer = saveText(null, null, kw + "재단");
+        saveText(null, null, null); // 키워드가 어디에도 없음 — 안 잡힌다
+
+        assertThat(searchIds(null, null, null, null, kw))
+                .containsExactlyInAnyOrder(inTitle, inDescription, inOrganizer);
+    }
+
+    @Test
+    @DisplayName("키워드가 대소문자만 다르면 그대로 잡는다")
+    void keywordIsCaseInsensitive() {
+        String kw = "AiToken" + UUID.randomUUID().toString().replace("-", "");
+        Long e = saveText(kw + " 대회", null, null);
+
+        assertThat(searchIds(null, null, null, null, kw.toLowerCase())).containsExactly(e);
+    }
+
+    @Test
+    @DisplayName("키워드가 비었으면 필터를 걸지 않는다 (required=false 라 null/빈 문자열로 들어온다)")
+    void treatsBlankKeywordAsNoFilter() {
+        Long a = saveText("A", null, null);
+        Long b = saveText(null, "B", null);
+
+        assertThat(searchIds(null, null, null, null, (String) null)).containsExactlyInAnyOrder(a, b);
+        assertThat(searchIds(null, null, null, null, "")).containsExactlyInAnyOrder(a, b);
+    }
+
+    @Test
     @DisplayName("시작일이 최근인 활동이 앞에 온다")
     void sortsByStartDate() {
         Long oldest = save(Category.CONTEST, null, null, null, LocalDate.of(2026, 1, 1));
@@ -160,7 +193,11 @@ class EventSearchIntegrationTest {
      * 심은 활동이 한 페이지 안에 다 들어오게 한다.
      */
     private List<Long> searchIds(String college, String school, Category category, Field field) {
-        return eventService.search(college, school, category, field, 0, EventService.MAX_PAGE_SIZE).stream()
+        return searchIds(college, school, category, field, null);
+    }
+
+    private List<Long> searchIds(String college, String school, Category category, Field field, String keyword) {
+        return eventService.search(college, school, category, field, keyword, 0, EventService.MAX_PAGE_SIZE).stream()
                 .filter(dto -> dto.getTitle() != null && dto.getTitle().contains(tag))
                 .map(EventResponseDTO::getId)
                 .toList();
@@ -168,6 +205,20 @@ class EventSearchIntegrationTest {
 
     private Long save(Category category, Field field, String targetColleges, String targetSchool) {
         return save(category, field, targetColleges, targetSchool, null);
+    }
+
+    /**
+     * 키워드 검색용 텍스트를 심는다. 제목에는 항상 tag 를 붙여 이번 실행이 심은 행만 골라낼 수 있게 하고,
+     * titleExtra/description/organizer 로 검색 대상 어휘를 자유롭게 넣는다.
+     */
+    private Long saveText(String titleExtra, String description, String organizer) {
+        Event event = new Event();
+        event.setCategory(Category.CONTEST);
+        event.setField(Field.ETC);
+        event.setTitle(tag + " " + (titleExtra != null ? titleExtra : UUID.randomUUID().toString()));
+        event.setDescription(description);
+        event.setOrganizer(organizer);
+        return eventRepository.saveAndFlush(event).getId();
     }
 
     @SuppressWarnings("deprecation") // 단과대 필터가 살아 있는 동안은 이 축도 계속 검증한다.

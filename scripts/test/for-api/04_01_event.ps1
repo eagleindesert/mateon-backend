@@ -14,10 +14,17 @@ $hasToken = [bool](Get-AccessToken)
 
 # init 이 등록한 활동 id 로드 (라벨 -> eventId)
 $createdEventIds = @{}
+# init 이 제목에 심은 이번 실행 꼬리표. 키워드 검색으로 이번 실행분만 좁혀 검증할 때 쓴다.
+$runTag = $null
 $stateFile = Join-Path $PSScriptRoot ".event-ids.json"
 if (Test-Path $stateFile) {
     $loaded = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
     foreach ($p in $loaded.PSObject.Properties) { $createdEventIds[$p.Name] = $p.Value }
+    # runTag 는 라벨→id 맵이 아니라 이번 실행 식별자다. 꺼내 두고 맵에서는 뺀다(활동 건수/검증에 안 섞이게).
+    if ($createdEventIds.ContainsKey("__runTag")) {
+        $runTag = $createdEventIds["__runTag"]
+        $createdEventIds.Remove("__runTag")
+    }
     Write-Host "  (i) init 이 등록한 활동 $($createdEventIds.Count)건을 검증에 사용합니다." -ForegroundColor DarkCyan
 } else {
     Write-Host "  (i) $stateFile 없음 - 등록 활동 증분 검증은 건너뜁니다. (먼저 .\04_00_event_init.ps1 실행)" -ForegroundColor Yellow
@@ -173,3 +180,96 @@ Assert-Test -Title "4.4 전체 조회도 size=5 면 5건 이하만 온다" `
 $randHuge = Invoke-Api -Method GET -Path "/api/events?size=100000" -PassThru -Title "4.4 전체 조회 size=100000 (상한 100)"
 Assert-Test -Title "4.4 전체 조회도 과도한 size 는 100건으로 상한 처리된다" `
     -Condition (@($randHuge.data).Count -le 100) -Detail "count=$(@($randHuge.data).Count)"
+
+# ==========================================================================
+# 4.5 키워드 검색 — 제목·설명·주최를 아우르는 부분일치(OR)이며, 기존 필터와는 AND 로 묶인다.
+#   category/field 필터의 '포함' 검증은 원격 DB 에 데이터가 많아 등록 활동이 페이지 밖으로 밀려
+#   주석 처리돼 있다(위 참고). 키워드는 다르다 — init 이 제목에 심은 유일한 runTag 로 검색하면
+#   이번 실행분만 좁혀지므로, '등록한 활동이 검색에 잡히는지'를 안정적으로 확인할 수 있다.
+#   (runTag 가 없으면 = init 미실행이라 키워드 검증은 통째로 건너뛴다.)
+# ==========================================================================
+Write-Host "`n---------- 4.5 키워드 검색 ----------" -ForegroundColor Magenta
+
+if ($runTag -and $createdEventIds.Count -gt 0) {
+    $createdIds = @($createdEventIds.Values)
+
+    # (a) runTag 로 검색하면 이번 실행이 등록한 활동이 전부 잡힌다 (제목에 runTag 가 들어 있다).
+    $kwResult = Invoke-Api -Method GET -Path "/api/events/search?keyword=$runTag&size=100" -PassThru -Title "4.5 키워드 검색 (keyword=runTag)"
+    $kwIds = @($kwResult.data | ForEach-Object { $_.id })
+    $allPresent = $true
+    foreach ($id in $createdIds) { if ($kwIds -notcontains $id) { $allPresent = $false } }
+    Assert-Test -Title "4.5 runTag 키워드 검색에 등록한 활동이 모두 잡힌다" `
+        -Condition $allPresent -Detail "created=$($createdIds.Count) found=$($kwIds.Count)"
+
+    # (b) 존재하지 않는 키워드로 검색하면 이번 실행분이 하나도 안 잡힌다 (키워드가 실제로 거른다).
+    $noneResult = Invoke-Api -Method GET -Path "/api/events/search?keyword=${runTag}_없는키워드&size=100" -PassThru -Title "4.5 키워드 검색 (매칭 없음)"
+    $noneIds = @($noneResult.data | ForEach-Object { $_.id })
+    $anyLeak = $false
+    foreach ($id in $createdIds) { if ($noneIds -contains $id) { $anyLeak = $true } }
+    Assert-Test -Title "4.5 매칭 없는 키워드에는 등록한 활동이 안 잡힌다" -Condition (-not $anyLeak)
+
+    # (c) 키워드와 category 를 함께 주면 AND 로 묶인다 — runTag 로 좁힌 뒤 CONTEST 만 남기면
+    #     같은 실행의 EXTERNAL 활동('대외활동/과학공학')은 빠진다.
+    $kwContest = Invoke-Api -Method GET -Path "/api/events/search?keyword=$runTag&category=CONTEST&size=100" -PassThru -Title "4.5 키워드+category (keyword=runTag&category=CONTEST)"
+    $kwContestIds = @($kwContest.data | ForEach-Object { $_.id })
+    $contestId  = $createdEventIds["공모전/과학공학"]
+    $externalId = $createdEventIds["대외활동/과학공학"]
+    if ($contestId) {
+        Assert-Test -Title "4.5 키워드+CONTEST 에 CONTEST 활동이 잡힌다" `
+            -Condition ($kwContestIds -contains $contestId) -Detail "eventId=$contestId"
+    }
+    if ($externalId) {
+        Assert-Test -Title "4.5 키워드+CONTEST 에서 EXTERNAL 활동은 빠진다 (키워드와 필터는 AND)" `
+            -Condition ($kwContestIds -notcontains $externalId) -Detail "eventId=$externalId"
+    }
+
+    # (d) 빈 키워드(keyword=)는 필터를 걸지 않는다 — 키워드를 아예 안 준 검색과 결과가 같아야 한다.
+    #     누적 DB 라 건수 자체는 못 박지 않고, 같은 정렬(startDate desc, id desc)이 결정적이라
+    #     두 호출의 id 나열이 완전히 같은지로 '빈 키워드 = 미지정'을 확인한다(4.1 순서 검증과 같은 방식).
+    $noKw    = Invoke-Api -Method GET -Path "/api/events/search?size=50" -PassThru -Title "4.5 키워드 미지정 (기준)"
+    $emptyKw = Invoke-Api -Method GET -Path "/api/events/search?keyword=&size=50" -PassThru -Title "4.5 빈 키워드 (keyword=)"
+    $noKwIds    = @($noKw.data    | ForEach-Object { $_.id }) -join ","
+    $emptyKwIds = @($emptyKw.data | ForEach-Object { $_.id }) -join ","
+    Assert-Test -Title "4.5 빈 키워드는 키워드 미지정과 동일하게 필터를 걸지 않는다" `
+        -Condition ($noKwIds -eq $emptyKwIds) -Detail "미지정=[$noKwIds] 빈키워드=[$emptyKwIds]"
+
+    # (e) keyword=전체 도 필터를 걸지 않는다 — school/college 와 같은 contains() 의 '전체' 분기를
+    #     공유하므로, 키워드 미지정 검색과 결과가 같아야 한다(위 (d)와 같은 결정적 비교).
+    #     한글 파라미터는 이 레포 관례대로 퍼센트 인코딩해 보낸다(curl.exe 로 raw 한글 URL 전달 회피).
+    $encAll = [uri]::EscapeDataString("전체")
+    $allKw  = Invoke-Api -Method GET -Path "/api/events/search?keyword=$encAll&size=50" -PassThru -Title "4.5 키워드=전체 (필터 미적용)"
+    $allKwIds = @($allKw.data | ForEach-Object { $_.id }) -join ","
+    Assert-Test -Title "4.5 키워드='전체'는 키워드 미지정과 동일하게 필터를 걸지 않는다" `
+        -Condition ($noKwIds -eq $allKwIds) -Detail "미지정=[$noKwIds] 전체키워드=[$allKwIds]"
+
+    # (f) 키워드+size: runTag 로 좁힌 결과에도 size 상한이 그대로 적용된다.
+    #     등록 건수는 5건이라 size=2 로 자르면 전체가 아니라 일부만 와야 한다.
+    $kwSize2 = Invoke-Api -Method GET -Path "/api/events/search?keyword=$runTag&size=2" -PassThru -Title "4.5 키워드+size=2"
+    Assert-Test -Title "4.5 키워드 검색도 size=2 면 2건 이하만 온다" `
+        -Condition (@($kwSize2.data).Count -le 2) -Detail "count=$(@($kwSize2.data).Count)"
+
+    # (g) 키워드+page: runTag 로 좁힌 결과 안에서도 page 이동이 실제로 다른 활동을 주는지 본다.
+    #     키워드 필터와 페이지네이션이 함께 적용되는지가 핵심이라, 4.4 의 page 검증과 별개로 확인한다.
+    #     등록 건수(createdIds.Count)가 4건 이상이어야 두 페이지(size=2 x 2)가 모두 꽉 찬다.
+    if ($createdIds.Count -ge 4) {
+        $kwPage0 = Invoke-Api -Method GET -Path "/api/events/search?keyword=$runTag&page=0&size=2" -PassThru -Title "4.5 키워드+page=0&size=2"
+        $kwPage1 = Invoke-Api -Method GET -Path "/api/events/search?keyword=$runTag&page=1&size=2" -PassThru -Title "4.5 키워드+page=1&size=2"
+        $kwIds0 = @($kwPage0.data | ForEach-Object { $_.id })
+        $kwIds1 = @($kwPage1.data | ForEach-Object { $_.id })
+        $kwOverlap = @($kwIds0 | Where-Object { $kwIds1 -contains $_ }).Count
+        Assert-Test -Title "4.5 키워드 검색에서도 page=0 과 page=1 의 활동이 겹치지 않는다" `
+            -Condition ($kwOverlap -eq 0) -Detail "page0=[$($kwIds0 -join ',')] page1=[$($kwIds1 -join ',')]"
+
+        # 페이지로 나뉘어 온 결과가 실제로 이번 실행이 등록한 활동인지도 확인한다 -
+        # 겹치지만 않고 엉뚱한(runTag 와 무관한) 활동이 끼어들어도 위 검증만으로는 못 잡는다.
+        $kwPagedIds = $kwIds0 + $kwIds1
+        $allFromCreated = $true
+        foreach ($id in $kwPagedIds) { if ($createdIds -notcontains $id) { $allFromCreated = $false } }
+        Assert-Test -Title "4.5 키워드 페이지네이션 결과는 모두 등록한 활동이다" -Condition $allFromCreated `
+            -Detail "paged=[$($kwPagedIds -join ',')]"
+    } else {
+        Write-Host "  (i) 등록 활동이 4건 미만이라 키워드 페이지 이동 검증을 건너뜁니다." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  (i) runTag 없음 - 키워드 검색 검증은 건너뜁니다. (먼저 .\04_00_event_init.ps1 실행)" -ForegroundColor Yellow
+}

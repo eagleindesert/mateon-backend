@@ -61,6 +61,7 @@ public class EventController {
      * <b>deprecated</b> — 대상 범위는 {@code school} 로 일원화한다. 아직 보내는
      * 클라이언트가 있어 계속 받지만, 신규 사용은 하지 않는다.
      * @param school 대상 대학교. 부분일치이며 "전체"는 필터 미적용으로 취급한다.
+     * @param keyword 제목·설명·주최를 아우르는 자유 검색어. 부분일치이며 "전체"/빈값은 필터 미적용으로 취급한다.
      */
     @GetMapping("/search")
     public ApiResponse<List<EventResponseDTO>> searchEvents(
@@ -68,6 +69,7 @@ public class EventController {
       @RequestParam(required = false) String school,
       @RequestParam(required = false) Category category,
       @RequestParam(required = false) Field field,
+      @RequestParam(required = false) String keyword,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size
     ) {
@@ -76,7 +78,7 @@ public class EventController {
         if (college != null && !college.isBlank()) {
             log.warn("deprecated 검색 파라미터 사용: college={} (school 로 전환 필요)", college);
         }
-        return ApiResponse.success(eventService.search(college, school, category, field, page, size));
+        return ApiResponse.success(eventService.search(college, school, category, field, keyword, page, size));
     }
 
     /**

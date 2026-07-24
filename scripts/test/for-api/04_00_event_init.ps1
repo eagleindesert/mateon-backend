@@ -131,6 +131,10 @@ if ($hasToken) {
 # 그래야 04_01 이 "검증할 데이터 없음"으로 정확히 스킵한다.
 $stateFile = Join-Path $PSScriptRoot ".event-ids.json"
 if ($createdEventIds.Count -gt 0) {
+    # 04_01 이 키워드 검색으로 이번 실행분만 좁혀 검증할 수 있도록 runTag 도 함께 남긴다.
+    # 제목에 심은 runTag 는 이번 실행에만 유일해서, 원격 DB 에 데이터가 쌓여 있어도 검색이 좁혀진다.
+    # ('__' 접두어로 라벨→id 항목과 구분한다. 04_01 이 읽은 뒤 맵에서 제거한다.)
+    $createdEventIds['__runTag'] = $runTag
     $createdEventIds | ConvertTo-Json -Depth 5 | Set-Content -Path $stateFile -Encoding utf8
     Write-Host "`n  (i) 등록한 eventId 를 저장했습니다: $stateFile" -ForegroundColor DarkCyan
 } else {

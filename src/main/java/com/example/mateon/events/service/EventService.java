@@ -40,8 +40,8 @@ public class EventService {
      * 시작일이 없는 활동은 뒤로 보내고, 시작일이 같으면 나중에 등록된 것(id 큰 쪽)을 앞에 둔다 —
      * 공모전은 시작일이 겹치는 경우가 흔한데, 2차 기준이 없으면 매 조회마다 순서가 달라진다.
      */
-    private static final Sort BY_START_DATE =
-            Sort.by(Sort.Order.desc("startDate").nullsLast(), Sort.Order.desc("id"));
+    private static final Sort BY_START_DATE
+      = Sort.by(Sort.Order.desc("startDate").nullsLast(), Sort.Order.desc("id"));
 
     /**
      * 한 페이지 최대 건수. 목적이 과부하 방지이므로 클라이언트가 아무리 큰 size 를 보내도 여기서 자른다 —
@@ -86,15 +86,17 @@ public class EventService {
      *
      * @param college 대상 단과대학. deprecated — school 로 전환 중이다.
      * @param school 대상 대학교
+     * @param keyword 제목·설명·주최에 걸친 자유 검색어. 셋 중 하나라도 부분일치하면 잡힌다(OR). 비었거나 "전체"면 미적용.
      * @param page 0-기반 페이지 번호. 음수는 0 으로 취급한다.
      * @param size 페이지당 건수. {@link #MAX_PAGE_SIZE} 로 상한을 두고, 1 미만은 1 로 올린다.
      */
     @Transactional(readOnly = true)
     public List<EventResponseDTO> search(String college, String school, Category category, Field field,
-                                         int page, int size) {
+      String keyword, int page, int size) {
         Pageable pageable = PageRequest.of(clampPage(page), clampSize(size), BY_START_DATE);
         return toResponse(
-                eventRepository.findAll(EventSearchSpecs.of(college, school, category, field), pageable).getContent());
+          eventRepository.findAll(EventSearchSpecs.of(college, school, category, field, keyword), pageable)
+            .getContent());
     }
 
     private static int clampPage(int page) {
