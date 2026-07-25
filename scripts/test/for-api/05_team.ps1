@@ -158,6 +158,19 @@ if ($teamId) {
     $teamApps = Invoke-Api -Method GET -Path "/api/teams/$teamId/applications" -Auth -PassThru -Title "5.8 내 팀에 온 지원서 목록 (팀장 A)"
     Assert-Test -Title "5.8 팀장이 B 의 지원서를 확인" -Condition ([bool]($teamApps.data -and $teamApps.data.Count -ge 1)) `
         -Detail "count=$($teamApps.data.Count)" | Out-Null
+
+    # 5.8b 지원자 상세 프로필로 넘어갈 id 가 응답에 남아 있는지.
+    #   팀장은 이 id 로 GET /api/users/{userId} 를 불러 지원자의 공개 프로필을 연다.
+    #
+    #   [알려진 부채] applicant 에는 아직 UserResponse 가 통째로 실려 지원자의 email/schoolEmail
+    #   까지 함께 나간다. 좁히면 프론트 계약이 깨지므로 합의 전까지 유지한다 —
+    #   자세한 사정은 TeamApplicationResponseDTO.applicant 의 주석 참고.
+    if ($teamApps.data -and $teamApps.data.Count -gt 0) {
+        Assert-Test -Title "5.8b 지원자 프로필로 넘어갈 id 가 남아 있다" `
+            -Condition ([bool]$teamApps.data[0].applicant.id) `
+            -Detail "applicant.id = $($teamApps.data[0].applicant.id)" | Out-Null
+    }
+
     if (-not $applicationId -and $teamApps.data -and $teamApps.data.Count -gt 0) {
         $applicationId = $teamApps.data[0].applicationId
     }

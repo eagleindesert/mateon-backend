@@ -4,6 +4,8 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamMember;
 import com.example.mateon.teams.repository.TeamMemberRepository;
@@ -13,6 +15,7 @@ import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
 import com.example.mateon.user.dto.MyPageResponseDTO;
 import com.example.mateon.user.dto.PasswordChangeRequest;
+import com.example.mateon.user.dto.UserProfileResponse;
 import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.repository.UserRepository;
@@ -22,6 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +40,7 @@ public class UserService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserCollaborationScoreRepository collaborationScoreRepository;
     private final EventRepository eventRepository;
+    private final MatchingIntentSlotRepository matchingIntentSlotRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
 
@@ -64,56 +72,43 @@ public class UserService {
         return UserResponse.from(user);
     }
 
+    /**
+     * 남이 보는 프로필. 로그인한 사람이면 누구나 부를 수 있으므로 담기는 값은
+     * {@link UserProfileResponse} 의 주석대로 연락처를 배제한 공개 항목뿐이다.
+     *
+     * @param viewerId 조회하는 사람. 대상과 같으면 isMe=true 로 내려간다.
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getPublicProfile(Long targetUserId, Long viewerId) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+
+        // 슬롯과 온도는 없을 수 있다 — 의도 추출을 안 했거나 평가를 아직 못 받은 유저다.
+        // 둘 다 "아직 없음"이 정상 상태라 예외로 다루지 않는다.
+        MatchingIntentSlot slot = matchingIntentSlotRepository.findByUserId(targetUserId).orElse(null);
+        UserCollaborationScore score = collaborationScoreRepository.findById(targetUserId).orElse(null);
+
+        return UserProfileResponse.of(
+                user,
+                slot,
+                score,
+                loadParticipatedActivities(targetUserId),
+                targetUserId.equals(viewerId));
+    }
+
     @Transactional
     public MyPageResponseDTO getMyPage(Long userId) {
         // 1. 유저 정보 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 참여한 활동 조회.
-        //    예전엔 '승인된 지원서'로만 셌는데, 그러면 내가 팀장으로 만든 팀이 내 활동에서 빠졌다.
-        //    team_members 는 팀장을 LEADER 로 함께 담으므로 한 번의 조회로 둘 다 잡힌다.
-        List<TeamMember> memberships = teamMemberRepository
-                .findByUserIdAndLeftAtIsNull(user.getId());
+        // 2. 참여한 활동
+        List<MyPageResponseDTO.ActivitySummaryDTO> activities = loadParticipatedActivities(user.getId());
 
-        // 3. 활동 정보를 DTO로 변환 (Team의 title과 Event의 category 사용)
-        List<MyPageResponseDTO.ActivitySummaryDTO> activities = memberships.stream()
-                .map(membership -> {
-                    Team team = membership.getTeam();
-                    String activityTitle = team.getTitle();
-                    String category = "기타"; // 기본값
-
-                    // Event 정보가 있으면 Category 사용
-                    if (team.getEventId() != null) {
-                        Event event = eventRepository.findById(team.getEventId()).orElse(null);
-                        if (event != null && event.getCategory() != null) {
-                            // Category enum을 한글 문자열로 변환
-                            switch (event.getCategory().name()) {
-                                case "CONTEST":
-                                    category = "공모전";
-                                    break;
-                                case "EXTERNAL":
-                                    category = "대외활동";
-                                    break;
-                                case "SCHOOL":
-                                    category = "교내";
-                                    break;
-                            }
-                        }
-                    }
-
-                    return MyPageResponseDTO.ActivitySummaryDTO.builder()
-                            .id(team.getId())
-                            .title(activityTitle)
-                            .category(category)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        // 4. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
+        // 3. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
         UserCollaborationScore score = collaborationScoreRepository.findById(user.getId()).orElse(null);
 
-        // 5. DTO 조립 및 반환
+        // 4. DTO 조립 및 반환
         return MyPageResponseDTO.builder()
                 .collaborationTemperature(score != null ? score.getTemperature() : null)
                 .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
@@ -127,6 +122,47 @@ public class UserService {
                 .schoolVerified(user.isSchoolVerified())
                 .participatedActivities(activities)
                 .build();
+    }
+
+    /**
+     * 참여한 활동 목록. 마이페이지와 공개 프로필이 함께 쓴다.
+     *
+     * <p>'승인된 지원서'로 세지 않는 이유: 그러면 내가 팀장으로 만든 팀이 내 활동에서 빠진다.
+     * team_members 는 팀장을 LEADER 로 함께 담으므로 한 번의 조회로 둘 다 잡힌다.
+     *
+     * <p>event 를 멤버십마다 findById 하지 않고 한 번에 모아 읽는다 — 호출부가 둘로 늘었고,
+     * 활동을 많이 한 유저일수록 프로필이 느려지는 게 눈에 띄기 때문이다.
+     */
+    private List<MyPageResponseDTO.ActivitySummaryDTO> loadParticipatedActivities(Long userId) {
+        List<TeamMember> memberships = teamMemberRepository.findByUserIdAndLeftAtIsNull(userId);
+
+        Set<Long> eventIds = memberships.stream()
+                .map(membership -> membership.getTeam().getEventId())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, Event> eventsById = eventIds.isEmpty()
+                ? Map.of()
+                : eventRepository.findAllById(eventIds).stream()
+                        .collect(Collectors.toMap(Event::getId, Function.identity()));
+
+        return memberships.stream()
+                .map(membership -> {
+                    Team team = membership.getTeam();
+                    Event event = team.getEventId() != null ? eventsById.get(team.getEventId()) : null;
+
+                    // 연결된 활동이 없거나 카테고리가 비어 있으면 '기타'로 보여준다.
+                    String category = (event != null && event.getCategory() != null)
+                            ? event.getCategory().getLabel()
+                            : Event.Category.ETC.getLabel();
+
+                    return MyPageResponseDTO.ActivitySummaryDTO.builder()
+                            .id(team.getId())
+                            .title(team.getTitle())
+                            .category(category)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     public void changePassword(Long userId, PasswordChangeRequest request) {

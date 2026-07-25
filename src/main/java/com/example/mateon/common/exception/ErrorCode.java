@@ -23,7 +23,9 @@
         TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다."),
 
         // 사용자 관련
-        USER_NOT_FOUND("사용자를 찾을 수 없습니다."),
+        // 404 인 이유: 이 코드가 쓰이는 곳은 전부 "그 user 행이 없다"는 뜻이다.
+        // GET /api/users/{userId} 로 없는 사람을 조회했을 때 400 은 "요청이 잘못됐다"로 읽혀 오해를 부른다.
+        USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
         PASSWORD_MISMATCH("비밀번호가 일치하지 않습니다."),
         INVALID_PASSWORD_FORMAT("비밀번호는 10-20자의 영문과 숫자 조합이어야 합니다."),
         // 팀/지원/공통 관련 ---
