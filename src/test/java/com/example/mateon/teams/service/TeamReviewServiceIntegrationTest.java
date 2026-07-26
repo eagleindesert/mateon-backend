@@ -9,6 +9,7 @@ import com.example.mateon.teams.dto.request.TeamReviewSubmitRequestDTO;
 import com.example.mateon.teams.dto.response.TeamReviewTargetsResponseDTO;
 import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.teams.repository.TeamRepository;
+import com.example.mateon.support.IntegrationTestBase;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.user.repository.UserRepository;
@@ -16,8 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,11 +28,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 평가 제출 전 과정을 실제 DB 에 대고 확인한다 — 검증 순서, 집계 증분, UNIQUE 제약까지.
  *
- * <p>@Transactional 이라 테스트가 끝나면 전부 롤백된다 (개발 DB 를 더럽히지 않는다).
+ * <p>DB 는 {@link IntegrationTestBase} 가 띄우는 일회용 컨테이너이고, @Transactional 이라
+ * 테스트가 끝나면 전부 롤백된다.
  */
-@SpringBootTest
-@Transactional
-class TeamReviewServiceIntegrationTest {
+class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
 
     @Autowired TeamReviewService teamReviewService;
     @Autowired TeamCompletionService teamCompletionService;
