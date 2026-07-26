@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,6 +63,9 @@ public class EventController {
      * 클라이언트가 있어 계속 받지만, 신규 사용은 하지 않는다.
      * @param school 대상 대학교. 부분일치이며 "전체"는 필터 미적용으로 취급한다.
      * @param keyword 제목·설명·주최를 아우르는 자유 검색어. 부분일치이며 "전체"/빈값은 필터 미적용으로 취급한다.
+     *
+     * <p>비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
+     * {@code bookmarked} 로 실릴 뿐, 필터도 순서도 달라지지 않는다.
      */
     @GetMapping("/search")
     public ApiResponse<List<EventResponseDTO>> searchEvents(
@@ -71,14 +75,16 @@ public class EventController {
       @RequestParam(required = false) Field field,
       @RequestParam(required = false) String keyword,
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @RequestParam(defaultValue = "20") int size,
+      Authentication authentication
     ) {
         // 지우기 전에 '아직 누가 보내고 있는지'를 알아야 한다. 파라미터 하나만 폐기 대상이라
         // /recommended 처럼 Deprecation 헤더를 붙이지는 않고 서버 로그로만 추적한다.
         if (college != null && !college.isBlank()) {
             log.warn("deprecated 검색 파라미터 사용: college={} (school 로 전환 필요)", college);
         }
-        return ApiResponse.success(eventService.search(college, school, category, field, keyword, page, size));
+        return ApiResponse.success(eventService.search(
+          college, school, category, field, keyword, page, size, currentUserId(authentication)));
     }
 
     /**
@@ -100,10 +106,12 @@ public class EventController {
       Authentication authentication,
       HttpServletResponse response
     ) {
-        if (authentication == null) {
+        // SecurityConfig 가 이 경로를 authenticated 로 막고 있어 여기까지 익명이 오지는 않는다.
+        // 매처가 바뀌어도 조용히 500 이 되지 않도록 방어만 남긴다.
+        Long userId = currentUserId(authentication);
+        if (userId == null) {
             throw new MateonException(ErrorCode.UNAUTHORIZED);
         }
-        Long userId = currentUserId(authentication);
 
         // 지우기 전에 '아직 누가 부르고 있는지'를 알아야 한다.
         // 헤더는 클라이언트가, 로그는 서버가 감지할 수 있는 경로다 (RFC 8594).
@@ -118,18 +126,30 @@ public class EventController {
     /**
      * 기본 조회 (무작위 정렬). 카테고리가 섞인 표본을 size 건까지 내려준다.
      * RANDOM 정렬이라 페이지 간 순서를 보장할 수 없어 page 는 받지 않고 size 로만 응답 크기를 묶는다.
+     *
+     * <p>/search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
      */
     @GetMapping
     public ApiResponse<List<EventResponseDTO>> getAllEvents(
-      @RequestParam(defaultValue = "20") int size
+      @RequestParam(defaultValue = "20") int size,
+      Authentication authentication
     ) {
-        return ApiResponse.success(eventService.findAllRandomly(size));
+        return ApiResponse.success(eventService.findAllRandomly(size, currentUserId(authentication)));
     }
 
     /**
      * JWT 의 subject 는 userId 다(JwtAuthenticationFilter). 비로그인이면 null 을 돌려준다.
+     *
+     * <p>null 검사만으로는 부족하다. 이 컨트롤러의 조회 경로들은 SecurityConfig 에서
+     * {@code /api/events/**} permitAll 에 걸리는데, permitAll 이라고 authentication 이 비는 게
+     * 아니라 Spring Security 가 AnonymousAuthenticationToken 을 채워 넣는다. 그 getName() 은
+     * "anonymousUser" 라는 문자열이라, 걸러 내지 않으면 아래 Long.valueOf 에서
+     * NumberFormatException 이 터져 비로그인 조회가 전부 500 이 된다.
      */
     private Long currentUserId(Authentication authentication) {
-        return authentication == null ? null : Long.valueOf(authentication.getName());
+        if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+        return Long.valueOf(authentication.getName());
     }
 }

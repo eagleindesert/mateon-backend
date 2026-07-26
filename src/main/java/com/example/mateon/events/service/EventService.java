@@ -1,5 +1,7 @@
 package com.example.mateon.events.service;
 
+import com.example.mateon.bookmarks.repository.EventBookmarkRepository;
+import com.example.mateon.common.PageLimits;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.dto.EventRequestDTO;
@@ -20,8 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,15 +47,10 @@ public class EventService {
     private static final Sort BY_START_DATE
       = Sort.by(Sort.Order.desc("startDate").nullsLast(), Sort.Order.desc("id"));
 
-    /**
-     * 한 페이지 최대 건수. 목적이 과부하 방지이므로 클라이언트가 아무리 큰 size 를 보내도 여기서 자른다 —
-     * 상한이 없으면 size=100000 한 방으로 전건 조회와 같아져 페이지네이션이 무의미해진다.
-     */
-    static final int MAX_PAGE_SIZE = 100;
-
     private final EventRepository eventRepository;
     private final EventMatchingService eventMatchingService;
     private final UserRepository userRepository;
+    private final EventBookmarkRepository bookmarkRepository;
 
     /**
      * 활동(공모전 등) 등록.
@@ -88,23 +87,20 @@ public class EventService {
      * @param school 대상 대학교
      * @param keyword 제목·설명·주최에 걸친 자유 검색어. 셋 중 하나라도 부분일치하면 잡힌다(OR). 비었거나 "전체"면 미적용.
      * @param page 0-기반 페이지 번호. 음수는 0 으로 취급한다.
-     * @param size 페이지당 건수. {@link #MAX_PAGE_SIZE} 로 상한을 두고, 1 미만은 1 로 올린다.
+     * @param size 페이지당 건수. {@link PageLimits#MAX_PAGE_SIZE} 로 상한을 두고, 1 미만은 1 로 올린다.
+     * @param userId 조회한 사용자. 응답의 bookmarked 를 채우는 데만 쓴다. 비로그인이면 null 이며
+     * 이때 bookmarked 는 전부 false 다. <b>정렬에는 관여하지 않는다</b> — 위 설명대로 순서는
+     * 로그인 여부와 무관해야 한다.
      */
     @Transactional(readOnly = true)
     public List<EventResponseDTO> search(String college, String school, Category category, Field field,
-      String keyword, int page, int size) {
-        Pageable pageable = PageRequest.of(clampPage(page), clampSize(size), BY_START_DATE);
+      String keyword, int page, int size, Long userId) {
+        Pageable pageable = PageRequest.of(
+          PageLimits.clampPage(page), PageLimits.clampSize(size), BY_START_DATE);
         return toResponse(
           eventRepository.findAll(EventSearchSpecs.of(college, school, category, field, keyword), pageable)
-            .getContent());
-    }
-
-    private static int clampPage(int page) {
-        return Math.max(page, 0);
-    }
-
-    private static int clampSize(int size) {
-        return Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+            .getContent(),
+          userId);
     }
 
     /**
@@ -128,7 +124,7 @@ public class EventService {
           ? candidates.stream().sorted(byRelevance).limit(1).collect(Collectors.toList())
           : bestPerCategory(candidates, byRelevance);
 
-        return toResponse(recommended);
+        return toResponse(recommended, userId);
     }
 
     /**
@@ -137,11 +133,13 @@ public class EventService {
      * <p>
      * offset 페이징은 걸지 않는다 — {@code ORDER BY RANDOM()} 은 호출마다 재정렬되므로 페이지를
      * 넘기면 중복·누락이 생긴다. 이 엔드포인트의 목적은 홈 화면용 '섞인 표본'이지 전건 순회가 아니라,
-     * {@link #MAX_PAGE_SIZE} 로 상한을 둔 LIMIT 로 응답 크기만 묶는다.
+     * {@link PageLimits#MAX_PAGE_SIZE} 로 상한을 둔 LIMIT 로 응답 크기만 묶는다.
+     *
+     * @param userId 조회한 사용자. 응답의 bookmarked 를 채우는 데만 쓴다. 비로그인이면 null.
      */
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> findAllRandomly(int size) {
-        return toResponse(eventRepository.findAllRandomly(clampSize(size)));
+    public List<EventResponseDTO> findAllRandomly(int size, Long userId) {
+        return toResponse(eventRepository.findAllRandomly(PageLimits.clampSize(size)), userId);
     }
 
     /**
@@ -183,9 +181,28 @@ public class EventService {
         };
     }
 
-    private List<EventResponseDTO> toResponse(List<Event> events) {
+    /**
+     * 엔티티 목록을 응답으로 바꾸면서 각 활동의 북마크 여부를 채운다.
+     *
+     * <p>
+     * 활동마다 exists 를 부르면 페이지 크기만큼 쿼리가 나가므로, 이 페이지의 id 를 한 번에
+     * 넘겨 찜한 것만 받아 와 대조한다 (TeamOfferService.getMyOffers 가 팀장들을 findAllById 로
+     * 벌크 로드하는 것과 같은 방식).
+     *
+     * @param userId 비로그인이면 null. 이때는 조회 자체를 건너뛰고 전부 false 로 둔다.
+     */
+    private List<EventResponseDTO> toResponse(List<Event> events, Long userId) {
+        if (userId == null || events.isEmpty()) {
+            return events.stream()
+              .map(EventResponseDTO::new)
+              .collect(Collectors.toList());
+        }
+
+        Set<Long> bookmarkedIds = new HashSet<>(bookmarkRepository.findBookmarkedEventIds(
+          userId, events.stream().map(Event::getId).collect(Collectors.toList())));
+
         return events.stream()
-          .map(EventResponseDTO::new)
+          .map(event -> new EventResponseDTO(event, bookmarkedIds.contains(event.getId())))
           .collect(Collectors.toList());
     }
 }

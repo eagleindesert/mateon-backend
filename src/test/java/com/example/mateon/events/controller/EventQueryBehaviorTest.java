@@ -1,5 +1,6 @@
 package com.example.mateon.events.controller;
 
+import com.example.mateon.bookmarks.repository.EventBookmarkRepository;
 import com.example.mateon.common.exception.GlobalExceptionHandler;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
@@ -58,6 +59,7 @@ class EventQueryBehaviorTest {
     private EventRepository eventRepository;
     private UserRepository userRepository;
     private EventMatchingService matchingService;
+    private EventBookmarkRepository bookmarkRepository;
     private MockMvc mockMvc;
 
     private final User user = new User();
@@ -67,8 +69,12 @@ class EventQueryBehaviorTest {
         eventRepository = mock(EventRepository.class);
         userRepository = mock(UserRepository.class);
         matchingService = mock(EventMatchingService.class);
+        // 북마크 여부는 이 테스트의 관심사가 아니다. 목의 기본값(빈 목록)이 곧 '아무것도 안 찜함'이라
+        // 별도 스텁 없이 둔다 — bookmarked 자체의 동작은 BookmarkServiceIntegrationTest 의 몫이다.
+        bookmarkRepository = mock(EventBookmarkRepository.class);
 
-        EventService eventService = new EventService(eventRepository, matchingService, userRepository);
+        EventService eventService =
+                new EventService(eventRepository, matchingService, userRepository, bookmarkRepository);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new EventController(eventService))
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -148,7 +154,7 @@ class EventQueryBehaviorTest {
 
             ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
             verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
-            // EventService.MAX_PAGE_SIZE 와 같은 값. (패키지가 달라 상수를 직접 참조하지 않는다.)
+            // PageLimits.MAX_PAGE_SIZE 와 같은 값. (여기서는 HTTP 로 보이는 동작만 고정한다.)
             assertThat(pageable.getValue().getPageSize()).isEqualTo(100);
         }
     }

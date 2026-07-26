@@ -1,5 +1,6 @@
 package com.example.mateon.events.service;
 
+import com.example.mateon.common.PageLimits;
 import com.example.mateon.events.dto.EventResponseDTO;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
@@ -197,7 +198,9 @@ class EventSearchIntegrationTest {
     }
 
     private List<Long> searchIds(String college, String school, Category category, Field field, String keyword) {
-        return eventService.search(college, school, category, field, keyword, 0, EventService.MAX_PAGE_SIZE).stream()
+        // userId 는 null — 이 테스트는 필터/정렬만 본다. 북마크 여부는 응답 필드일 뿐 검색 결과를 바꾸지 않는다.
+        return eventService.search(college, school, category, field, keyword, 0, PageLimits.MAX_PAGE_SIZE, null)
+                .stream()
                 .filter(dto -> dto.getTitle() != null && dto.getTitle().contains(tag))
                 .map(EventResponseDTO::getId)
                 .toList();
