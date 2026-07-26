@@ -37,6 +37,10 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-thymeleaf-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	// 통합 테스트용 일회용 Postgres. 개발 DB 에 붙으면 크롤러가 데이터를 넣을 때마다 테스트가
+	// 깨지고 CI 에서는 아예 못 돈다. @ServiceConnection 이 컨테이너 접속 정보를 자동 주입한다.
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     // pgvector 지원. @JdbcTypeCode(SqlTypes.VECTOR) + float[] 매핑은 이 모듈이 있어야 동작한다.
