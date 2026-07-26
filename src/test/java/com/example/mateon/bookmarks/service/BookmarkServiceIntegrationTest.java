@@ -10,14 +10,13 @@ import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.events.service.EventService;
+import com.example.mateon.support.IntegrationTestBase;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -34,12 +33,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 리포지토리를 목으로 두면 제약도 조인도 실행되지 않는다.
  *
  * <p>
- * 개발 DB 에는 다른 활동과 유저가 이미 쌓여 있으므로 전체를 세지 않고 이번 테스트가 심은 것만
- * 골라 본다(제목에 넣은 tag 로 식별). {@code @Transactional} 이라 끝나면 전부 롤백된다.
+ * DB 는 {@link IntegrationTestBase} 가 띄우는 빈 컨테이너다. 그래도 활동은 제목에 넣은 tag 로
+ * 골라 본다 — 한 JVM 이 컨테이너를 공유하므로 다른 테스트가 심은 활동이 섞여 있을 수 있다.
+ * {@code @Transactional} 이라 끝나면 전부 롤백된다.
  */
-@SpringBootTest
-@Transactional
-class BookmarkServiceIntegrationTest {
+class BookmarkServiceIntegrationTest extends IntegrationTestBase {
 
     @Autowired
     BookmarkService bookmarkService;
