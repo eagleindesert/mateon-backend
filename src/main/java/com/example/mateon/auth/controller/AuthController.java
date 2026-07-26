@@ -2,6 +2,7 @@ package com.example.mateon.auth.controller;
 
 import com.example.mateon.auth.dto.*;
 import com.example.mateon.auth.service.AuthService;
+import com.example.mateon.auth.service.KakaoLoginService;
 import com.example.mateon.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final KakaoLoginService kakaoLoginService;
 
     @PostMapping("/email/request")
     public ResponseEntity<ApiResponse<Object>> requestEmailVerification(@Valid @RequestBody EmailRequest request) {
@@ -64,7 +66,7 @@ public class AuthController {
     // 카카오 소셜 로그인/회원가입 [인증 불필요]. RN 이 카카오 SDK 로 받은 access token 을 넘긴다.
     @PostMapping("/social/kakao")
     public ResponseEntity<ApiResponse<TokenResponse>> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
-        TokenResponse response = authService.kakaoLogin(request);
+        TokenResponse response = kakaoLoginService.login(request);
         return ResponseEntity.ok(ApiResponse.success("카카오 로그인 성공", response));
     }
 

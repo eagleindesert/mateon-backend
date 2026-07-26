@@ -1,6 +1,5 @@
 package com.example.mateon.auth.service;
 
-import com.example.mateon.auth.client.KakaoOAuthClient;
 import com.example.mateon.auth.client.KakaoUserInfo;
 import com.example.mateon.auth.domain.EmailVerification;
 import com.example.mateon.auth.domain.RefreshToken;
@@ -37,7 +36,6 @@ public class AuthService {
     private final ApplicationEventPublisher eventPublisher;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
-    private final KakaoOAuthClient kakaoClient;
     private final SecureRandom random = new SecureRandom();
 
     // 동일 이메일 인증코드 재요청 쿨다운 (메일 폭탄/남용 방지)
@@ -207,10 +205,14 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    // 카카오 액세스 토큰으로 로그인/회원가입한다. (신원 기준: provider=KAKAO + providerId)
-    public TokenResponse kakaoLogin(KakaoLoginRequest request) {
-        KakaoUserInfo info = kakaoClient.fetchUserInfo(request.getAccessToken());
-
+    /**
+     * 카카오에서 받아온 사용자 정보로 로그인/회원가입한다. (신원 기준: provider=KAKAO + providerId)
+     *
+     * <p>카카오 API 호출은 여기가 아니라 {@link KakaoLoginService} 가 트랜잭션 밖에서 한다.
+     * 이 클래스는 클래스 레벨 @Transactional 이라 메서드 진입 시점에 이미 DB 커넥션을 잡는데,
+     * 그 안에서 외부 HTTP 를 기다리면 응답이 늦어지는 만큼 커넥션이 묶인다.
+     */
+    public TokenResponse kakaoLogin(KakaoUserInfo info) {
         // 1) 재방문 카카오 유저: (KAKAO, providerId) 로 조회되면 그대로 로그인.
         User user = userRepository
                 .findByProviderAndProviderId(AuthProvider.KAKAO, info.providerId())
