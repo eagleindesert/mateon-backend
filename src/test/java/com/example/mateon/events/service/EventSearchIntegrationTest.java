@@ -31,8 +31,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class EventSearchIntegrationTest extends IntegrationTestBase {
 
-    @Autowired EventService eventService;
-    @Autowired EventRepository eventRepository;
+    @Autowired
+    EventService eventService;
+    @Autowired
+    EventRepository eventRepository;
 
     @Test
     @DisplayName("분야 필터를 주면 그 분야의 활동만 남는다")
@@ -109,7 +111,7 @@ class EventSearchIntegrationTest extends IntegrationTestBase {
         save(Category.SCHOOL, Field.PLANNING_IDEA, "SW융합대학", "단국대학교"); // 카테고리 불일치
 
         assertThat(searchIds("SW융합대학", "단국대학교", Category.CONTEST, Field.PLANNING_IDEA))
-                .containsExactly(match);
+          .containsExactly(match);
     }
 
     @Test
@@ -121,7 +123,7 @@ class EventSearchIntegrationTest extends IntegrationTestBase {
         saveText(null, null, null); // 키워드가 어디에도 없음 — 안 잡힌다
 
         assertThat(searchIds(null, null, null, null, "인공지능"))
-                .containsExactlyInAnyOrder(inTitle, inDescription, inOrganizer);
+          .containsExactlyInAnyOrder(inTitle, inDescription, inOrganizer);
     }
 
     @Test
@@ -172,7 +174,6 @@ class EventSearchIntegrationTest extends IntegrationTestBase {
     }
 
     // --- 헬퍼 ---
-
     /**
      * 검색 결과의 활동 id 를 순서 그대로 뽑는다.
      * 이 테스트들은 필터·정렬 결과 전건을 검증하므로, 페이지 크기는 상한(MAX_PAGE_SIZE)까지 열어
@@ -183,16 +184,9 @@ class EventSearchIntegrationTest extends IntegrationTestBase {
     }
 
     private List<Long> searchIds(String college, String school, Category category, Field field, String keyword) {
-<<<<<<< HEAD
-        // userId 는 null — 이 테스트는 필터/정렬만 본다. 북마크 여부는 응답 필드일 뿐 검색 결과를 바꾸지 않는다.
-        return eventService.search(college, school, category, field, keyword, 0, PageLimits.MAX_PAGE_SIZE, null)
-                .stream()
-                .filter(dto -> dto.getTitle() != null && dto.getTitle().contains(tag))
-=======
         return eventService.search(college, school, category, field, keyword, 0, EventService.MAX_PAGE_SIZE).stream()
->>>>>>> main
-                .map(EventResponseDTO::getId)
-                .toList();
+          .map(EventResponseDTO::getId)
+          .toList();
     }
 
     private Long save(Category category, Field field, String targetColleges, String targetSchool) {
@@ -215,7 +209,7 @@ class EventSearchIntegrationTest extends IntegrationTestBase {
 
     @SuppressWarnings("deprecation") // 단과대 필터가 살아 있는 동안은 이 축도 계속 검증한다.
     private Long save(Category category, Field field, String targetColleges, String targetSchool,
-                      LocalDate startDate) {
+      LocalDate startDate) {
         Event event = new Event();
         event.setCategory(category);
         // field 는 이제 NOT NULL 이다. 분야가 관심사가 아닌 케이스는 null 로 넘어오므로
