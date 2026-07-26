@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws-stomp/**").permitAll() // WS 핸드셰이크 허용 (인증은 STOMP CONNECT 에서 JWT 검증)
                         .requestMatchers("/api/chat/**").authenticated() // 채팅 REST API는 인증 필요
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
+                        .requestMatchers("/api/bookmarks/**").authenticated() // 북마크는 전부 내 것이라 인증 필요
                         .requestMatchers("/api/events/recommended").authenticated() // 추천 API는 인증 필요
                         // 활동 등록은 로그인 필요. 아래 permitAll 보다 반드시 위에 있어야 한다
                         // (first-match-wins 라, 순서가 뒤집히면 POST 가 비인증으로 열린다).

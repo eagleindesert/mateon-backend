@@ -28,6 +28,12 @@
         USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
         PASSWORD_MISMATCH("비밀번호가 일치하지 않습니다."),
         INVALID_PASSWORD_FORMAT("비밀번호는 10-20자의 영문과 숫자 조합이어야 합니다."),
+        // 활동(Event) 관련
+        // 404 인 이유: 이 코드가 쓰이는 곳은 "그 활동 행이 없다"는 뜻이다 (USER_NOT_FOUND 와 같은 판단).
+        // 아래 RESOURCE_NOT_FOUND 를 쓰지 않는 이유는 그쪽이 400 이기 때문인데, 상태코드를 바꾸면
+        // 팀·지원서 등 이미 그 코드를 쓰고 있는 API 의 응답이 통째로 달라져 별도 코드를 둔다.
+        EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "활동을 찾을 수 없습니다."),
+
         // 팀/지원/공통 관련 ---
         RESOURCE_NOT_FOUND("요청한 정보를 찾을 수 없습니다."),       // 팀, 활동, 지원서 등이 DB에 없을 때
         FORBIDDEN_ACCESS("해당 자원에 대한 접근 권한이 없습니다."),   // 남의 팀 수정 시도 등

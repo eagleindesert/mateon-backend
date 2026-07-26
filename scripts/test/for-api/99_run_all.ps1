@@ -84,6 +84,11 @@ Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 & "$PSScriptRoot\04_00_event_init.ps1"
 & "$PSScriptRoot\04_01_event.ps1"
 
+Write-Host "`n===== 18) Bookmark (활동 북마크) =====" -ForegroundColor Magenta
+# Event 계열(04) 바로 뒤에 둔다 — 04_00 이 남긴 .event-ids.json 에서 대상 활동을 고르기 때문이다.
+# LLM/임베딩 호출이 없어 상단 과금 표에 잡히지 않는다.
+& "$PSScriptRoot\18_bookmark.ps1"
+
 Write-Host "`n===== 5) Team =====" -ForegroundColor Magenta
 & "$PSScriptRoot\05_team.ps1"
 

@@ -48,10 +48,26 @@ public class EventResponseDTO {
     private String summarizedDescription;
     private String recommendedTargets; // DB JSON 타입으로 저장되지만, String으로 전달
 
+    /**
+     * 조회한 사용자가 이 활동을 북마크했는지. 비로그인 조회는 항상 false 다.
+     *
+     * <p>필드명을 {@code isBookmarked} 가 아니라 {@code bookmarked} 로 둔다 — 그래야 Lombok 게터가
+     * {@code isBookmarked()} 가 되어 JSON 키가 {@code bookmarked} 로 안정적으로 나온다.
+     */
+    private boolean bookmarked;
+
+    /**
+     * 북마크 여부를 모르는(또는 따질 필요 없는) 자리에서 쓰는 생성자. 등록 응답처럼 방금 만든
+     * 활동을 돌려줄 때가 그렇다. 시그니처를 유지해 기존 호출부를 건드리지 않는다.
+     */
+    public EventResponseDTO(Event event) {
+        this(event, false);
+    }
+
     // 엔티티를 DTO로 변환하는 생성자.
     // deprecated 필드도 계속 채운다 — 응답 계약을 지켜야 기존 프론트가 안 깨진다.
     @SuppressWarnings("deprecation")
-    public EventResponseDTO(Event event) {
+    public EventResponseDTO(Event event, boolean bookmarked) {
         this.id = event.getId();
         this.category = event.getCategory();
         this.field = event.getField();
@@ -68,5 +84,6 @@ public class EventResponseDTO {
         this.targetColleges = event.getTarget_colleges();
         this.summarizedDescription = event.getSummarizedDescription();
         this.recommendedTargets = event.getRecommendedTargets();
+        this.bookmarked = bookmarked;
     }
 }
