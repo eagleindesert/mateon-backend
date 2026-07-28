@@ -58,6 +58,11 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+	// OCI Object Storage 업로드 (S3 호환 API + Customer Secret Key).
+	// OCI 네이티브 SDK 대신 AWS S3 SDK 를 쓰는 이유: S3 호환 API 는 access/secret key 만으로
+	// 인증되어 ~/.oci/config 와 개인키 PEM 을 컨테이너에 배포할 필요가 없다.
+	implementation platform('software.amazon.awssdk:bom:2.32.4')
+	implementation 'software.amazon.awssdk:s3'
 	// 로컬 개발 시 bootRun 하면 docker compose 를 자동 기동 (배포 JAR 에는 미포함)
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 }

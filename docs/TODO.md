@@ -1,8 +1,5 @@
-- `[ ]` `채팅 기능` 추가
+- maching 기능의 client 묶음으로 정리하기
 
-- `[x]` 소셜 로그인 기능 추가
+- config를 common 안으로 넣기
 
-- `[ ]` .env 리팩토링.
-    - 모든 환경변수 파일 이름을 .env로
-    - docker compose의 환경변수는 모두 제거하고, .env로 통일
-    - application.properties도 기본값 없이 깔끔하게 정리
+- properties를  yml로 변환하기. 더러워짐

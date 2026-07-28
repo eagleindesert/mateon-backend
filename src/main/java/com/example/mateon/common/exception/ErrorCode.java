@@ -77,6 +77,14 @@
         NOT_ROOM_MEMBER("해당 채팅방의 참여자가 아닙니다."),
         CANNOT_CHAT_WITH_SELF("자기 자신과는 채팅할 수 없습니다."),
 
+        // 이미지 업로드/추출 관련 ---
+        // 파일 형식 오류를 INVALID_INPUT 으로 뭉뚱그리지 않는 이유: 프론트가 "jpg/png 만 됩니다"라는
+        // 구체적 안내를 그대로 띄워야 사용자가 다시 시도할 수 있다.
+        INVALID_IMAGE_FILE("jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다."),
+        IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "이미지는 10MB 이하만 업로드할 수 있습니다."),
+        // 502 인 이유는 AI_SERVER_ERROR 와 같다 — 우리 잘못이 아니라 외부 의존(객체 저장소)의 실패다.
+        IMAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소 업로드에 실패했습니다. 잠시 후 다시 시도해주세요."),
+
         // 기타
         INTERNAL_SERVER_ERROR("서버 오류가 발생했습니다."),
         BAD_REQUEST("잘못된 요청입니다."),

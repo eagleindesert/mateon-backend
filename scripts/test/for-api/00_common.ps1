@@ -455,4 +455,98 @@ function Invoke-Api {
     if ($PassThru) { return $result }
 }
 
+# 파일 업로드(multipart/form-data) 호출 헬퍼
+#   Invoke-Api 는 본문을 JSON 으로 직렬화하고 Content-Type 을 application/json 으로 고정한다.
+#   멀티파트는 경계(boundary) 생성까지 curl 에 맡겨야 해서 별도 함수로 둔다 —
+#   상태코드 판정과 결과 집계 규약("차단 기대" 포함)은 Invoke-Api 와 똑같이 맞춘다.
+#
+#   -FilePath  : 올릴 파일 경로
+#   -PartName  : 폼 파트 이름 (서버가 기대하는 이름. 오타 검증에 쓰려고 인자로 뺐다)
+#   -Mime      : 파트의 Content-Type. curl 이 확장자로 추측하지 않게 명시한다
+#                (프론트/브라우저마다 다른 값을 보내므로 서버가 확장자를 우선하는지 볼 때도 쓴다)
+function Invoke-ApiUpload {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string]$PartName = "image",
+        [string]$Mime = "image/png",
+        [switch]$Auth,
+        [switch]$PassThru,
+        [switch]$NoTrack,
+        [string]$Title
+    )
+
+    $url = "$script:BaseUrl$Path"
+    if ($Title) {
+        Write-Host ""
+        Write-Host ("=" * 70) -ForegroundColor DarkGray
+        Write-Host "[POST] $Title" -ForegroundColor Cyan
+        Write-Host "  -> $url" -ForegroundColor DarkGray
+    }
+
+    if (-not (Test-Path $FilePath)) {
+        Write-Host "  (!) 파일이 없습니다: $FilePath" -ForegroundColor Red
+        return $null
+    }
+    $sizeKb = [Math]::Round((Get-Item $FilePath).Length / 1KB, 1)
+    Write-Host "  Upload: $PartName=@$([System.IO.Path]::GetFileName($FilePath)) ($sizeKb KB, $Mime)" -ForegroundColor DarkGray
+
+    # Content-Type 헤더를 직접 주지 않는다. curl 이 boundary 를 포함해 생성해야 한다.
+    $curlArgs = @("-s", "-S", "-w", "`nHTTP_STATUS:%{http_code}", "-X", "POST", $url,
+                  "-F", "$PartName=@$FilePath;type=$Mime")
+
+    if ($Auth) {
+        $token = Get-AccessToken
+        if (-not $token) {
+            Write-Host "  (!) 저장된 accessToken 이 없습니다. 먼저 auth\02_auth.ps1 로그인 테스트를 실행하세요." -ForegroundColor Yellow
+        } else {
+            $curlArgs += @("-H", "Authorization: Bearer $token")
+        }
+    }
+
+    $raw = (& $script:Curl @curlArgs) -join "`n"
+
+    $status = $null
+    $bodyText = $raw
+    if ($raw -match "HTTP_STATUS:(\d+)\s*$") {
+        $status = $Matches[1]
+        $bodyText = ($raw -replace "HTTP_STATUS:\d+\s*$", "").Trim()
+    }
+
+    $isExpectedBlock = [bool]($Title -and $Title -match "차단 기대")
+    if ($isExpectedBlock) {
+        $ok = [bool]($status -and [int]$status -ge 400)
+    } else {
+        $ok = [bool]($status -and [int]$status -lt 400)
+    }
+
+    $statusColor = if ($ok) { "Green" } else { "Red" }
+    Write-Host "  Status: $status" -ForegroundColor $statusColor
+
+    if (-not $NoTrack) {
+        $global:MateonTestResults.Add([pscustomobject]@{
+            Title           = if ($Title) { $Title } else { "POST $Path" }
+            Method          = "POST"
+            Path            = $Path
+            Status          = $status
+            Ok              = $ok
+            IsExpectedBlock = $isExpectedBlock
+        })
+    }
+
+    $result = $null
+    if ($bodyText) {
+        try {
+            $result = $bodyText | ConvertFrom-Json
+            Write-Host "  Response:" -ForegroundColor DarkGray
+            ($result | ConvertTo-Json -Depth 10) -split "`n" | ForEach-Object { Write-Host "    $_" }
+        } catch {
+            Write-Host "  Response: $bodyText" -ForegroundColor DarkGray
+            $result = $bodyText
+        }
+    }
+
+    if ($PassThru) { return $result }
+}
+
 Write-Host "공통 설정 로드 완료(서버 판). BaseUrl = $script:BaseUrl" -ForegroundColor DarkGray

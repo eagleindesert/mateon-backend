@@ -76,7 +76,8 @@ class EventQueryBehaviorTest {
         EventService eventService =
                 new EventService(eventRepository, matchingService, userRepository, bookmarkRepository);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new EventController(eventService))
+                // 이미지 추출은 조회 동작과 무관하다 (이 테스트는 /search, /recommended 만 친다).
+                .standaloneSetup(new EventController(eventService, null))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 

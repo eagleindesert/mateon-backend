@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
@@ -51,15 +52,39 @@ public class AiCallTemplate {
      * @throws MateonException AI_SERVER_UNAVAILABLE(연결/타임아웃) 또는 AI_SERVER_ERROR
      */
     public <T> T post(String path, Object request, Class<T> responseType) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set(INTERNAL_SECRET_HEADER, properties.getInternalSecret());
+        HttpHeaders headers = baseHeaders(MediaType.APPLICATION_JSON);
+        return doExchange(path, new HttpEntity<>(request, headers), responseType);
+    }
 
+    /**
+     * multipart/form-data 로 보내는 변형. 파일을 그대로 AI 로 넘기는 엔드포인트
+     * (예: /contests/extract-image) 가 쓴다.
+     *
+     * <p>파트 구성은 호출자가 한다 — 파트 이름과 파일명 규약은 엔드포인트마다 다르고,
+     * 이 클래스는 그걸 알 이유가 없다. 여기서 보장하는 건 인증 헤더와 실패 처리 규약뿐이다.
+     *
+     * @param parts 파트 맵. 파일 파트는 파일명을 아는 Resource 여야 한다
+     *              (파일명이 없으면 FastAPI 가 UploadFile 로 인식하지 못해 422 를 낸다).
+     */
+    public <T> T postMultipart(String path, MultiValueMap<String, Object> parts, Class<T> responseType) {
+        HttpHeaders headers = baseHeaders(MediaType.MULTIPART_FORM_DATA);
+        return doExchange(path, new HttpEntity<>(parts, headers), responseType);
+    }
+
+    private HttpHeaders baseHeaders(MediaType contentType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(contentType);
+        headers.set(INTERNAL_SECRET_HEADER, properties.getInternalSecret());
+        return headers;
+    }
+
+    /** 실제 호출과 실패 매핑. JSON/멀티파트가 이 한 벌을 공유한다. */
+    private <T> T doExchange(String path, HttpEntity<?> entity, Class<T> responseType) {
+        try {
             ResponseEntity<T> response = restTemplate.exchange(
                     properties.getBaseUrl() + path,
                     HttpMethod.POST,
-                    new HttpEntity<>(request, headers),
+                    entity,
                     responseType
             );
 

@@ -65,6 +65,8 @@ public class SecurityConfig {
                         // 활동 등록은 로그인 필요. 아래 permitAll 보다 반드시 위에 있어야 한다
                         // (first-match-wins 라, 순서가 뒤집히면 POST 가 비인증으로 열린다).
                         .requestMatchers(HttpMethod.POST, "/api/events").authenticated()
+                        // 포스터 이미지 추출도 등록의 일부다. 이것 역시 아래 permitAll 보다 위여야 한다.
+                        .requestMatchers(HttpMethod.POST, "/api/events/extract-image").authenticated()
                         .requestMatchers("/api/events/**").permitAll() // 기존 Event 조회 API 허용
                         .requestMatchers("/api/matching/**").authenticated() // 의도 추출/추천 API는 인증 필요
                         .anyRequest().authenticated()

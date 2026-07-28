@@ -3,16 +3,19 @@ package com.example.mateon.events.controller;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.events.dto.EventExtractionResponseDTO;
 import com.example.mateon.events.dto.EventRequestDTO;
 import com.example.mateon.events.dto.EventResponseDTO;
 import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
+import com.example.mateon.events.service.EventExtractionService;
 import com.example.mateon.events.service.EventService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -21,7 +24,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -41,6 +46,7 @@ public class EventController {
       = DateTimeFormatter.RFC_1123_DATE_TIME.format(RECOMMENDED_SUNSET_AT);
 
     private final EventService eventService;
+    private final EventExtractionService eventExtractionService;
 
     /**
      * 활동(공모전 등) 등록 [인증 필수]
@@ -52,6 +58,21 @@ public class EventController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
           .body(ApiResponse.success(eventService.createEvent(request)));
+    }
+
+    /**
+     * 공모전 포스터 이미지에서 활동 등록 초안을 추출한다 [인증 필수].
+     * 요청은 multipart/form-data 이며 파트 이름은 {@code image} (jpg/jpeg/png, 10MB 이하).
+     *
+     * <p>저장은 하지 않는다 — 프론트가 이 초안을 사용자에게 보여주고 수정을 받은 뒤
+     * POST /api/events 로 등록한다. 그래서 201 이 아니라 200 이다.
+     * 인증 여부는 SecurityConfig 의 매처가 강제한다.
+     */
+    @PostMapping(value = "/extract-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<EventExtractionResponseDTO> extractFromImage(
+      @RequestPart("image") MultipartFile image
+    ) {
+        return ApiResponse.success(eventExtractionService.extractFromImage(image));
     }
 
     /**

@@ -3,6 +3,7 @@
 # ============================================================================
 #  [!] 과금 주의 - 전체 실행은 실제 LLM / 임베딩을 여러 번 호출합니다.
 #      스크립트별 예상 호출:
+#        04_02_event_extract_image 1회 (포스터 이미지 -> Vision LLM 추출)
 #        05_team            2회  (팀 생성/수정 -> 비동기 임베딩 갱신)
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
@@ -83,6 +84,10 @@ Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 # '방금 등록한 활동이 검색에 잡히는지' 를 증분 검증하므로 순서가 중요하다.
 & "$PSScriptRoot\04_00_event_init.ps1"
 & "$PSScriptRoot\04_01_event.ps1"
+# 포스터 이미지 자동 입력. Vision LLM 1회를 쓰고, 추출한 초안으로 활동을 1건 더 등록한다
+# (초안이 POST /api/events 의 본문으로 그대로 통하는지가 이 기능의 핵심 계약이다).
+# 등록을 남기고 싶지 않으면 개별 실행 시 -SkipRegister 를 준다.
+& "$PSScriptRoot\04_02_event_extract_image.ps1"
 
 Write-Host "`n===== 18) Bookmark (활동 북마크) =====" -ForegroundColor Magenta
 # Event 계열(04) 바로 뒤에 둔다 — 04_00 이 남긴 .event-ids.json 에서 대상 활동을 고르기 때문이다.

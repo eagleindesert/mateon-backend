@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import tools.jackson.databind.exc.InvalidFormatException;
 
 import java.util.Arrays;
@@ -120,6 +122,31 @@ public class GlobalExceptionHandler {
     public void handleAsyncRequestNotUsable(AsyncRequestNotUsableException e) {
         // 사용자가 창을 닫은 정상적인 상황이라 스택트레이스를 남길 이유가 없다.
         log.debug("클라이언트 연결 종료로 응답 생략: {}", e.getMessage());
+    }
+
+    /**
+     * 업로드 파일이 spring.servlet.multipart 제한을 넘었다.
+     *
+     * <p>이 핸들러가 없으면 catch-all 로 떨어져 500 "서버 오류가 발생했습니다" 가 나가는데,
+     * 실제로는 사용자가 더 작은 이미지를 고르면 해결되는 문제다. 한도를 메시지에 적어 준다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("업로드 크기 제한 초과: {}", e.getMessage());
+        return ResponseEntity
+          .status(ErrorCode.IMAGE_TOO_LARGE.getStatus())
+          .body(ApiResponse.error(ErrorCode.IMAGE_TOO_LARGE.getMessage()));
+    }
+
+    /**
+     * multipart 요청에 필수 파트가 없다 (예: 파일 필드명을 잘못 쓴 경우).
+     * ServletException 계열이라 핸들러가 없으면 catch-all 500 이 되는데, 명백한 요청 오류다.
+     */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingPart(MissingServletRequestPartException e) {
+        return ResponseEntity
+          .status(HttpStatus.BAD_REQUEST)
+          .body(ApiResponse.error("'%s' 파일이 필요합니다.".formatted(e.getRequestPartName())));
     }
 
     @ExceptionHandler(Exception.class)

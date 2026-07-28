@@ -131,7 +131,8 @@ try {
         $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh",
                         "/recommendations/user-to-team", "/recommendations/team-to-user",
                         "/recommendations/reason",
-                        "/proposals/user-to-team", "/proposals/team-to-user")
+                        "/proposals/user-to-team", "/proposals/team-to-user",
+                        "/contests/extract-image")
         if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
             Write-Host "  -> 404 (이 스텁은 POST $($knownPaths -join ', ') 만 처리)" -ForegroundColor Yellow
             Write-Json -Response $response -Object @{ detail = "Not Found" } -StatusCode 404
@@ -158,6 +159,56 @@ try {
                 continue
             }
             Write-Host "  [OK] 시크릿 일치" -ForegroundColor Green
+        }
+
+        # --- POST /contests/extract-image (포스터 이미지에서 공모전 정보 추출) ---
+        # 이 엔드포인트만 multipart/form-data 다. 아래 JSON 파싱 블록보다 먼저 처리해야 한다
+        # (이미지 바이트를 JSON 으로 읽으려 하면 400 이 나간다).
+        if ($path -eq "/contests/extract-image") {
+            $buffer = New-Object System.IO.MemoryStream
+            $request.InputStream.CopyTo($buffer)
+            $raw = $buffer.ToArray()
+            $buffer.Close()
+
+            Write-Host "  Content-Type: $($request.ContentType)" -ForegroundColor Gray
+            Write-Host ("  본문 {0} bytes" -f $raw.Length) -ForegroundColor Gray
+            if ($request.ContentType -notmatch "multipart/form-data") {
+                Write-Host "  [!!] multipart/form-data 가 아님 - 실서버라면 422" -ForegroundColor Red
+            }
+            # 파일 파트 이름과 filename 이 실려 있는지 확인한다. 파일명이 빠지면 FastAPI 가
+            # UploadFile 로 인식하지 못해 422 를 낸다.
+            $head = [System.Text.Encoding]::UTF8.GetString($raw, 0, [Math]::Min($raw.Length, 512))
+            if ($head -match 'name="img_file"') {
+                Write-Host "  [OK] 파트 이름 img_file" -ForegroundColor Green
+            } else {
+                Write-Host "  [!!] 파트 이름이 img_file 이 아님 - 실서버라면 422" -ForegroundColor Red
+            }
+            if ($head -match 'filename="([^"]*)"') {
+                Write-Host "  [OK] filename=$($Matches[1])" -ForegroundColor Green
+            } else {
+                Write-Host "  [!!] filename 없음 - 실서버라면 422" -ForegroundColor Red
+            }
+
+            # 응답은 AI 명세의 예시 그대로. image_url/detail_url 은 null 로 두어
+            # 백엔드가 자기 버킷 URL 로 채우는지 확인할 수 있게 한다.
+            $payload = [ordered]@{
+                external_id             = $null
+                category                = "CONTEST"
+                field                   = "PLANNING_IDEA"
+                title                   = "2026 제10회 <051영화제> 51초 영화 공모전"
+                organizer               = "부산시사회복지협의회"
+                target_school           = $null
+                start_date              = "2026-07-01"
+                end_date                = "2026-07-31"
+                detail_url              = $null
+                image_url               = $null
+                description             = "주제`n'연결'`n`n(스텁 응답)"
+                summarized_description  = "부산시사회복지협의회에서 주관하는 '51초 영화 공모전' 공고입니다."
+                recommended_targets     = "대상 제한 없음, 역량 강화 및 포트폴리오 구축 희망자"
+            }
+            Write-Host "  -> 200 (공모전 추출 결과)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
         }
 
         # --- 요청 본문 읽기 ---

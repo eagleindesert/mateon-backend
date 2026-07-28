@@ -1,14 +1,23 @@
 package com.example.mateon.events.controller;
 
 import com.example.mateon.common.exception.GlobalExceptionHandler;
+import com.example.mateon.events.dto.EventExtractionResponseDTO;
+import com.example.mateon.events.models.Event.Category;
+import com.example.mateon.events.models.Event.Field;
+import com.example.mateon.events.service.EventExtractionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,17 +32,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 클라이언트 입력 오류가 서버 장애로 보이면 프론트가 원인을 찾을 수 없다.
  *
  * <p>
- * 서비스에 null 을 넣는다. 여기서 검증하는 요청들은 전부 <b>인자 바인딩 단계에서</b> 실패해
+ * EventService 에 null 을 넣는다. 여기서 검증하는 요청들은 전부 <b>인자 바인딩 단계에서</b> 실패해
  * 컨트롤러 메서드 본문에 진입하지 않으므로 서비스가 호출될 일이 없다.
+ * (이미지 추출 쪽은 본문까지 들어가는 케이스가 있어 목을 쓴다)
  */
 class EventControllerValidationTest {
 
     private MockMvc mockMvc;
+    private EventExtractionService extractionService;
 
     @BeforeEach
     void setUp() {
+        extractionService = mock(EventExtractionService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new EventController(null))
+                .standaloneSetup(new EventController(null, extractionService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -86,5 +98,34 @@ class EventControllerValidationTest {
         mockMvc.perform(get("/api/events/search").param("field", "TRAVEL"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.field").exists());
+    }
+
+    @Test
+    @DisplayName("이미지 추출은 추출 결과를 200 으로 그대로 돌려준다 (저장은 프론트가 별도로 한다)")
+    void extractImageReturnsDraft() throws Exception {
+        when(extractionService.extractFromImage(any())).thenReturn(
+                EventExtractionResponseDTO.builder()
+                        .category(Category.CONTEST)
+                        .field(Field.PLANNING_IDEA)
+                        .title("51초 영화 공모전")
+                        .imageUrl("https://objectstorage.example/o/contest-images/2026/07/x.png")
+                        .build());
+
+        mockMvc.perform(multipart("/api/events/extract-image")
+                        .file(new MockMultipartFile("image", "poster.png", "image/png", new byte[]{1, 2, 3})))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.category").value("CONTEST"))
+                .andExpect(jsonPath("$.data.imageUrl")
+                        .value("https://objectstorage.example/o/contest-images/2026/07/x.png"));
+    }
+
+    @Test
+    @DisplayName("이미지 추출에 파일 파트가 없으면 400 (핸들러가 없으면 500 이 된다)")
+    void extractImageRejectsMissingPart() throws Exception {
+        mockMvc.perform(multipart("/api/events/extract-image")
+                        .file(new MockMultipartFile("file", "poster.png", "image/png", new byte[]{1})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }
