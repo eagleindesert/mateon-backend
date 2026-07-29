@@ -90,15 +90,15 @@ if ($teamId) {
         eventId              = $null
         title                = "임베딩테스트 팀 (수정됨)"
         promotionText        = "이제 온라인 위주로 모입니다. 대회 입상이 목표입니다."
-        role                 = @("BE", "Design, 데이터마이닝, 디자인해요")
-        requiredSkills       = @("Java", "Redis")
+        role                 = @("BE", "Design", "데이터마이닝", "디자인해요")
+        requiredSkills       = @("Java", "Red-0--is")
         characteristic       = "빡센 팀"
         capacity             = 5
         recruitmentStartDate = (Get-Date).ToString("yyyy-MM-dd")
         recruitmentEndDate   = (Get-Date).AddDays(20).ToString("yyyy-MM-dd")
     }
     Assert-Test -Title "12.3a 수정 성공 + requiredSkills 갱신" `
-        -Condition ($updated.success -and ((@($updated.data.requiredSkills) -join ",") -eq "Java,Redis")) `
+        -Condition ($updated.success -and ((@($updated.data.requiredSkills) -join ",") -eq "Java,Red-0--is")) `
         -Detail ("requiredSkills=[{0}]" -f (@($updated.data.requiredSkills) -join ", "))
 }
 
@@ -111,13 +111,19 @@ Start-Sleep -Seconds 3
 # CASCADE 가 없으면 여기서 FK 위반 500 이 난다.
 # 기본 실행은 팀을 남긴다 — team_embeddings 행을 DB 에서 직접 확인할 수 있게 (05_team 관례).
 if ($Cleanup) {
-    if ($teamId) {
-        $deleted = Invoke-Api -Method DELETE -Path "/api/teams/$teamId" -Auth -PassThru -Title "12.4 팀 삭제 (임베딩 행 CASCADE 기대)"
-        Assert-Test -Title "12.4a 임베딩 행 존재 상태에서 삭제 성공 (FK CASCADE)" -Condition ([bool]$deleted.success) -Detail $deleted.message
-    }
-    if ($teamId2) {
-        Invoke-Api -Method DELETE -Path "/api/teams/$teamId2" -Auth -Title "12.4b 뒷정리 (스킬없음 팀 삭제)"
-    }
+    # [일시 비활성화] 두 팀 모두 남기기 위해 삭제를 주석 처리했다.
+    #                DB 에서 team_embeddings 행을 계속 관찰하려는 목적.
+    #                FK CASCADE 검증을 다시 하려면 아래 블록의 주석을 해제할 것.
+    # if ($teamId) {
+    #     $deleted = Invoke-Api -Method DELETE -Path "/api/teams/$teamId" -Auth -PassThru -Title "12.4 팀 삭제 (임베딩 행 CASCADE 기대)"
+    #     Assert-Test -Title "12.4a 임베딩 행 존재 상태에서 삭제 성공 (FK CASCADE)" -Condition ([bool]$deleted.success) -Detail $deleted.message
+    # }
+    # if ($teamId2) {
+    #     Invoke-Api -Method DELETE -Path "/api/teams/$teamId2" -Auth -Title "12.4b 뒷정리 (스킬없음 팀 삭제)"
+    # }
+    Write-Host ""
+    Write-Host "  (i) -Cleanup 이 주어졌지만 삭제는 주석 처리되어 있습니다 (teamId=$teamId, teamId2=$teamId2)." -ForegroundColor Yellow
+    Write-Host "      FK CASCADE 검증을 하려면 12.4 블록의 주석을 해제하세요." -ForegroundColor Yellow
 } else {
     Write-Host ""
     Write-Host "  (i) 만든 팀을 남깁니다 (teamId=$teamId, teamId2=$teamId2)." -ForegroundColor Yellow

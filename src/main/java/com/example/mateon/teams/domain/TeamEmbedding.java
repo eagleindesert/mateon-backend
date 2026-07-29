@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -89,6 +90,29 @@ public class TeamEmbedding {
     /** 마지막 실패 사유 (예외 클래스명 + 메시지, 500자 truncate). 성공하면 null. */
     @Column(name = "last_error", columnDefinition = "text")
     private String lastError;
+
+    // ── 갱신 경합 방어 (V26) ────────────────────────────────────────────────
+    // 생성/수정 갱신이 동시에 돌아 늦게 끝난 낡은 결과가 최신 결과를 덮는 문제를 막는다.
+
+    /**
+     * 이 행의 임베딩/메타데이터가 반영하는 팀 데이터의 시점 (= 계산에 사용한 {@code Team.updatedAt}).
+     * 도착한 결과가 이 값보다 낡았으면 저장하지 않는다.
+     *
+     * <p>실패 기록은 이 값을 올리지 않는다 — 내용은 여전히 예전 시점 것이기 때문이다.
+     * NULL 은 "판정 불가"(V26 이전 행)라 아무것도 버리지 않는다.
+     */
+    @Column(name = "source_updated_at")
+    private LocalDateTime sourceUpdatedAt;
+
+    /**
+     * 낙관적 락 버전. 위 판정과 저장 사이의 좁은 창까지 닫는다.
+     *
+     * <p>래퍼 타입인 이유: Spring Data 가 이 필드의 null 여부로 신규/기존을 판별해, 신규 행에
+     * 불필요한 select 없이 곧장 insert 한다.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
