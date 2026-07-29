@@ -61,6 +61,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/chat/**").authenticated() // 채팅 REST API는 인증 필요
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
                         .requestMatchers("/api/bookmarks/**").authenticated() // 북마크는 전부 내 것이라 인증 필요
+                        // 포트폴리오는 개인 이력이고 요약 결과가 유저별로 저장된다.
+                        // 아래 anyRequest().authenticated() 가 이미 잡지만, permitAll 매처를 이 경로에
+                        // 잘못 추가하는 일이 없도록 의도를 명시해 둔다.
+                        .requestMatchers("/api/portfolios/**").authenticated()
                         .requestMatchers("/api/events/recommended").authenticated() // 추천 API는 인증 필요
                         // 활동 등록은 로그인 필요. 아래 permitAll 보다 반드시 위에 있어야 한다
                         // (first-match-wins 라, 순서가 뒤집히면 POST 가 비인증으로 열린다).

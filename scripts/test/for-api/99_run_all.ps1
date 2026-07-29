@@ -4,6 +4,7 @@
 #  [!] 과금 주의 - 전체 실행은 실제 LLM / 임베딩을 여러 번 호출합니다.
 #      스크립트별 예상 호출:
 #        04_02_event_extract_image 1회 (포스터 이미지 -> Vision LLM 추출)
+#        04_03_portfolio_summarize 2회 (PDF -> Vision LLM 요약. 재업로드분은 캐시라 호출 없음)
 #        05_team            2회  (팀 생성/수정 -> 비동기 임베딩 갱신)
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
@@ -12,7 +13,8 @@
 #        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
 #        16_recommendation_reason 8회 (팀 1 + 의도 4 + 점수화 2 + 이유 2, 캐시 hit 는 제외)
 #        17_proposal_assembly    10회 (팀 1 + 의도 4 + 점수화 2 + 조립 3)
-#      -> 1회 전체 실행에 대략 44회 안팎. 반복 실행하면 그만큼 누적됩니다.
+#      -> 1회 전체 실행에 대략 46회 안팎. 반복 실행하면 그만큼 누적됩니다.
+#         (PDF 요약은 페이지마다 이미지를 렌더링해 한 번에 보내므로 1회가 이미지 1장보다 비쌉니다.)
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
 #        pwsh -File .\debug\ai-stub\stub-ai-server.ps1      # 포트 8000
@@ -45,7 +47,7 @@ Reset-TestResults
 
 # 과금 경고는 파일 상단 주석만으로는 놓치기 쉬워 실행 시에도 보여준다.
 Write-Host ""
-Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 44회 호출합니다 (과금 발생)." -ForegroundColor Yellow
+Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 46회 호출합니다 (과금 발생)." -ForegroundColor Yellow
 Write-Host "      과금을 피하려면 백엔드 AI_BASE_URL 을 로컬 스텁으로 돌려두세요 - 파일 상단 주석 참고." -ForegroundColor DarkGray
 Write-Host ""
 
@@ -88,6 +90,9 @@ Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 # (초안이 POST /api/events 의 본문으로 그대로 통하는지가 이 기능의 핵심 계약이다).
 # 등록을 남기고 싶지 않으면 개별 실행 시 -SkipRegister 를 준다.
 & "$PSScriptRoot\04_02_event_extract_image.ps1"
+# 포트폴리오 PDF 요약. 같은 PDF 를 두 번 올려 두 번째가 캐시로 처리되는지까지 본다
+# (그게 이 기능이 DB 테이블을 두는 유일한 이유다). 활동과 무관하지만 파일 업로드 계열이라 04 에 묶는다.
+& "$PSScriptRoot\04_03_portfolio_summarize.ps1"
 
 Write-Host "`n===== 18) Bookmark (활동 북마크) =====" -ForegroundColor Magenta
 # Event 계열(04) 바로 뒤에 둔다 — 04_00 이 남긴 .event-ids.json 에서 대상 활동을 고르기 때문이다.

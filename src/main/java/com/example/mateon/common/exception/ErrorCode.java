@@ -85,6 +85,19 @@
         // 502 인 이유는 AI_SERVER_ERROR 와 같다 — 우리 잘못이 아니라 외부 의존(객체 저장소)의 실패다.
         IMAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소 업로드에 실패했습니다. 잠시 후 다시 시도해주세요."),
 
+        // 포트폴리오 PDF 요약 관련 ---
+        // 이미지 쪽과 같은 이유로 INVALID_INPUT 에 뭉뚱그리지 않는다. 확장자가 .pdf 가 아닌 경우와
+        // 확장자만 .pdf 인 파일(PDF 시그니처 없음)이 같은 코드를 쓴다 — 사용자가 할 일이 "제대로 된
+        // PDF 를 다시 고른다"로 동일하고, 둘을 갈라 봐야 안내 문구가 같기 때문이다.
+        INVALID_PDF_FILE("pdf 형식의 파일만 업로드할 수 있습니다."),
+        PDF_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "포트폴리오 PDF는 20MB 이하만 업로드할 수 있습니다."),
+
+        // 업로드 공통 ---
+        // 멀티파트 컨테이너 한도(spring.servlet.multipart) 초과 전용. 이 시점에는 요청이 어느
+        // 엔드포인트로 갈 것이었는지 알 수 없어(핸들러 매핑 전에 터진다) 도메인 중립 문구를 쓴다.
+        // 도메인별 정확한 한도 안내는 각 서비스의 IMAGE_TOO_LARGE / PDF_TOO_LARGE 가 낸다.
+        FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 가능한 파일 크기를 초과했습니다."),
+
         // 기타
         INTERNAL_SERVER_ERROR("서버 오류가 발생했습니다."),
         BAD_REQUEST("잘못된 요청입니다."),

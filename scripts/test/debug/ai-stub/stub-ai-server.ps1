@@ -7,6 +7,8 @@
 #   POST /recommendations/reason           (선택된 한 쌍의 상세 이유)
 #   POST /proposals/user-to-team           (최종 제안 조립 - 지원 문구 초안)
 #   POST /proposals/team-to-user           (최종 역제안 조립 - 제안 문구 초안)
+#   POST /contests/extract-image           (포스터 이미지에서 공모전 정보 추출, multipart)
+#   POST /portfolios/summarize             (포트폴리오 PDF 요약, multipart)
 #
 # 실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한 도구다.
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
@@ -57,7 +59,7 @@ try {
 }
 
 Write-Host ("=" * 70) -ForegroundColor DarkGray
-Write-Host " AI 서버 스텁 (intents, teams/embedding, recommendations 양방향+reason, proposals 양방향)" -ForegroundColor Magenta
+Write-Host " AI 서버 스텁 (intents, teams/embedding, recommendations+reason, proposals, 이미지 추출, PDF 요약)" -ForegroundColor Magenta
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 Write-Host "  리스닝: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  임베딩 차원: $EmbeddingDimension" -ForegroundColor DarkGray
@@ -83,6 +85,9 @@ Write-Host "    candidate_summary/target_summary 가 비면 [!!] 로 표시된�
 Write-Host "  동작 (/proposals/*): 받은 식별자를 에코하고 [stub#N] 초안(summary+message) 반환" -ForegroundColor DarkGray
 Write-Host "    sender_id/receiver_id 가 방향에 맞는지 스텁이 직접 대조해 [OK]/[!!] 로 표시" -ForegroundColor DarkGray
 Write-Host "    초안은 캐시하지 않는 게 정상이라 같은 쌍을 두 번 물으면 N 이 올라가야 한다" -ForegroundColor DarkGray
+Write-Host "  동작 (/portfolios/summarize): 파트명 pdf_file 과 %PDF 시그니처를 확인하고 [stub#N] 요약 반환" -ForegroundColor DarkGray
+Write-Host "    같은 PDF 를 두 번 올렸는데 N 이 그대로면 백엔드 캐시가 동작한 것 (reason 과 같은 기대)" -ForegroundColor DarkGray
+Write-Host "    pdf_id 는 더미 고정값이라 백엔드에 '해시 불일치' 경고가 뜨는 게 정상이다" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  중지: Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
@@ -96,6 +101,10 @@ $script:ReasonCallCount = 0
 # /proposals/* 호출 일련번호. 위와 같은 장치인데 기대하는 결론이 반대다 — 제안 초안은 캐시하지
 # 않기로 했으므로, 같은 쌍을 두 번 물으면 번호가 반드시 올라가야 한다.
 $script:ProposalCallCount = 0
+
+# /portfolios/summarize 호출 일련번호. 요약 문구에 박아 넣어 백엔드의 PDF 요약 캐시가
+# 동작하는지 밖에서 확인한다 (같은 PDF 를 두 번 올렸는데 번호가 같으면 캐시 hit).
+$script:PortfolioCallCount = 0
 
 # 난수 임베딩 벡터 생성 (두 엔드포인트가 공유)
 function New-StubVector {
@@ -132,7 +141,7 @@ try {
                         "/recommendations/user-to-team", "/recommendations/team-to-user",
                         "/recommendations/reason",
                         "/proposals/user-to-team", "/proposals/team-to-user",
-                        "/contests/extract-image")
+                        "/contests/extract-image", "/portfolios/summarize")
         if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
             Write-Host "  -> 404 (이 스텁은 POST $($knownPaths -join ', ') 만 처리)" -ForegroundColor Yellow
             Write-Json -Response $response -Object @{ detail = "Not Found" } -StatusCode 404
@@ -207,6 +216,56 @@ try {
                 recommended_targets     = "대상 제한 없음, 역량 강화 및 포트폴리오 구축 희망자"
             }
             Write-Host "  -> 200 (공모전 추출 결과)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /portfolios/summarize (포트폴리오 PDF 요약) ---
+        # /contests/extract-image 와 같은 이유로 JSON 파싱 블록보다 먼저 처리한다 (multipart).
+        if ($path -eq "/portfolios/summarize") {
+            $buffer = New-Object System.IO.MemoryStream
+            $request.InputStream.CopyTo($buffer)
+            $raw = $buffer.ToArray()
+            $buffer.Close()
+
+            Write-Host "  Content-Type: $($request.ContentType)" -ForegroundColor Gray
+            Write-Host ("  본문 {0} bytes" -f $raw.Length) -ForegroundColor Gray
+            if ($request.ContentType -notmatch "multipart/form-data") {
+                Write-Host "  [!!] multipart/form-data 가 아님 - 실서버라면 422" -ForegroundColor Red
+            }
+
+            $head = [System.Text.Encoding]::UTF8.GetString($raw, 0, [Math]::Min($raw.Length, 512))
+            if ($head -match 'name="pdf_file"') {
+                Write-Host "  [OK] 파트 이름 pdf_file" -ForegroundColor Green
+            } else {
+                Write-Host "  [!!] 파트 이름이 pdf_file 이 아님 - 실서버라면 422" -ForegroundColor Red
+            }
+            if ($head -match 'filename="([^"]*)"') {
+                Write-Host "  [OK] filename=$($Matches[1])" -ForegroundColor Green
+            } else {
+                Write-Host "  [!!] filename 없음 - 실서버라면 422" -ForegroundColor Red
+            }
+            # 파트 본문이 %PDF 로 시작하는지 — 백엔드가 시그니처 검사를 통과시킨 파일만 보내는지 본다.
+            if ($head -match '%PDF') {
+                Write-Host "  [OK] 파트 본문에 %PDF 시그니처가 있다" -ForegroundColor Green
+            } else {
+                Write-Host "  [!] %PDF 시그니처가 앞부분에 안 보인다 (백엔드 검사를 확인하세요)" -ForegroundColor Yellow
+            }
+
+            # 호출마다 다른 요약을 준다. 백엔드가 같은 PDF 를 캐시하는지 밖에서 확인할 방법이
+            # 이것뿐이다 — 같은 파일을 두 번 올렸는데 번호가 그대로면 두 번째는 AI 를 부르지 않은 것이다.
+            $script:PortfolioCallCount++
+
+            # pdf_id 는 일부러 고정 더미값을 준다. 실서버는 PDF 바이트의 SHA-256 을 주지만, 백엔드는
+            # 자기가 계산한 해시를 캐시 키로 써야 한다(AI 값에 의존하면 캐시가 AI 구현에 묶인다).
+            # 그래서 백엔드 로그에 "AI 가 보낸 pdf_id 가 우리 SHA-256 과 다릅니다" 경고가 뜨는 게 정상이다.
+            $payload = [ordered]@{
+                pdf_id   = "0000000000000000000000000000000000000000000000000000000000000000"
+                response = "- [stub#$($script:PortfolioCallCount)] OO 서비스 프론트엔드 개발, React/TypeScript 로 대시보드 UI 구현`n" +
+                           "- OO 해커톤 팀 프로젝트, 백엔드 API 설계 및 배포`n`n" +
+                           "요약`n이 사용자는 프론트엔드를 중심으로 실무 프로젝트 경험을 쌓아왔으며, 백엔드 협업 경험도 일부 있습니다."
+            }
+            Write-Host "  -> 200 (포트폴리오 요약 #$($script:PortfolioCallCount), pdf_id 는 더미)" -ForegroundColor Green
             Write-Json -Response $response -Object $payload
             continue
         }
