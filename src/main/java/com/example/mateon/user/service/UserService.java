@@ -44,11 +44,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
 
+    /**
+     * 내 프로필. 마이페이지 화면이 필요한 값(협업 온도, 참여 활동)까지 함께 싣는다.
+     * {@link #getMyPage} 는 같은 값을 주는 중복 경로이며 프론트가 쓰지 않는다.
+     */
     @Transactional(readOnly = true)
     public UserResponse getMyProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
-        return UserResponse.from(user);
+        return UserResponse.from(
+                user,
+                loadCollaborationScore(userId),
+                loadParticipatedActivities(userId));
     }
 
     public UserResponse updateMyProfile(Long userId, UserUpdateRequest request) {
@@ -69,7 +76,19 @@ public class UserService {
         );
 
         userRepository.save(user);
-        return UserResponse.from(user);
+        // GET /me 와 같은 DTO 로 나가므로 온도·활동도 같이 싣는다. 한쪽만 담으면 프로필 수정 직후
+        // 화면에서 그 값들이 사라진다.
+        return UserResponse.from(
+                user,
+                loadCollaborationScore(userId),
+                loadParticipatedActivities(userId));
+    }
+
+    /**
+     * 협업 온도 집계. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
+     */
+    private UserCollaborationScore loadCollaborationScore(Long userId) {
+        return collaborationScoreRepository.findById(userId).orElse(null);
     }
 
     /**
@@ -86,7 +105,7 @@ public class UserService {
         // 슬롯과 온도는 없을 수 있다 — 의도 추출을 안 했거나 평가를 아직 못 받은 유저다.
         // 둘 다 "아직 없음"이 정상 상태라 예외로 다루지 않는다.
         MatchingIntentSlot slot = matchingIntentSlotRepository.findByUserId(targetUserId).orElse(null);
-        UserCollaborationScore score = collaborationScoreRepository.findById(targetUserId).orElse(null);
+        UserCollaborationScore score = loadCollaborationScore(targetUserId);
 
         return UserProfileResponse.of(
                 user,
@@ -105,8 +124,8 @@ public class UserService {
         // 2. 참여한 활동
         List<MyPageResponseDTO.ActivitySummaryDTO> activities = loadParticipatedActivities(user.getId());
 
-        // 3. 협업 온도. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
-        UserCollaborationScore score = collaborationScoreRepository.findById(user.getId()).orElse(null);
+        // 3. 협업 온도
+        UserCollaborationScore score = loadCollaborationScore(user.getId());
 
         // 4. DTO 조립 및 반환
         return MyPageResponseDTO.builder()
@@ -126,7 +145,7 @@ public class UserService {
     }
 
     /**
-     * 참여한 활동 목록. 마이페이지와 공개 프로필이 함께 쓴다.
+     * 참여한 활동 목록. 내 프로필({@code /me})·마이페이지·공개 프로필이 함께 쓴다.
      *
      * <p>'승인된 지원서'로 세지 않는 이유: 그러면 내가 팀장으로 만든 팀이 내 활동에서 빠진다.
      * team_members 는 팀장을 LEADER 로 함께 담으므로 한 번의 조회로 둘 다 잡힌다.

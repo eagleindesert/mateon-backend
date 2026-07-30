@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * GET /api/users/{userId} 가 밖으로 내보이는 계약을 고정한다.
+ * 유저 프로필 조회 2종(GET /api/users/{userId}, GET /api/users/me)이 밖으로 내보이는 계약을 고정한다.
  *
  * <p>서비스를 목으로 두지 않고 리포지토리만 목으로 둔 채 진짜 {@link UserService} 를 조립한다
  * (EventQueryBehaviorTest 와 같은 방식). 이 API 에서 정작 검증해야 할 건 "슬롯이 없을 때",
@@ -230,6 +230,104 @@ class UserProfileControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."));
+        }
+    }
+
+    /**
+     * 마이페이지 화면이 실제로 읽는 엔드포인트다. 협업 온도·참여 활동이 여기서 빠지면 화면에서
+     * 사라진다 — 같은 값을 주는 {@code /mypage} 는 프론트가 쓰지 않는 중복 경로라 대체가 안 된다.
+     */
+    @Nested
+    @DisplayName("GET /api/users/me")
+    class MyProfile {
+
+        @BeforeEach
+        void stubSelf() {
+            when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(targetUser()));
+        }
+
+        @Test
+        @DisplayName("평가가 충분하면 협업 온도가 실린다")
+        void exposesTemperature() throws Exception {
+            UserCollaborationScore score = UserCollaborationScore.init(TARGET_ID);
+            score.addRating(5);
+            score.addRating(5);
+            when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
+
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").isNumber())
+                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(2));
+        }
+
+        @Test
+        @DisplayName("평가가 2건 미만이면 온도는 null 이지만 건수는 실린다 - 비공개임을 프론트가 알 수 있어야 한다")
+        void temperatureIsNullButCountIsPresentWhenSampleTooSmall() throws Exception {
+            UserCollaborationScore score = UserCollaborationScore.init(TARGET_ID);
+            score.addRating(5);
+            when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
+
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").doesNotExist())
+                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
+        }
+
+        @Test
+        @DisplayName("평가를 한 번도 안 받았으면 건수가 0 이다 - 온도를 싣지 않는 응답의 null 과 구분된다")
+        void neverReviewedUserGetsZeroCount() throws Exception {
+            when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.empty());
+
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").doesNotExist())
+                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
+        }
+
+        @Test
+        @DisplayName("참여 활동이 /mypage 와 같은 키 구성으로 실린다")
+        void exposesParticipatedActivities() throws Exception {
+            Team team = team(11L, "교내 해커톤 팀", 99L);
+            when(teamMemberRepository.findByUserIdAndLeftAtIsNull(TARGET_ID))
+                    .thenReturn(List.of(TeamMember.builder().team(team).build()));
+            when(eventRepository.findAllById(any()))
+                    .thenReturn(List.of(event(99L, Event.Category.SCHOOL)));
+
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.participatedActivities[0].id").value(11))
+                    .andExpect(jsonPath("$.data.participatedActivities[0].title").value("교내 해커톤 팀"))
+                    .andExpect(jsonPath("$.data.participatedActivities[0].category").value("교내"));
+        }
+
+        @Test
+        @DisplayName("참여한 팀이 없으면 null 이 아니라 빈 배열이다")
+        void emptyActivitiesIsArrayNotNull() throws Exception {
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.participatedActivities").isArray())
+                    .andExpect(jsonPath("$.data.participatedActivities").isEmpty());
+        }
+
+        @Test
+        @DisplayName("기존 키는 그대로 남아 있다 - 필드는 더하기만 했다")
+        void keepsExistingSchema() throws Exception {
+            mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
+                    .andExpect(status().isOk())
+                    // 내 프로필이므로 이메일 2종은 계속 실린다 (남의 프로필과 다른 점이다).
+                    .andExpect(jsonPath("$.data.email").value("rumi@dankook.ac.kr"))
+                    .andExpect(jsonPath("$.data.schoolEmail").value("rumi@dankook.ac.kr"))
+                    // 남의 프로필은 userId 인데 이쪽은 id 다 — 통일하려다 프론트를 깨뜨리지 않도록 고정한다.
+                    .andExpect(jsonPath("$.data.id").value(TARGET_ID))
+                    .andExpect(jsonPath("$.data.name").value("김루미"))
+                    .andExpect(jsonPath("$.data.school").value("단국대학교"))
+                    .andExpect(jsonPath("$.data.campus").value("죽전"))
+                    .andExpect(jsonPath("$.data.college").value("SW융합대학"))
+                    .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
+                    .andExpect(jsonPath("$.data.grade").value("3학년"))
+                    .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
+                    .andExpect(jsonPath("$.data.schoolVerified").value(true))
+                    .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
         }
     }
 

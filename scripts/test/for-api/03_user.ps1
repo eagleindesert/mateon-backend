@@ -21,8 +21,21 @@ Assert-Test -Title "3.1b 로컬 유저 schoolVerified=true" `
     -Condition ([bool]$profile.data.schoolVerified) `
     -Detail "schoolVerified=$($profile.data.schoolVerified), schoolEmail=$($profile.data.schoolEmail)" | Out-Null
 
+# 3.1c [/me 추가 필드 검증] 내 프로필 응답에 협업 온도/리뷰 건수/참여 활동 필드가 존재한다.
+Write-Host "`n[3.1c /me 신규 추가 필드 검증 (협업온도/활동이력)]" -ForegroundColor Cyan
+if ($profile -and $profile.data) {
+    $keys = $profile.data.PSObject.Properties.Name
+    Assert-Test -Title "3.1c /me 응답에 reviewCount, participatedActivities 필드 존재" `
+        -Condition ($keys -contains 'collaborationReviewCount' -and $keys -contains 'participatedActivities') `
+        -Detail "keys = $($keys -join ', ')" | Out-Null
+
+    Assert-Test -Title "3.1c participatedActivities 가 null 이 아닌 배열이다" `
+        -Condition ($null -ne $profile.data.participatedActivities) `
+        -Detail "participatedActivities Count=$($profile.data.participatedActivities.Count)" | Out-Null
+}
+
 # 3.2 내 프로필 수정
-Invoke-Api -Method PUT -Path "/api/users/me" -Auth -Title "3.2 내 프로필 수정" -Body @{
+$updatedProfile = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "3.2 내 프로필 수정" -Body @{
     name               = "수정된이름"
     campus             = "JUKJEON"
     college            = "SW융합대학"
@@ -30,6 +43,13 @@ Invoke-Api -Method PUT -Path "/api/users/me" -Auth -Title "3.2 내 프로필 수
     grade              = "4학년"
     interestJobPrimary = "백엔드 개발자"
     tagline            = "안녕하세요, 반갑습니다."
+}
+
+if ($updatedProfile -and $updatedProfile.data) {
+    $uKeys = $updatedProfile.data.PSObject.Properties.Name
+    Assert-Test -Title "3.2b 프로필 수정 후에도 participatedActivities 가 유지된다" `
+        -Condition ($uKeys -contains 'participatedActivities' -and $null -ne $updatedProfile.data.participatedActivities) `
+        -Detail "participatedActivities Count=$($updatedProfile.data.participatedActivities.Count)" | Out-Null
 }
 
 # 3.3 마이페이지 조회
