@@ -2,9 +2,11 @@ package com.example.mateon.common.exception;
 
 import com.example.mateon.common.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -122,6 +124,33 @@ public class GlobalExceptionHandler {
     public void handleAsyncRequestNotUsable(AsyncRequestNotUsableException e) {
         // 사용자가 창을 닫은 정상적인 상황이라 스택트레이스를 남길 이유가 없다.
         log.debug("클라이언트 연결 종료로 응답 생략: {}", e.getMessage());
+    }
+
+    /**
+     * 응답 JSON 을 소켓에 쓰는 도중 클라이언트가 연결을 끊었다 (탭 닫기, 요청 취소, 타임아웃 등).
+     *
+     * <p>
+     * 위의 {@link AsyncRequestNotUsableException} 핸들러가 있어도 이 경우는 잡히지 않는다 —
+     * Jackson 이 직렬화 중 만난 예외를 {@link HttpMessageNotWritableException} 으로 감싸서
+     * 던지기 때문에 catch-all 로 떨어져 Broken pipe 스택트레이스가 ERROR 로 찍힌다.
+     * 받을 상대가 없으므로 응답을 만들지 않는다 (null 반환 = 본문 없이 처리 완료).
+     *
+     * <p>
+     * 연결 끊김이 아닌 직렬화 실패(순환 참조, 직렬화 불가 타입 등)는 진짜 서버 버그이므로
+     * 기존대로 ERROR 로그와 500 을 유지한다.
+     */
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleNotWritable(HttpMessageNotWritableException e) {
+        for (Throwable cause = e.getCause(); cause != null; cause = cause.getCause()) {
+            if (cause instanceof AsyncRequestNotUsableException || cause instanceof ClientAbortException) {
+                log.debug("클라이언트 연결 종료로 응답 전송 중단: {}", cause.getMessage());
+                return null;
+            }
+        }
+        log.error("응답 직렬화 실패", e);
+        return ResponseEntity
+          .status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 
     /**
