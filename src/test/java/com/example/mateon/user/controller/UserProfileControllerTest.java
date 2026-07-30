@@ -13,6 +13,7 @@ import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.user.repository.UserRepository;
+import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -74,7 +75,7 @@ class UserProfileControllerTest {
                 mock(RefreshTokenRepository.class));
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new UserController(userService))
+                .standaloneSetup(new UserController(userService, mock(ProfileImageService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 

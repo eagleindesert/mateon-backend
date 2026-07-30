@@ -27,6 +27,8 @@ public class UserResponse {
     private String interestJobSecondary;
     private String interestJobTertiary;
     private String tagline;
+    /** 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null. */
+    private String profileImageUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -46,6 +48,7 @@ public class UserResponse {
                 .interestJobSecondary(user.getInterestJobSecondary())
                 .interestJobTertiary(user.getInterestJobTertiary())
                 .tagline(user.getTagline())
+                .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

@@ -120,6 +120,7 @@ public class UserService {
                 .school(user.getSchool())
                 .campus(user.getCampus())
                 .schoolVerified(user.isSchoolVerified())
+                .profileImageUrl(user.getProfileImageUrl())
                 .participatedActivities(activities)
                 .build();
     }

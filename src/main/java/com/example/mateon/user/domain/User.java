@@ -83,6 +83,11 @@ public class User {
     @Column(length = 200)
     private String tagline;
 
+    // 프로필 이미지의 객체 저장소 공개 URL. 업로드 전엔 null 이고, 전용 엔드포인트
+    // (POST/DELETE /api/users/me/profile-image) 로만 바뀐다 — update() 가 다루지 않는 이유다.
+    @Column(name = "profile_image_url", length = 512)
+    private String profileImageUrl;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

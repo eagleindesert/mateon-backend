@@ -84,6 +84,10 @@
         IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "이미지는 10MB 이하만 업로드할 수 있습니다."),
         // 502 인 이유는 AI_SERVER_ERROR 와 같다 — 우리 잘못이 아니라 외부 의존(객체 저장소)의 실패다.
         IMAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소 업로드에 실패했습니다. 잠시 후 다시 시도해주세요."),
+        // 프로필 이미지 교체·삭제에서 이전 객체를 지울 때 쓴다. 현재 호출부는 비동기 워커
+        // (ProfileImageWorker) 라 이 코드가 HTTP 응답으로 나가지는 않지만, 저장소 실패를
+        // IMAGE_UPLOAD_FAILED 로 뭉뚱그리면 로그에서 업로드 실패와 구분되지 않는다.
+        IMAGE_DELETE_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소에서 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."),
 
         // 포트폴리오 PDF 요약 관련 ---
         // 이미지 쪽과 같은 이유로 INVALID_INPUT 에 뭉뚱그리지 않는다. 확장자가 .pdf 가 아닌 경우와

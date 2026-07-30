@@ -40,6 +40,13 @@ public class UserProfileResponse {
     private final String grade;
     /** 한 줄 소개. */
     private final String tagline;
+    /**
+     * 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null.
+     *
+     * <p>연락처가 아니므로 이 DTO 의 비공개 원칙(위 주석)에 걸리지 않는다 — 사진은 추천 카드에서도
+     * 보여야 하는 공개 항목이다.
+     */
+    private final String profileImageUrl;
     private final boolean schoolVerified;
 
     private final String interestJobPrimary;
@@ -91,6 +98,7 @@ public class UserProfileResponse {
                 .major(user.getMajor())
                 .grade(user.getGrade())
                 .tagline(user.getTagline())
+                .profileImageUrl(user.getProfileImageUrl())
                 .schoolVerified(user.isSchoolVerified())
                 .interestJobPrimary(user.getInterestJobPrimary())
                 .interestJobSecondary(user.getInterestJobSecondary())

@@ -1,7 +1,7 @@
 package com.example.mateon.events.service;
 
-import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.common.storage.ImageFileValidator;
 import com.example.mateon.common.storage.ObjectStorageService;
 import com.example.mateon.events.client.ContestExtractResponse;
 import com.example.mateon.events.client.ContestImageExtractionClient;
@@ -14,14 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -39,14 +36,6 @@ public class EventExtractionService {
     /** AI 서버 제한(10MB)과 맞춘 값. 멀티파트 설정 뒤의 2차 방어선이다. */
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
-
-    /** 확장자 → 저장소에 기록할 Content-Type. 브라우저가 보낸 값은 신뢰하지 않는다. */
-    private static final Map<String, String> CONTENT_TYPES = Map.of(
-            "jpg", "image/jpeg",
-            "jpeg", "image/jpeg",
-            "png", "image/png");
-
     private static final DateTimeFormatter KEY_PREFIX_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM");
 
     private final ContestImageExtractionClient extractionClient;
@@ -58,57 +47,18 @@ public class EventExtractionService {
      *                         IMAGE_UPLOAD_FAILED(502) — 객체 저장소 문제
      */
     public EventExtractionResponseDTO extractFromImage(MultipartFile image) {
-        String extension = validateAndResolveExtension(image);
-        String contentType = CONTENT_TYPES.get(extension);
-        byte[] bytes = readBytes(image);
+        ImageFileValidator.ValidatedImage validated = ImageFileValidator.validate(image, MAX_IMAGE_BYTES);
 
         // AI 추출을 먼저 한다. 순서를 뒤집으면 판독 실패한 이미지가 버킷에 그대로 남는다
         // (초안을 못 받은 사용자는 다시 올릴 테니 지울 사람도 없다).
         ContestExtractResponse extracted = extractionClient.extract(
-                bytes, image.getOriginalFilename(), contentType);
+                validated.bytes(), image.getOriginalFilename(), validated.contentType());
 
         String key = "contest-images/%s/%s.%s".formatted(
-                YearMonth.now().format(KEY_PREFIX_FORMAT), UUID.randomUUID(), extension);
-        String imageUrl = objectStorageService.upload(key, bytes, contentType);
+                YearMonth.now().format(KEY_PREFIX_FORMAT), UUID.randomUUID(), validated.extension());
+        String imageUrl = objectStorageService.upload(key, validated.bytes(), validated.contentType());
 
         return toDraft(extracted, imageUrl);
-    }
-
-    /** 확장자를 소문자로 돌려준다. 형식/크기 문제는 전부 여기서 걸러진다. */
-    private String validateAndResolveExtension(MultipartFile image) {
-        if (image == null || image.isEmpty()) {
-            throw new MateonException(ErrorCode.INVALID_IMAGE_FILE);
-        }
-        if (image.getSize() > MAX_IMAGE_BYTES) {
-            // 멀티파트 한도가 먼저 걸리는 게 정상이지만, 한도를 올려 잡은 환경에서도
-            // AI 가 400 을 내기 전에 우리가 먼저 안내한다.
-            throw new MateonException(ErrorCode.IMAGE_TOO_LARGE);
-        }
-
-        String filename = image.getOriginalFilename();
-        if (!StringUtils.hasText(filename)) {
-            throw new MateonException(ErrorCode.INVALID_IMAGE_FILE);
-        }
-        // 확장자를 1차 근거로 삼는다. content-type 은 클라이언트가 주는 값이라
-        // 브라우저·OS 에 따라 application/octet-stream 으로도 오기 때문이다.
-        String extension = StringUtils.getFilenameExtension(filename);
-        if (extension == null || !ALLOWED_EXTENSIONS.contains(extension.toLowerCase(Locale.ROOT))) {
-            throw new MateonException(ErrorCode.INVALID_IMAGE_FILE);
-        }
-        return extension.toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * 바이트는 한 번만 읽는다. AI 전송과 업로드가 같은 배열을 쓴다 —
-     * MultipartFile 의 스트림을 두 번 여는 방식은 임시 파일이 이미 정리된 뒤에 터질 수 있다.
-     */
-    private byte[] readBytes(MultipartFile image) {
-        try {
-            return image.getBytes();
-        } catch (IOException e) {
-            log.warn("업로드 파일을 읽지 못했습니다: {}", image.getOriginalFilename(), e);
-            throw new MateonException(ErrorCode.INVALID_IMAGE_FILE);
-        }
     }
 
     private EventExtractionResponseDTO toDraft(ContestExtractResponse extracted, String imageUrl) {

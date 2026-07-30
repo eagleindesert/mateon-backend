@@ -80,6 +80,9 @@ Write-Host "`n===== 2) 유저 준비 (A/B/C 로그인) =====" -ForegroundColor M
 
 Write-Host "`n===== 3) User =====" -ForegroundColor Magenta
 & "$PSScriptRoot\03_user.ps1"
+# 프로필 사진. 업로드가 비동기라 조회를 폴링해 반영을 확인하고, 재업로드로 이전 객체가
+# 버킷에서 사라지는지까지 본다. AI 를 쓰지 않으므로 상단 과금 표에 잡히지 않는다.
+& "$PSScriptRoot\03_01_user_profile_image.ps1"
 
 Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 # 등록(init)과 조회를 나눠 돈다. 조회 스크립트는 init 이 남긴 .event-ids.json 을 읽어

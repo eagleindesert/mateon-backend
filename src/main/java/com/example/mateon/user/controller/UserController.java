@@ -6,12 +6,15 @@ import com.example.mateon.user.dto.PasswordChangeRequest;
 import com.example.mateon.user.dto.UserProfileResponse;
 import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
+import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final ProfileImageService profileImageService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyProfile(Authentication authentication) {
@@ -58,6 +62,38 @@ public class UserController {
         Long viewerId = Long.valueOf(authentication.getName());
         UserProfileResponse response = userService.getPublicProfile(userId, viewerId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 프로필 이미지 업로드 [인증 필수]. 요청은 multipart/form-data 이며 파트 이름은 {@code image}
+     * (jpg/jpeg/png, 10MB 이하).
+     *
+     * <p><b>응답에 이미지 URL 이 없다.</b> 버킷 작업(이전 사진 삭제 → 새 사진 업로드)은 비동기로
+     * 돌고, 이 응답은 "접수했다"까지만 알린다. 새 URL 은 잠시 뒤 유저 조회 3종
+     * ({@code /me}, {@code /mypage}, {@code /{userId}}) 의 {@code profileImageUrl} 로 확인한다.
+     *
+     * <p>형식·크기가 잘못된 파일은 접수 단계에서 400/413 으로 즉시 거절되므로, 200 을 받았다면
+     * 파일 자체에는 문제가 없다는 뜻이다.
+     */
+    @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Void>> uploadProfileImage(
+            Authentication authentication,
+            @RequestPart("image") MultipartFile image) {
+        Long userId = Long.valueOf(authentication.getName());
+        profileImageService.upload(userId, image);
+        return ResponseEntity.ok(ApiResponse.success("프로필 이미지 업로드가 진행 중입니다.", null));
+    }
+
+    /**
+     * 프로필 이미지 삭제 [인증 필수]. 업로드와 마찬가지로 실제 처리는 비동기다.
+     *
+     * <p>이미지가 없는 상태에서 불러도 성공한다(멱등) — 요청이 원한 결과가 이미 그 상태다.
+     */
+    @DeleteMapping("/me/profile-image")
+    public ResponseEntity<ApiResponse<Void>> deleteProfileImage(Authentication authentication) {
+        Long userId = Long.valueOf(authentication.getName());
+        profileImageService.delete(userId);
+        return ResponseEntity.ok(ApiResponse.success("프로필 이미지 삭제가 요청되었습니다.", null));
     }
 
     @PostMapping("/password/change")
