@@ -3,6 +3,7 @@ package com.example.mateon.portfolios.controller;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.portfolios.dto.PortfolioSummaryResponseDTO;
 import com.example.mateon.portfolios.service.PortfolioSummaryService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+@Tag(name = "포트폴리오", description = "PDF 업로드와 AI 요약")
 @RestController
 @RequestMapping("/api/portfolios")
 @RequiredArgsConstructor

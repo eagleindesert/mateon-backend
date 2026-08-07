@@ -340,6 +340,12 @@ Assert-Test -Title "14.13a 수락 즉시 팀원 확정 (인원 +1)" `
     -Condition ($countAfter -eq $countBefore + 1) `
     -Detail ("{0}명 -> {1}명" -f $countBefore, $countAfter) | Out-Null
 
+# 14.13a-1 제안 수락자는 team_applications 에 행이 없다. 지원서 목록만 보던 시절에는 이 사람이
+#   명단에 안 잡혀 인원 수만 혼자 커 보였다 — 상세 응답의 members 가 그 간극을 메운다.
+Assert-Test -Title "14.13a-1 제안 수락자가 팀원 명단(members)에 잡힌다" `
+    -Condition (@($afterDetail.data.members).Count -eq $countAfter) `
+    -Detail ("명단 {0} / 인원 {1}" -f @($afterDetail.data.members).Count, $countAfter) | Out-Null
+
 # capacity=2 인 팀에 팀장 + B 가 찼으므로 모집이 닫혀야 한다.
 Assert-Test -Title "14.13b 정원이 차면 모집 마감 (isRecruiting=false)" `
     -Condition ($countAfter -ge [int]$afterDetail.data.capacity) `

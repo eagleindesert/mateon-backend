@@ -4,6 +4,8 @@
 
 - properties를  yml로 변환하기. 더러워짐
 
+- .env안에 production과 debug 구분하기
+
 - 공통 AI 클래스는 common 으로
 
 - `../scripts/test/for-api/04_03_portfolio_summarize.ps1` 파일의 위치가 이상함. 차라리 이건 user 하위 셸 쪽으로 가야 함

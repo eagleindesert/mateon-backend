@@ -4,6 +4,7 @@ import com.example.mateon.bookmarks.dto.BookmarkToggleResponseDTO;
 import com.example.mateon.bookmarks.service.BookmarkService;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.events.dto.EventResponseDTO;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+
 /**
  * 활동 북마크(즐겨찾기) API [전 경로 인증 필수].
  *
@@ -29,6 +31,7 @@ import java.util.List;
  * permitAll 이라 그 아래에 인증 필요 경로를 끼워 넣으면 SecurityConfig 의 매처 순서에
  * 기능의 보안이 걸리게 된다(순서가 뒤집히면 조용히 열린다). 접두사를 나누면 그 위험이 없다.
  */
+@Tag(name = "북마크", description = "관심 활동 찜하기")
 @RestController
 @RequestMapping("/api/bookmarks")
 @RequiredArgsConstructor

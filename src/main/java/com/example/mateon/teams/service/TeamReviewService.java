@@ -57,7 +57,7 @@ public class TeamReviewService {
                 .collect(Collectors.toSet());
 
         List<TeamReviewTargetsResponseDTO.Target> targets =
-                teamMemberRepository.findByTeamIdAndLeftAtIsNull(teamId).stream()
+                teamMemberRepository.findActiveMembersWithUser(teamId).stream()
                         .map(TeamMember::getUser)
                         .filter(member -> !member.getId().equals(userId)) // 자기 자신은 대상이 아니다
                         .map(member -> new TeamReviewTargetsResponseDTO.Target(
@@ -89,7 +89,7 @@ public class TeamReviewService {
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         // 팀원 전원을 한 번에 읽어 두고 검증에 재사용한다 (대상마다 조회하면 N+1).
-        Map<Long, User> membersById = teamMemberRepository.findByTeamIdAndLeftAtIsNull(teamId).stream()
+        Map<Long, User> membersById = teamMemberRepository.findActiveMembersWithUser(teamId).stream()
                 .map(TeamMember::getUser)
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 

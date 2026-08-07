@@ -1,5 +1,6 @@
 package com.example.mateon.debug.oauth;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
@@ -7,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
 
 /**
  * [로컬 테스트 전용] 카카오 인가코드 수신용 디버그 컨트롤러.
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 실배포 노출 방지: debug.oauth.enabled=true 일 때만 빈으로 등록된다(기본 미등록 → 404).
  * 로컬에서는 루트 .env 에 debug.oauth.enabled=true 를 넣어 활성화한다.
  */
+@Tag(name = "[디버그] OAuth", description = "로컬 전용. debug.oauth.enabled=true 일 때만 등록된다")
 @RestController
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "debug.oauth.enabled", havingValue = "true")

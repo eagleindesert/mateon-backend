@@ -10,8 +10,22 @@ import java.util.Optional;
 
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
 
-    /** 팀의 활성 멤버 전원 (리더 포함). 평가 대상 목록이자 인원 표시의 단일 출처. */
+    /**
+     * 팀의 활성 멤버 전원 (리더 포함). user 는 LAZY 로 남는다.
+     *
+     * <p>id 만 필요한 호출부용이다 — 프록시에서 getId() 는 초기화 없이 읽히므로 join 이 낭비다.
+     * 이름·전공처럼 실제 필드를 읽어야 하면 {@link #findActiveMembersWithUser} 를 쓴다.
+     */
     List<TeamMember> findByTeamIdAndLeftAtIsNull(Long teamId);
+
+    /**
+     * 팀의 활성 멤버 전원 (리더 포함) + user. 평가 대상 목록이자 인원 표시의 단일 출처.
+     *
+     * <p>user 를 함께 읽는다 — 곧바로 이름/전공을 꺼내는 호출부에서 LAZY 로 두면 팀원 수만큼
+     * 추가 쿼리가 나간다.
+     */
+    @Query("SELECT m FROM TeamMember m JOIN FETCH m.user WHERE m.team.id = :teamId AND m.leftAt IS NULL")
+    List<TeamMember> findActiveMembersWithUser(@Param("teamId") Long teamId);
 
     /** 평가 자격 검증용. */
     boolean existsByTeamIdAndUserIdAndLeftAtIsNull(Long teamId, Long userId);

@@ -5,6 +5,7 @@ import com.example.mateon.matching.dto.request.ProposalAssemblyRequestDTO;
 import com.example.mateon.matching.dto.request.UserProposalRequestDTO;
 import com.example.mateon.matching.dto.response.ProposalDraftResponseDTO;
 import com.example.mateon.matching.service.ProposalAssemblyService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 
 /**
  * 최종 제안 조립 API — 추천에서 고른 상대에게 보낼 지원/제안 문구를 AI 가 써 준다.
@@ -36,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 다만 저장하지 않으므로 같은 요청을 반복하면 매번 새 문구가 나온다 — 마음에 안 들 때 다시
  * 뽑는 게 정상 동작이다 (상세 이유는 반대로 한 번 정해지면 고정된다).
  */
+@Tag(name = "매칭 제안서", description = "추천 결과에 대한 AI 제안서/근거 생성")
 @RestController
 @RequestMapping("/api/matching/proposals")
 @RequiredArgsConstructor

@@ -5,15 +5,18 @@ import com.example.mateon.matching.dto.request.MatchingIntentMessageRequestDTO;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.service.MatchingIntentService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+
 /**
  * 매칭 의도 추출 대화 API. 실제 추출/임베딩/문구 생성은 별도 FastAPI 서버가 한다.
  */
+@Tag(name = "매칭 의도", description = "대화로 매칭 조건을 좁혀 나가는 세션. 추천의 전제 조건이다")
 @RestController
 @RequestMapping("/api/matching/intents")
 @RequiredArgsConstructor

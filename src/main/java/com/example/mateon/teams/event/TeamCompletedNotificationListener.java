@@ -47,7 +47,7 @@ public class TeamCompletedNotificationListener {
                 return; // 종료 직후 삭제된 팀. 알릴 대상이 없다.
             }
 
-            List<TeamMember> members = teamMemberRepository.findByTeamIdAndLeftAtIsNull(event.teamId());
+            List<TeamMember> members = teamMemberRepository.findActiveMembersWithUser(event.teamId());
 
             // 혼자인 팀은 평가할 상대가 없다 — 알림이 소음만 된다.
             if (members.size() < 2) {

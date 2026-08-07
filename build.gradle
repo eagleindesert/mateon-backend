@@ -52,8 +52,10 @@ dependencies {
     // 모듈이 있어야 활성화된다. (flyway-core 만으로는 자동설정이 동작하지 않음)
     implementation 'org.springframework.boot:spring-boot-flyway'
     implementation 'org.flywaydb:flyway-database-postgresql'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-api:2.5.0'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+    // API 명세 자동 생성. 버전 라인을 Spring Boot 에 맞춰야 한다 — springdoc 2.x 는 Boot 3
+    // (Spring Framework 6 + Jackson 2) 전용이라 Boot 4 에서 /v3/api-docs 가 500 으로 떨어진다.
+    // 3.0.x 가 Boot 4.0.x 라인이다 (3.1.x 는 Boot 4.1 대상이므로 올리지 말 것).
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'

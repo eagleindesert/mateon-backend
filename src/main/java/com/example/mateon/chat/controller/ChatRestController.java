@@ -7,6 +7,7 @@ import com.example.mateon.chat.dto.response.ChatMessageResponse;
 import com.example.mateon.chat.dto.response.ChatRoomResponse;
 import com.example.mateon.chat.service.ChatService;
 import com.example.mateon.common.dto.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "채팅 (REST)", description = "채팅방 목록·메시지 이력·읽음 처리. 실시간 송수신은 STOMP(/ws-stomp)로 한다")
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor

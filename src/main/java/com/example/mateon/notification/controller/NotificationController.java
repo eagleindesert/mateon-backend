@@ -3,6 +3,7 @@ package com.example.mateon.notification.controller;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.notification.dto.NotificationResponseDTO;
 import com.example.mateon.notification.service.NotificationService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -13,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
+@Tag(name = "알림", description = "알림 목록과 SSE 실시간 구독")
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor

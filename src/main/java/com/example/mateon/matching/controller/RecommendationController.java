@@ -9,6 +9,7 @@ import com.example.mateon.matching.dto.response.UserRecommendationResponseDTO;
 import com.example.mateon.matching.service.RecommendationReasonService;
 import com.example.mateon.matching.service.RecommendationService;
 import com.example.mateon.matching.service.TeamToUserRecommendationService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +18,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+
 /**
  * 매칭 추천 API. 점수 계산과 근거 문구 생성은 별도 FastAPI 서버가 한다.
  *
  * <p>선행 조건: 의도 추출(/api/matching/intents)이 완료돼 있어야 한다. 아직이면 400
  * MATCHING_INTENT_REQUIRED 로 응답한다.
  */
+@Tag(name = "추천", description = "유저→팀, 팀→유저 양방향 AI 추천")
 @RestController
 @RequestMapping("/api/matching/recommendations")
 @RequiredArgsConstructor

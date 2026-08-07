@@ -56,7 +56,9 @@ public class SecurityConfig {
                         .requestMatchers("/debug/**").permitAll() // [로컬 전용] 카카오 인가코드 수신 디버그 (컨트롤러는 debug.oauth.enabled 로 격리)
                         .requestMatchers("/api/auth/school/**").authenticated() // 학교 인증은 로그인 후 단계 → 인증 필요
                         .requestMatchers("/api/auth/**").permitAll() // 그 외 인증 API는 모두 허용
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+                        // "/swagger-ui.html" 은 "/swagger-ui/**" 에 걸리지 않는다 — springdoc 이 여기서
+                        // /swagger-ui/index.html 로 리다이렉트하므로 진입점도 함께 열어야 한다.
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         .requestMatchers("/ws-stomp/**").permitAll() // WS 핸드셰이크 허용 (인증은 STOMP CONNECT 에서 JWT 검증)
                         .requestMatchers("/api/chat/**").authenticated() // 채팅 REST API는 인증 필요
                         .requestMatchers("/api/users/**").authenticated() // 사용자 API는 인증 필요
