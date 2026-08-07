@@ -41,7 +41,7 @@ $script:MateonConfig = @(
     @{ Name = "UserBName";     Default = "채팅메이트";                    EnvVar = "MATEON_USERB_NAME" }     # 유저 B 이름
 
     # 3번째 유저(C) 기본값 — 09_three_users 가 생성한다. 협업 온도 평가는 서로 다른 3명이 필요하다
-    # (평가는 자기 자신 제외 + 온도 공개 최소 2건이라, 2명으로는 온도가 끝내 공개되지 않는다).
+    # (평가는 자기 자신을 제외하므로, 2명이면 평가 대상이 1명뿐이라 검증할 게 남지 않는다).
     @{ Name = "UserCEmail";    Default = "";                              EnvVar = "MATEON_USERC_EMAIL" }    # 유저 C 이메일
     @{ Name = "UserCPassword"; Default = "";                              EnvVar = "MATEON_USERC_PASSWORD" } # 유저 C 비밀번호
     @{ Name = "UserCName";     Default = "협업메이트";                    EnvVar = "MATEON_USERC_NAME" }     # 유저 C 이름

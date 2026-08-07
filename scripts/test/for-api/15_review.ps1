@@ -16,12 +16,17 @@
 #   3. B(팀장 아님)의 종료 시도 → 차단 확인
 #   4. A 가 활동 종료 → 평가 개시
 #   5. 평가 대상 목록 조회 (자기 자신이 빠지는지)
-#   6. B, C 가 각각 A 를 평가 → A 가 2건을 받아 온도 공개
+#   6. B, C 가 각각 A 를 평가 → A 의 온도 상승
 #   7. 중복 제출 / 자기 자신 평가 → 차단 확인
-#   8. A 의 마이페이지에서 온도 노출 확인
+#   8. A 의 마이페이지에서 온도 상승 확인, 평가 0건인 B 는 기준점(36.5) 확인
 #
-# 왜 3명인가: 온도는 받은 평가가 2건 이상이어야 공개된다(2인 팀이면 1건뿐이라 누가 줬는지
-# 자명해져 익명성이 깨지므로 비공개). B, C 두 명이 A 를 평가해야 온도가 실제로 뜬다.
+# 온도는 평가 건수와 무관하게 항상 내려온다. 예전에는 2건 미만이면 비공개(null)였으나
+# (2인 팀에서 1건이면 누가 줬는지 자명해 익명성이 깨진다는 이유), 화면에 빈 칸이 남는 쪽이
+# 더 나쁘다고 보고 임계값을 걷어냈다. 그래서 '온도가 뜨는가'가 아니라 '얼마나 움직였는가'와
+# '평가 0건일 때 기준점이 나오는가'를 본다.
+#
+# 왜 3명인가: 평가 대상 목록에서 자기 자신이 빠지는지 보려면 대상이 2명 이상이어야 하고,
+# A 가 한 번에 2건을 받아야 온도 변화가 눈에 띄게 커진다.
 param(
     [switch]$KeepTeam   # 지정 시 시나리오 종료 후 팀을 남겨 둔다(기본도 남김 — 삭제는 하지 않음)
 )
@@ -201,6 +206,19 @@ $beforeCount = [int]$before.data.collaborationReviewCount
 $beforeTemp  = $before.data.collaborationTemperature
 Write-Host "  (i) 평가 전 A: reviewCount=$beforeCount, temperature=$beforeTemp" -ForegroundColor DarkGray
 
+# 아직 아무 평가도 안 받은 상태에서도 온도가 실려 있어야 한다. 깨끗한 계정이라면 집계 행 자체가
+# 없는데, 그건 0건과 같은 상태이므로 서버가 기준점으로 채워 내려준다 (예전에는 여기가 null 이었다).
+# 누적 계정이면 값만 확인한다 — 이전 실행이 남긴 평가 때문에 36.5 가 아니다.
+if ($beforeCount -eq 0) {
+    Assert-Test -Title "15.10a 평가 0건인 A 의 온도 = 기준점 36.5" `
+        -Condition ([math]::Abs([double]$beforeTemp - 36.5) -lt 0.05) `
+        -Detail "평가 전 temperature=$beforeTemp (기대 36.5)" | Out-Null
+} else {
+    Assert-Test -Title "15.10a 평가 전에도 A 의 온도가 실린다(null 아님)" `
+        -Condition ($null -ne $beforeTemp) `
+        -Detail "평가 전 temperature=$beforeTemp, count=$beforeCount" | Out-Null
+}
+
 foreach ($slot in @("B", "C")) {
     Use-User $slot | Out-Null
     Invoke-Api -Method POST -Path "/api/teams/$teamId/reviews" -Auth -Title "15.10 평가 제출 ($slot → A, 5점)" -Body @{
@@ -226,7 +244,7 @@ Assert-Test -Title "15.12b B 가 평가한 A 는 alreadyReviewed=true" `
     -Detail "alreadyReviewed=$($aEntry.alreadyReviewed)" | Out-Null
 
 # ============================================================================
-#  15.13 온도 노출 확인 (누적 증분 기준)
+#  15.13 온도 변화 확인 (누적 증분 기준)
 # ============================================================================
 Use-User "A" | Out-Null
 $myPage = Invoke-Api -Method GET -Path "/api/users/mypage" -Auth -PassThru -Title "15.13 마이페이지 협업 온도 (A)"
@@ -239,30 +257,42 @@ Assert-Test -Title "15.13b A 의 평가 수가 2 증가" `
     -Condition ($count -eq $beforeCount + 2) `
     -Detail "$beforeCount → $count" | Out-Null
 
-Assert-Test -Title "15.13c A 의 온도가 공개됨(비공개 임계 2건 충족)" `
-    -Condition ($null -ne $temp) -Detail "temperature=$temp" | Out-Null
+Assert-Test -Title "15.13c A 의 온도가 평가 전보다 올랐다(5점 2건)" `
+    -Condition ($null -ne $temp -and [double]$temp -gt [double]$beforeTemp) `
+    -Detail "$beforeTemp → $temp" | Out-Null
 
 if ($beforeCount -eq 0) {
-    # 첫 실행(깨끗한 계정)에서만 절대값을 검증할 수 있다.
+    # 첫 실행(깨끗한 계정)에서만 절대값을 검증할 수 있다. 36.5 에서 출발해 여기까지 온 것이다.
     #   B=(5*3+10)/(5+2)=3.571 → q=0.286 → E=2/22=0.0909 → 36.5 + 62.5*0.286*0.0909 = 38.1
     Assert-Test -Title "15.13d 첫 평가 2건(5점)의 온도 = 38.1" `
         -Condition ([math]::Abs([double]$temp - 38.1) -lt 0.05) `
         -Detail "temperature=$temp (기대 38.1)" | Out-Null
 } else {
-    # 재실행: 5점을 더 받았으니 온도는 반드시 올라야 한다.
-    # (5점은 베이지안 평균을 항상 끌어올리고, 건수가 늘어 신뢰도 계수도 커진다.)
-    Assert-Test -Title "15.13d 5점을 더 받아 온도 상승" `
-        -Condition ([double]$temp -gt [double]$beforeTemp) `
-        -Detail "$beforeTemp → $temp" | Out-Null
+    # 재실행이면 누적 건수를 알 수 없어 절대값을 못 박는다. 상승 여부는 위 15.13c 가 이미 본다
+    # (5점은 베이지안 평균을 항상 끌어올리고, 건수가 늘어 신뢰도 계수도 커진다).
     Write-Host "  (i) 누적 계정이라 절대값 검증은 건너뜁니다. 38.1 을 다시 보려면 새 계정으로 .env 를 바꾸세요." -ForegroundColor DarkGray
 }
 
-# 평가를 받지 않은 B 는 온도가 비공개(null)여야 한다.
+# 평가를 한 번도 못 받은 B 도 온도가 보인다. 이 시나리오에서 B 는 평가를 주기만 하고 받지는
+# 않으므로 집계 행이 끝내 생기지 않는다 — 즉 '행이 없는 유저를 서버가 기준점으로 채워 내려주는'
+# 폴백 경로를 타는 유일한 지점이다. (예전에는 여기가 비공개라 null 이었다.)
 Use-User "B" | Out-Null
 $myPageB = Invoke-Api -Method GET -Path "/api/users/mypage" -Auth -PassThru -Title "15.14 미평가 유저 온도 (B)"
-Assert-Test -Title "15.14b 평가를 못 받은 B 는 온도 비공개(null)" `
-    -Condition ($null -eq $myPageB.data.collaborationTemperature) `
-    -Detail "temperature=$($myPageB.data.collaborationTemperature), count=$($myPageB.data.collaborationReviewCount)" | Out-Null
+$tempB   = $myPageB.data.collaborationTemperature
+$countB  = [int]$myPageB.data.collaborationReviewCount
+
+Assert-Test -Title "15.14b 평가를 못 받은 B 도 온도가 실린다(null 아님)" `
+    -Condition ($null -ne $tempB) `
+    -Detail "temperature=$tempB, count=$countB" | Out-Null
+
+if ($countB -eq 0) {
+    # 0건이면 E(0)=0 이라 공식상 기준점이 그대로 나온다.
+    Assert-Test -Title "15.14c 평가 0건인 B 의 온도 = 기준점 36.5" `
+        -Condition ([math]::Abs([double]$tempB - 36.5) -lt 0.05) `
+        -Detail "temperature=$tempB (기대 36.5)" | Out-Null
+} else {
+    Write-Host "  (i) B 가 다른 시나리오에서 평가를 받은 계정이라(count=$countB) 36.5 검증은 건너뜁니다." -ForegroundColor DarkGray
+}
 
 # --- 정리 ---
 Use-User "A" | Out-Null
