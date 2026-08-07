@@ -74,6 +74,16 @@ public class SecurityConfig {
                         // 포스터 이미지 추출도 등록의 일부다. 이것 역시 아래 permitAll 보다 위여야 한다.
                         .requestMatchers(HttpMethod.POST, "/api/events/extract-image").authenticated()
                         .requestMatchers("/api/events/**").permitAll() // 기존 Event 조회 API 허용
+                        // 팀 모집글 조회는 로그인 없이 열어 둔다. TeamController 가 @SecurityRequirement(name = "")
+                        // 로 선언하고 조회자 기준 필드(isLeader/hasApplied/myApplicationStatus)를 비로그인에서
+                        // false·null 로 내리도록 이미 구현되어 있는데, 여기 permitAll 이 없어 실제로는 403 이었다.
+                        //
+                        // GET 으로 한정한다 — 작성/수정/삭제와 지원은 계속 인증이 필요하다.
+                        // "/api/teams/*" 의 * 는 슬래시를 넘지 않아 상세 조회(/api/teams/{teamId})까지만 열린다.
+                        // 지원서·제안·평가는 모두 한 단계 더 깊어(/api/teams/{teamId}/applications,
+                        // /api/teams/applications/me, /api/teams/offers/me 등) 여기 걸리지 않는다.
+                        // ** 로 바꾸면 그것들이 통째로 열리므로 넓히지 말 것.
+                        .requestMatchers(HttpMethod.GET, "/api/teams", "/api/teams/*").permitAll()
                         .requestMatchers("/api/matching/**").authenticated() // 의도 추출/추천 API는 인증 필요
                         .anyRequest().authenticated()
                 )

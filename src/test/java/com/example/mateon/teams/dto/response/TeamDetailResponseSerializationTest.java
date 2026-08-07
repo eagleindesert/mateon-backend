@@ -74,6 +74,28 @@ class TeamDetailResponseSerializationTest {
     }
 
     @Test
+    @DisplayName("최상위 boolean 은 접두어가 떨어진 이름이 정본이다")
+    void topLevelBooleansKeepStrippedNames() throws Exception {
+        // isEnded 처럼 @JsonProperty 로 "고쳐 주고" 싶어지는 자리다. 고치면 안 된다 —
+        // 프론트가 이미 leader / recruiting 을 읽고 있어서, 이름을 바꾸는 순간 조용히 깨진다.
+        // 실제로 한 번 isLeader/isRecruiting 으로 바꿨다가 되돌렸다. 이 테스트가 그 재발을 막는다.
+        //
+        // TODO: 나중에 is 접두로 통일할 예정이다 (docs/TODO.md 참고). 그때 이 테스트를 지우지 말고
+        // 방향만 뒤집어라 — 통일 후에는 leader/recruiting 이 다시 나타나지 않는 것을 지켜야 한다.
+        // 전환은 프론트와 동시에 해야 하고, 이 테스트가 실패하는 것이 곧 "프론트도 바꿔야 한다"는 신호다.
+        JsonNode json = serialize();
+
+        assertThat(json.has("leader")).isTrue();
+        assertThat(json.get("leader").asBoolean()).isTrue();
+        assertThat(json.has("isLeader")).isFalse();
+
+        // 부모 DTO(TeamResponseDTO)의 필드라 목록 응답도 같은 키를 쓴다.
+        assertThat(json.has("recruiting")).isTrue();
+        assertThat(json.get("recruiting").asBoolean()).isTrue();
+        assertThat(json.has("isRecruiting")).isFalse();
+    }
+
+    @Test
     @DisplayName("명단 수가 곧 currentMemberCount 다")
     void memberCountMatchesRoster() throws Exception {
         JsonNode json = serialize();
@@ -82,8 +104,13 @@ class TeamDetailResponseSerializationTest {
         assertThat(json.get("currentMemberCount").asInt()).isEqualTo(2);
     }
 
+    /**
+     * 명단 쪽은 최상위와 반대로 {@code isLeader} 가 정본이다. record 컴포넌트에
+     * {@code @JsonProperty} 가 붙어 있어 처음 나갈 때부터 이 이름이었다.
+     * 한 응답 안에 leader(최상위)와 isLeader(명단)가 공존하는 게 의도된 상태다.
+     */
     @Test
-    @DisplayName("명단은 팀장을 isLeader 로 구분한다")
+    @DisplayName("명단은 팀장을 isLeader 로 구분한다 (최상위 leader 와 이름이 다르다)")
     void marksLeaderInRoster() throws Exception {
         JsonNode members = serialize().get("members");
 

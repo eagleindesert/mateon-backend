@@ -83,6 +83,53 @@ if ($teamId) {
     Assert-Test -Title "5.2e 명단에 팀장이 isLeader=true 로 들어 있다" `
         -Condition ([bool](@($detail.data.members) | Where-Object { $_.isLeader })) `
         -Detail ("leader=" + (@($detail.data.members) | Where-Object { $_.isLeader } | ForEach-Object { $_.name }) -join ",") | Out-Null
+
+    # 5.2f~g 최상위 boolean 의 키 이름. 자바 필드가 is- 로 시작해 Jackson 이 접두어를 떼고
+    #   leader/recruiting 으로 나가는데, 프론트가 이미 이 이름으로 읽고 있어 이게 정본이다.
+    #   isEnded 처럼 @JsonProperty 로 "고쳐" 놓고 싶어지지만 그러면 프론트가 조용히 깨진다.
+    #   (실제로 한 번 바꿨다가 되돌렸다. 명단 쪽 members[].isLeader 와 이름이 다른 건 의도된 상태다.)
+    #   TODO: 나중에 is 접두로 통일 예정 (docs/TODO.md). 프론트와 동시에 전환하고, 그때 이 두 assert 는
+    #   지우지 말고 방향만 뒤집는다 — 통일 후엔 leader/recruiting 이 없어야 한다.
+    Assert-Test -Title "5.2f 최상위 키가 leader 다 (isLeader 아님)" `
+        -Condition (($fields -contains 'leader') -and -not ($fields -contains 'isLeader')) `
+        -Detail ("leader={0} / isLeader키={1}" -f $detail.data.leader, ($fields -contains 'isLeader')) | Out-Null
+    Assert-Test -Title "5.2g 최상위 키가 recruiting 이다 (isRecruiting 아님)" `
+        -Condition (($fields -contains 'recruiting') -and -not ($fields -contains 'isRecruiting')) `
+        -Detail ("recruiting={0} / isRecruiting키={1}" -f $detail.data.recruiting, ($fields -contains 'isRecruiting')) | Out-Null
+
+    # 5.3 비로그인 상세 조회. 컨트롤러가 @SecurityRequirement(name = "") 로 약속한 동작인데
+    #   SecurityConfig 에 permitAll 이 없어 실제로는 403 이었다. -Auth 를 빼서 토큰 없이 부른다.
+    $anon = Invoke-Api -Method GET -Path "/api/teams/$teamId" -PassThru -Title "5.3 비로그인 상세 조회"
+    Assert-Test -Title "5.3a 토큰 없이도 상세 조회가 된다" `
+        -Condition ([bool]($anon -and $anon.success -eq $true)) `
+        -Detail "message=$($anon.message)" | Out-Null
+    # 5.3b 명단은 조회자와 무관한 사실이라 비로그인에서도 그대로 나와야 한다.
+    Assert-Test -Title "5.3b 비로그인에서도 members 가 온다" `
+        -Condition (@($anon.data.members).Count -eq [int]$anon.data.currentMemberCount) `
+        -Detail ("명단 {0} / 인원 {1}" -f @($anon.data.members).Count, $anon.data.currentMemberCount) | Out-Null
+    # 5.3c 반대로 조회자 기준 필드는 기준이 될 사람이 없으니 false/null 이어야 한다.
+    #   최상위는 leader 다 (isLeader 가 아니다) — 5.2f 참고.
+    Assert-Test -Title "5.3c 비로그인이면 조회자 기준 필드가 false/null" `
+        -Condition ((-not $anon.data.leader) -and (-not $anon.data.hasApplied) -and ($null -eq $anon.data.myApplicationStatus)) `
+        -Detail ("leader={0} hasApplied={1} myApplicationStatus={2}" -f $anon.data.leader, $anon.data.hasApplied, $anon.data.myApplicationStatus) | Out-Null
+    # 5.3d 목록도 같은 규약이다.
+    $anonList = Invoke-Api -Method GET -Path "/api/teams" -PassThru -Title "5.3d 비로그인 목록 조회"
+    Assert-Test -Title "5.3d 토큰 없이도 목록 조회가 된다" `
+        -Condition ([bool]($anonList -and $anonList.success -eq $true)) `
+        -Detail ("{0}건" -f @($anonList.data).Count) | Out-Null
+
+    # 5.3e 열린 것은 조회뿐이다. 작성은 계속 막혀야 한다 — permitAll 을 GET 으로 한정한 이유고,
+    #   "/api/teams/*" 를 ** 로 넓히면 지원서·제안까지 새는지도 여기서 잡힌다.
+    $anonWrite = Invoke-Api -Method POST -Path "/api/teams" -PassThru `
+        -Title "5.3e 비로그인 작성 - 차단 기대" -Body @{ title = "비로그인 작성 시도"; capacity = 2 }
+    Assert-Test -Title "5.3e 비로그인 작성은 여전히 차단" `
+        -Condition ([bool]($anonWrite -and $anonWrite.success -ne $true)) `
+        -Detail "message=$($anonWrite.message)" | Out-Null
+    $anonApps = Invoke-Api -Method GET -Path "/api/teams/$teamId/applications" -PassThru `
+        -Title "5.3f 비로그인 지원서 목록 - 차단 기대"
+    Assert-Test -Title "5.3f 비로그인 지원서 목록은 여전히 차단" `
+        -Condition ([bool]($anonApps -and $anonApps.success -ne $true)) `
+        -Detail "message=$($anonApps.message)" | Out-Null
 }
 
 # 5.4 팀 모집글 수정
