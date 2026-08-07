@@ -3,8 +3,8 @@
 # ============================================================================
 #  [!] 과금 주의 - 전체 실행은 실제 LLM / 임베딩을 여러 번 호출합니다.
 #      스크립트별 예상 호출:
+#        03_02_portfolio_summarize 2회 (PDF -> Vision LLM 요약. 재업로드분은 캐시라 호출 없음)
 #        04_02_event_extract_image 1회 (포스터 이미지 -> Vision LLM 추출)
-#        04_03_portfolio_summarize 2회 (PDF -> Vision LLM 요약. 재업로드분은 캐시라 호출 없음)
 #        05_team            2회  (팀 생성/수정 -> 비동기 임베딩 갱신)
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
@@ -79,10 +79,14 @@ Write-Host "`n===== 2) 유저 준비 (A/B/C 로그인) =====" -ForegroundColor M
 & "$PSScriptRoot\auth\09_three_users.ps1" @authArgs
 
 Write-Host "`n===== 3) User =====" -ForegroundColor Magenta
-& "$PSScriptRoot\03_user.ps1"
+& "$PSScriptRoot\03_00_user.ps1"
 # 프로필 사진. 업로드가 비동기라 조회를 폴링해 반영을 확인하고, 재업로드로 이전 객체가
 # 버킷에서 사라지는지까지 본다. AI 를 쓰지 않으므로 상단 과금 표에 잡히지 않는다.
 & "$PSScriptRoot\03_01_user_profile_image.ps1"
+# 포트폴리오 PDF 요약. 같은 PDF 를 두 번 올려 두 번째가 캐시로 처리되는지까지 본다
+# (그게 이 기능이 DB 테이블을 두는 유일한 이유다). 파일 업로드 계열이라 한때 04 에 있었지만,
+# 활동이 아니라 "내 포트폴리오"를 다루므로 프로필 사진과 같은 유저 그룹에 둔다.
+& "$PSScriptRoot\03_02_portfolio_summarize.ps1"
 
 Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 # 등록(init)과 조회를 나눠 돈다. 조회 스크립트는 init 이 남긴 .event-ids.json 을 읽어
@@ -93,9 +97,6 @@ Write-Host "`n===== 4) Event =====" -ForegroundColor Magenta
 # (초안이 POST /api/events 의 본문으로 그대로 통하는지가 이 기능의 핵심 계약이다).
 # 등록을 남기고 싶지 않으면 개별 실행 시 -SkipRegister 를 준다.
 & "$PSScriptRoot\04_02_event_extract_image.ps1"
-# 포트폴리오 PDF 요약. 같은 PDF 를 두 번 올려 두 번째가 캐시로 처리되는지까지 본다
-# (그게 이 기능이 DB 테이블을 두는 유일한 이유다). 활동과 무관하지만 파일 업로드 계열이라 04 에 묶는다.
-& "$PSScriptRoot\04_03_portfolio_summarize.ps1"
 
 Write-Host "`n===== 18) Bookmark (활동 북마크) =====" -ForegroundColor Magenta
 # Event 계열(04) 바로 뒤에 둔다 — 04_00 이 남긴 .event-ids.json 에서 대상 활동을 고르기 때문이다.

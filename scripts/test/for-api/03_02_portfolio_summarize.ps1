@@ -1,7 +1,11 @@
-# 04_03_portfolio_summarize.ps1 - 포트폴리오 PDF 요약  POST /api/portfolios/summarize
+# 03_02_portfolio_summarize.ps1 - 포트폴리오 PDF 요약  POST /api/portfolios/summarize
 # 사용법:
-#   powershell -ExecutionPolicy Bypass -File .\04_03_portfolio_summarize.ps1
-#   powershell -ExecutionPolicy Bypass -File .\04_03_portfolio_summarize.ps1 -PdfPath .\portfolio.pdf
+#   powershell -ExecutionPolicy Bypass -File .\03_02_portfolio_summarize.ps1
+#   powershell -ExecutionPolicy Bypass -File .\03_02_portfolio_summarize.ps1 -PdfPath .\portfolio.pdf
+#
+# 활동(04)이 아니라 유저(03) 그룹에 둔다. 파일 업로드 계열이라 한때 04 에 묶여 있었지만,
+# 이건 활동이 아니라 "내 포트폴리오"를 다루는 기능이다 — 프로필의 portfolio 필드,
+# 프로필 사진(03_01)과 같은 화면·같은 소유자에 속한다.
 #
 # [!] 이 스크립트는 캐시 미스 1건당 AI(Vision LLM) 를 1회 호출한다. 게다가 PDF 는 페이지마다
 #     이미지를 렌더링해 한 번에 실어 보내므로 포스터 이미지 1장보다 비싸다. 과금을 피하려면
@@ -23,7 +27,7 @@ param(
 
 try {
 
-Write-Host "`n########## 4-3. 포트폴리오 PDF 요약 - POST /api/portfolios/summarize ##########" -ForegroundColor Magenta
+Write-Host "`n########## 3-2. 포트폴리오 PDF 요약 - POST /api/portfolios/summarize ##########" -ForegroundColor Magenta
 
 $hasToken = [bool](Get-AccessToken)
 $runTag = "pdf$(Get-Random -Maximum 999999)"
@@ -70,43 +74,43 @@ if ($PdfPath) {
 $pdfMime = "application/pdf"
 
 # ---------------------------------------------------------------------------
-# 4.7.1 인증 — 포트폴리오는 개인 이력이라 로그인 없이는 막혀야 한다.
+# 3.7.1 인증 — 포트폴리오는 개인 이력이라 로그인 없이는 막혀야 한다.
 #   SecurityConfig 매처를 잘못 건드려 이 경로가 열리면 남의 요약을 만들거나 볼 수 있게 된다.
 # ---------------------------------------------------------------------------
-Write-Host "`n---------- 4.7.1 인증 ----------" -ForegroundColor Magenta
+Write-Host "`n---------- 3.7.1 인증 ----------" -ForegroundColor Magenta
 
 Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $pdfFile -PartName "pdf_file" -Mime $pdfMime `
-    -Title "4.7.1 PDF 요약 (비인증 - 차단 기대)"
+    -Title "3.7.1 PDF 요약 (비인증 - 차단 기대)"
 
 if (-not $hasToken) {
-    Write-Host "`n[4.7 PDF 요약] 이후 항목 스킵 - 인증 필요. 먼저 .\auth\02_auth.ps1 로그인." -ForegroundColor Yellow
+    Write-Host "`n[3.7 PDF 요약] 이후 항목 스킵 - 인증 필요. 먼저 .\auth\02_auth.ps1 로그인." -ForegroundColor Yellow
     return
 }
 
 # ---------------------------------------------------------------------------
-# 4.7.2 정상 요약 — 프론트가 요약 화면을 그리는 데 필요한 계약을 확인한다.
+# 3.7.2 정상 요약 — 프론트가 요약 화면을 그리는 데 필요한 계약을 확인한다.
 # ---------------------------------------------------------------------------
-Write-Host "`n---------- 4.7.2 정상 요약 ----------" -ForegroundColor Magenta
+Write-Host "`n---------- 3.7.2 정상 요약 ----------" -ForegroundColor Magenta
 
 $firstResult = Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $pdfFile -PartName "pdf_file" -Mime $pdfMime `
-    -Auth -PassThru -Title "4.7.2 PDF 요약 (첫 업로드)"
+    -Auth -PassThru -Title "3.7.2 PDF 요약 (첫 업로드)"
 $first = $firstResult.data
 
-# 요약을 못 받아도 아래 4.7.4(잘못된 업로드)는 그대로 돌린다 — 그 경로들은 AI 에 닿기 전에
+# 요약을 못 받아도 아래 3.7.4(잘못된 업로드)는 그대로 돌린다 — 그 경로들은 AI 에 닿기 전에
 # 거절되므로, AI 가 준비되지 않은 환경에서도 검증할 수 있어야 한다.
 if (-not $first) {
-    Write-Host "  (!) 요약을 받지 못했습니다. 요약 계약 검증과 캐시(4.7.3)는 건너뜁니다." -ForegroundColor Red
+    Write-Host "  (!) 요약을 받지 못했습니다. 요약 계약 검증과 캐시(3.7.3)는 건너뜁니다." -ForegroundColor Red
     Write-Host "      503 = AI 서버(ai.base-url)에 닿지 않음 / 502 = AI 응답 처리 실패" -ForegroundColor DarkGray
 } else {
     # (a) summary 키가 있어야 한다. 값이 비어 있으면 백엔드가 502 를 냈어야 하므로 여기선 내용도 본다.
-    Assert-Test -Title "4.7.2 응답에 summary 필드가 있다" `
+    Assert-Test -Title "3.7.2 응답에 summary 필드가 있다" `
         -Condition ($first.PSObject.Properties.Name -contains "summary")
-    Assert-Test -Title "4.7.2 summary 가 비어 있지 않다" `
+    Assert-Test -Title "3.7.2 summary 가 비어 있지 않다" `
         -Condition ([bool]($first.summary -and $first.summary.Trim().Length -gt 0)) `
         -Detail "길이=$($first.summary.Length)자"
 
     # (b) pdf_id 는 백엔드 내부 식별자라 응답에 실리면 안 된다 (흐름도상 FE 로 가는 건 요약뿐).
-    Assert-Test -Title "4.7.2 응답에 pdfId 가 실리지 않는다 (내부 식별자)" `
+    Assert-Test -Title "3.7.2 응답에 pdfId 가 실리지 않는다 (내부 식별자)" `
         -Condition (-not ($first.PSObject.Properties.Name -contains "pdfId"))
 
     # (c) 마크다운 자유 형식이라 구조를 강제하지 않는다. 다만 명세가 정한 형태(불릿 + '요약' 문단)를
@@ -117,7 +121,7 @@ if (-not $first) {
 }
 
 # ---------------------------------------------------------------------------
-# 4.7.3 캐시 — 같은 PDF 를 다시 올리면 AI 를 부르지 않고 저장된 요약을 그대로 준다.
+# 3.7.3 캐시 — 같은 PDF 를 다시 올리면 AI 를 부르지 않고 저장된 요약을 그대로 준다.
 #   이 기능이 테이블을 두는 유일한 이유다. 여기가 깨지면 재업로드마다 Vision 비용이 다시 나간다.
 #
 #   스텁은 호출마다 [stub#N] 의 N 을 올리므로, 두 응답이 완전히 같다는 것은 두 번째가 AI 를
@@ -126,13 +130,13 @@ if (-not $first) {
 if (-not $first) {
     Write-Host "`n  (i) 첫 요약이 없어 캐시 검증을 건너뜁니다." -ForegroundColor Yellow
 } else {
-    Write-Host "`n---------- 4.7.3 재업로드 (캐시) ----------" -ForegroundColor Magenta
+    Write-Host "`n---------- 3.7.3 재업로드 (캐시) ----------" -ForegroundColor Magenta
 
     $secondResult = Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $pdfFile -PartName "pdf_file" -Mime $pdfMime `
-        -Auth -PassThru -Title "4.7.3 같은 PDF 재업로드"
+        -Auth -PassThru -Title "3.7.3 같은 PDF 재업로드"
     $second = $secondResult.data
 
-    Assert-Test -Title "4.7.3 같은 PDF 는 첫 번째와 완전히 같은 요약을 준다 (AI 재호출 없음)" `
+    Assert-Test -Title "3.7.3 같은 PDF 는 첫 번째와 완전히 같은 요약을 준다 (AI 재호출 없음)" `
         -Condition ($second.summary -eq $first.summary) `
         -Detail $(if ($second.summary -eq $first.summary) { "동일" } else { "달라짐 - 캐시가 동작하지 않았다" })
 
@@ -143,27 +147,27 @@ if (-not $first) {
     $tempFiles.Add($otherPdf)
 
     $otherResult = Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $otherPdf -PartName "pdf_file" -Mime $pdfMime `
-        -Auth -PassThru -Title "4.7.3 내용이 다른 PDF 업로드"
+        -Auth -PassThru -Title "3.7.3 내용이 다른 PDF 업로드"
     if ($otherResult.data) {
-        Assert-Test -Title "4.7.3 내용이 다른 PDF 는 새로 요약된다 (캐시 키는 파일 해시다)" `
+        Assert-Test -Title "3.7.3 내용이 다른 PDF 는 새로 요약된다 (캐시 키는 파일 해시다)" `
             -Condition ($otherResult.data.summary -ne $first.summary) `
             -Detail $(if ($otherResult.data.summary -ne $first.summary) { "새 요약" } else { "첫 요약과 같다 - 해시가 파일 내용을 반영하지 않는다" })
     }
 }
 
 # ---------------------------------------------------------------------------
-# 4.7.4 잘못된 업로드 — 프론트가 안내 문구를 띄울 수 있게 4xx 로 구분되어야 한다.
+# 3.7.4 잘못된 업로드 — 프론트가 안내 문구를 띄울 수 있게 4xx 로 구분되어야 한다.
 #   (핸들러가 없으면 전부 500 "서버 오류"로 뭉개져 사용자가 뭘 고쳐야 할지 알 수 없다)
 #   이 검사들은 전부 AI 호출 전에 끝나야 한다 — 그러지 않으면 잘못된 요청이 LLM 비용이 된다.
 # ---------------------------------------------------------------------------
-Write-Host "`n---------- 4.7.4 잘못된 업로드 ----------" -ForegroundColor Magenta
+Write-Host "`n---------- 3.7.4 잘못된 업로드 ----------" -ForegroundColor Magenta
 
 # (a) 허용하지 않는 확장자
 $txtPath = Join-Path ([System.IO.Path]::GetTempPath()) "mateon-portfolio-$runTag.txt"
 Copy-Item $pdfFile $txtPath -Force
 $tempFiles.Add($txtPath)
 Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $txtPath -PartName "pdf_file" -Mime "text/plain" `
-    -Auth -Title "4.7.4 txt 업로드 (차단 기대)"
+    -Auth -Title "3.7.4 txt 업로드 (차단 기대)"
 
 # (b) 확장자만 .pdf 이고 내용은 PDF 가 아니다. 시그니처(%PDF) 검사가 없으면 이게 AI 까지 가서
 #     왕복 비용을 쓴 뒤 거절된다.
@@ -171,12 +175,12 @@ $fakePdf = Join-Path ([System.IO.Path]::GetTempPath()) "mateon-fake-$runTag.pdf"
 Set-Content -Path $fakePdf -Value "이건 PDF 가 아니라 그냥 텍스트다." -Encoding UTF8
 $tempFiles.Add($fakePdf)
 Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $fakePdf -PartName "pdf_file" -Mime $pdfMime `
-    -Auth -Title "4.7.4 확장자만 .pdf 인 파일 (차단 기대)"
+    -Auth -Title "3.7.4 확장자만 .pdf 인 파일 (차단 기대)"
 
 # (c) 파트 이름이 다르다 — 프론트가 필드명을 잘못 쓴 경우.
 #     ServletException 계열이라 핸들러가 없으면 500 이 나간다.
 Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $pdfFile -PartName "file" -Mime $pdfMime `
-    -Auth -Title "4.7.4 파트 이름 오타 (차단 기대)"
+    -Auth -Title "3.7.4 파트 이름 오타 (차단 기대)"
 
 # (d) 크기 초과 — 서버 멀티파트 상한(20MB)을 넘긴다. 413 으로 안내되어야 한다.
 $hugePath = Join-Path ([System.IO.Path]::GetTempPath()) "mateon-huge-$runTag.pdf"
@@ -185,7 +189,7 @@ $fs.SetLength(21MB)   # 실제 21MB 를 채우지 않고 크기만 잡는다 (�
 $fs.Close()
 $tempFiles.Add($hugePath)
 Invoke-ApiUpload -Path "/api/portfolios/summarize" -FilePath $hugePath -PartName "pdf_file" -Mime $pdfMime `
-    -Auth -Title "4.7.4 20MB 초과 업로드 (차단 기대)"
+    -Auth -Title "3.7.4 20MB 초과 업로드 (차단 기대)"
 
 } finally {
     foreach ($f in $tempFiles) { Remove-Item $f -Force -ErrorAction SilentlyContinue }

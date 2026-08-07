@@ -236,7 +236,7 @@ Assert-Test -Title "3.6.4b 공개 프로필에 같은 profileImageUrl 이 실린
     -Condition ($publicProfile.data.profileImageUrl -eq $uploaded) `
     -Detail "public=$($publicProfile.data.profileImageUrl)" | Out-Null
 
-# 사진을 넣었다고 연락처 비공개 원칙이 흔들리면 안 된다 (03_user.ps1 3.5b 와 같은 계약).
+# 사진을 넣었다고 연락처 비공개 원칙이 흔들리면 안 된다 (03_00_user.ps1 3.5b 와 같은 계약).
 $publicKeys = $publicProfile.data.PSObject.Properties.Name
 Assert-Test -Title "3.6.4c 공개 프로필에 여전히 이메일이 없다" `
     -Condition (-not ($publicKeys -contains 'email' -or $publicKeys -contains 'schoolEmail')) `

@@ -1,5 +1,5 @@
-# 03_user.ps1 - User (사용자) API 테스트  /api/users  [인증 필요]
-# 사용법: powershell -ExecutionPolicy Bypass -File .\03_user.ps1
+# 03_00_user.ps1 - User (사용자) API 테스트  /api/users  [인증 필요]
+# 사용법: powershell -ExecutionPolicy Bypass -File .\03_00_user.ps1
 # 사전 조건: 02_auth.ps1 로 로그인하여 .auth-token.txt 가 생성되어 있어야 한다.
 . "$PSScriptRoot\00_common.ps1"
 

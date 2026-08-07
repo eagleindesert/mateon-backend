@@ -37,7 +37,7 @@
 | `01_health.ps1` | Health (헬스체크) | 불필요 |
 | `auth/00_before_auth.ps1` | 회원가입 전 원격 DB 정리 SQL 생성 (DB 직접 실행용) | - |
 | `auth/02_auth.ps1` | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장 | 불필요 |
-| `03_user.ps1` | User `/api/users` | **필요** |
+| `03_00_user.ps1` | User `/api/users` | **필요** |
 | `04_00_event_init.ps1` | Event 데이터 준비 — 활동 3건 등록(POST `/api/events`), id 를 `.event-ids.json` 에 저장 | **필요** |
 | `04_01_event.ps1` | Event 조회 `/api/events` (검색·분야 필터·추천). `.event-ids.json` 이 있으면 등록분 포함/제외까지 검증 | 일부 필요 |
 | `05_team.ps1` | Team `/api/teams` | **필요** |
@@ -107,7 +107,7 @@ pwsh -File .\auth\00_before_auth.ps1 -Clip
 pwsh -File .\auth\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
 
 # 개별 실행
-pwsh -File .\03_user.ps1
+pwsh -File .\03_00_user.ps1
 pwsh -File .\auth\07_school_auth.ps1   # [필요 시] 학교 이메일 코드도 수동 입력
 pwsh -File .\10_chat.ps1               # 유저 B 는 로그인만 (코드 불필요)
 
