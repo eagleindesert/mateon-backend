@@ -73,7 +73,8 @@ public class UserService {
                 request.getInterestJobPrimary(),
                 request.getInterestJobSecondary(),
                 request.getInterestJobTertiary(),
-                request.getTagline()
+                request.getTagline(),
+                request.getPortfolio()
         );
 
         userRepository.save(user);

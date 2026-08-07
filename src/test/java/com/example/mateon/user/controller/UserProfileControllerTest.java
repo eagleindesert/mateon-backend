@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,11 +33,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 유저 프로필 조회 2종(GET /api/users/{userId}, GET /api/users/me)이 밖으로 내보이는 계약을 고정한다.
+ * 유저 프로필 3종(GET /api/users/{userId}, GET·PUT /api/users/me)이 밖으로 내보이는 계약을 고정한다.
  *
  * <p>서비스를 목으로 두지 않고 리포지토리만 목으로 둔 채 진짜 {@link UserService} 를 조립한다
  * (EventQueryBehaviorTest 와 같은 방식). 이 API 에서 정작 검증해야 할 건 "슬롯이 없을 때",
@@ -104,6 +106,9 @@ class UserProfileControllerTest {
                     .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
                     .andExpect(jsonPath("$.data.grade").value("3학년"))
                     .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
+                    // 포트폴리오는 본인이 보여주려고 쓴 소개글이라 연락처와 달리 남에게도 보인다.
+                    .andExpect(jsonPath("$.data.portfolio")
+                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
                     .andExpect(jsonPath("$.data.schoolVerified").value(true))
                     .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
         }
@@ -337,8 +342,67 @@ class UserProfileControllerTest {
                     .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
                     .andExpect(jsonPath("$.data.grade").value("3학년"))
                     .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
+                    .andExpect(jsonPath("$.data.portfolio")
+                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
                     .andExpect(jsonPath("$.data.schoolVerified").value(true))
                     .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
+        }
+    }
+
+    /**
+     * 프로필을 고치는 유일한 경로다. 여기서 검증할 건 "보낸 필드만 바뀐다"는 부분 수정 규약인데,
+     * 이건 {@link User#update} 의 null 가드에 전부 들어 있어서 컨트롤러부터 엔티티까지 이어 봐야
+     * 확인된다.
+     */
+    @Nested
+    @DisplayName("PUT /api/users/me")
+    class UpdateMyProfile {
+
+        @BeforeEach
+        void stubSelf() {
+            // 서비스가 같은 인스턴스를 고쳐서 응답까지 만들므로, 저장 결과를 따로 흉내 낼 필요가 없다.
+            User self = targetUser();
+            when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(self));
+            when(userRepository.save(any(User.class))).thenReturn(self);
+        }
+
+        @Test
+        @DisplayName("포트폴리오를 보내면 응답에 새 값이 실린다")
+        void updatesPortfolio() throws Exception {
+            mockMvc.perform(put("/api/users/me")
+                            .principal(auth(TARGET_ID))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"portfolio\":\"새로 쓴 포트폴리오\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.portfolio").value("새로 쓴 포트폴리오"));
+        }
+
+        @Test
+        @DisplayName("포트폴리오를 빼고 보내면 기존 값이 지워지지 않는다")
+        void omittedPortfolioIsLeftAlone() throws Exception {
+            mockMvc.perform(put("/api/users/me")
+                            .principal(auth(TARGET_ID))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"tagline\":\"프론트도 해보고 싶어요\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.tagline").value("프론트도 해보고 싶어요"))
+                    .andExpect(jsonPath("$.data.portfolio")
+                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"));
+        }
+
+        @Test
+        @DisplayName("포트폴리오가 5000자를 넘으면 400 - 컬럼이 text 라 DB 가 대신 막아주지 않는다")
+        void rejectsOversizedPortfolio() throws Exception {
+            String tooLong = "가".repeat(5001);
+
+            mockMvc.perform(put("/api/users/me")
+                            .principal(auth(TARGET_ID))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"portfolio\":\"" + tooLong + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.data.portfolio").value("포트폴리오는 5000자 이하여야 합니다."));
         }
     }
 
@@ -364,6 +428,7 @@ class UserProfileControllerTest {
                 .grade("3학년")
                 .interestJobPrimary("백엔드 개발자")
                 .tagline("백엔드 하고 싶어요")
+                .portfolio("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드")
                 .build();
     }
 

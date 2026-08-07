@@ -35,6 +35,11 @@ if ($profile -and $profile.data) {
 }
 
 # 3.2 내 프로필 수정
+#
+#   포트폴리오는 매 실행 다른 값을 넣는다. 같은 값을 재사용하면 "수정이 반영됐다"와 "지난 실행
+#   값이 남아 있다"가 구분되지 않는다.
+$portfolioText = "사이드 프로젝트 3개를 했습니다. (작성 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))"
+
 $updatedProfile = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "3.2 내 프로필 수정" -Body @{
     name               = "수정된이름"
     campus             = "JUKJEON"
@@ -43,6 +48,7 @@ $updatedProfile = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -
     grade              = "4학년"
     interestJobPrimary = "백엔드 개발자"
     tagline            = "안녕하세요, 반갑습니다."
+    portfolio          = $portfolioText
 }
 
 if ($updatedProfile -and $updatedProfile.data) {
@@ -50,7 +56,27 @@ if ($updatedProfile -and $updatedProfile.data) {
     Assert-Test -Title "3.2b 프로필 수정 후에도 participatedActivities 가 유지된다" `
         -Condition ($uKeys -contains 'participatedActivities' -and $null -ne $updatedProfile.data.participatedActivities) `
         -Detail "participatedActivities Count=$($updatedProfile.data.participatedActivities.Count)" | Out-Null
+
+    # 프론트는 수정 요청의 응답을 그대로 화면에 그린다 — 여기서 빠지면 저장 직후 값이 사라져 보인다.
+    Assert-Test -Title "3.2c 수정 응답에 방금 보낸 portfolio 가 실린다" `
+        -Condition ($updatedProfile.data.portfolio -eq $portfolioText) `
+        -Detail "응답=$($updatedProfile.data.portfolio)" | Out-Null
 }
+
+# 3.2d 다시 조회해도 같은 값이어야 한다 (응답만 만들어 주고 저장이 안 된 경우를 잡는다)
+$reread = Invoke-Api -Method GET -Path "/api/users/me" -Auth -PassThru -Title "3.2d 수정 후 내 프로필 재조회"
+Assert-Test -Title "3.2d GET /me 에서도 portfolio 가 유지된다" `
+    -Condition ($reread.data.portfolio -eq $portfolioText) `
+    -Detail "응답=$($reread.data.portfolio)" | Out-Null
+
+# 3.2e portfolio 를 빼고 수정하면 기존 값이 지워지지 않는다 (보낸 필드만 바뀌는 부분 수정 규약).
+#      프론트가 항목별로 나눠 저장할 때 다른 항목이 날아가면 안 된다.
+$partial = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "3.2e portfolio 없이 수정" -Body @{
+    tagline = "부분 수정 확인용 태그라인"
+}
+Assert-Test -Title "3.2e portfolio 를 안 보내면 기존 값이 유지된다" `
+    -Condition ($partial.data.portfolio -eq $portfolioText) `
+    -Detail "tagline=$($partial.data.tagline), portfolio=$($partial.data.portfolio)" | Out-Null
 
 # 3.3 마이페이지 조회
 Invoke-Api -Method GET -Path "/api/users/mypage" -Auth -Title "3.3 마이페이지 조회"
@@ -110,6 +136,12 @@ $mine = Invoke-Api -Method GET -Path "/api/users/$myId" -Auth -PassThru -Title "
 Assert-Test -Title "3.5e 자기 id 조회는 isMe=true" `
     -Condition ([bool]$mine.data.isMe) `
     -Detail "isMe=$($mine.data.isMe)" | Out-Null
+
+# 포트폴리오는 이메일과 달리 공개 항목이다 - 프로필 화면에서 남이 봐야 하는 소개글이므로,
+# 3.2 에서 저장한 값이 공개 프로필 경로로도 나와야 한다.
+Assert-Test -Title "3.5g 공개 프로필에도 portfolio 가 실린다" `
+    -Condition ($mine.data.portfolio -eq $portfolioText) `
+    -Detail "응답=$($mine.data.portfolio)" | Out-Null
 
 # 없는 유저는 404 다 (400 이 아니다 — 요청이 틀린 게 아니라 그 사람이 없는 것이다)
 Invoke-Api -Method GET -Path "/api/users/999999999" -Auth `

@@ -51,6 +51,8 @@ public class UserResponse {
     private String interestJobSecondary;
     private String interestJobTertiary;
     private String tagline;
+    /** 사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null. */
+    private String portfolio;
     /** 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null. */
     private String profileImageUrl;
 
@@ -123,6 +125,7 @@ public class UserResponse {
                 .interestJobSecondary(user.getInterestJobSecondary())
                 .interestJobTertiary(user.getInterestJobTertiary())
                 .tagline(user.getTagline())
+                .portfolio(user.getPortfolio())
                 .profileImageUrl(user.getProfileImageUrl())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt());

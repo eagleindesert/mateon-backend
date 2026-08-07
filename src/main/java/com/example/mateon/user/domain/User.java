@@ -83,6 +83,13 @@ public class User {
     @Column(length = 200)
     private String tagline;
 
+    // 사용자가 프로필 수정 화면에서 직접 쓰는 포트폴리오 서술. 한 줄 소개인 tagline 과 달리
+    // 여러 줄이고 길이가 제각각이라 상한을 스키마에 박지 않는다 (요청 상한은 UserUpdateRequest).
+    // AI 가 PDF 를 요약해 만드는 UserPortfolio, 지원서에 붙이는 TeamApplication.portfolioUrl 과는
+    // 이름만 비슷할 뿐 다른 값이다.
+    @Column(columnDefinition = "text")
+    private String portfolio;
+
     // 프로필 이미지의 객체 저장소 공개 URL. 업로드 전엔 null 이고, 전용 엔드포인트
     // (POST/DELETE /api/users/me/profile-image) 로만 바뀐다 — update() 가 다루지 않는 이유다.
     @Column(name = "profile_image_url", length = 512)
@@ -98,7 +105,7 @@ public class User {
 
     public void update(String name, String school, String campus, String college, String major, String grade,
                        String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
-                       String tagline) {
+                       String tagline, String portfolio) {
         if (name != null) this.name = name;
         if (school != null) this.school = school;
         if (campus != null) this.campus = campus;
@@ -109,6 +116,7 @@ public class User {
         if (interestJobSecondary != null) this.interestJobSecondary = interestJobSecondary;
         if (interestJobTertiary != null) this.interestJobTertiary = interestJobTertiary;
         if (tagline != null) this.tagline = tagline;
+        if (portfolio != null) this.portfolio = portfolio;
     }
 
     public void updatePassword(String encodedPassword) {

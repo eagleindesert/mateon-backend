@@ -42,6 +42,13 @@ public class UserProfileResponse {
     /** 한 줄 소개. */
     private final String tagline;
     /**
+     * 사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null.
+     *
+     * <p>연락처가 아니라 본인이 보여주려고 쓴 소개글이므로 이 DTO 의 비공개 원칙(위 주석)에
+     * 걸리지 않는다 — {@link #tagline}, {@link #profileImageUrl} 과 같은 판단이다.
+     */
+    private final String portfolio;
+    /**
      * 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null.
      *
      * <p>연락처가 아니므로 이 DTO 의 비공개 원칙(위 주석)에 걸리지 않는다 — 사진은 추천 카드에서도
@@ -99,6 +106,7 @@ public class UserProfileResponse {
                 .major(user.getMajor())
                 .grade(user.getGrade())
                 .tagline(user.getTagline())
+                .portfolio(user.getPortfolio())
                 .profileImageUrl(user.getProfileImageUrl())
                 .schoolVerified(user.isSchoolVerified())
                 .interestJobPrimary(user.getInterestJobPrimary())
