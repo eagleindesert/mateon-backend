@@ -3,6 +3,7 @@ package com.example.mateon.user.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import lombok.Builder;
@@ -62,7 +63,7 @@ public class UserProfileResponse {
     /** 슬롯 미작성이면 null. */
     private final String activityStyle;
 
-    /** 협업 온도. 받은 평가가 2건 미만이면 null(비공개) — 0 도가 아니다. */
+    /** 협업 온도. 평가 건수와 무관하게 항상 값이 있고, 0건이면 기준점 36.5 다. */
     private final BigDecimal collaborationTemperature;
     private final int collaborationReviewCount;
 
@@ -82,7 +83,7 @@ public class UserProfileResponse {
 
     /**
      * @param slot  매칭 의도 슬롯. 의도 추출을 아직 안 한 유저는 null 이다 (에러가 아니다).
-     * @param score 협업 온도 집계. 평가를 한 번도 안 받았으면 null 이다.
+     * @param score 협업 온도 집계. 평가를 한 번도 안 받았으면 null 이며, 기준점 온도로 내려간다.
      */
     public static UserProfileResponse of(User user,
                                          MatchingIntentSlot slot,
@@ -109,7 +110,9 @@ public class UserProfileResponse {
                 .skills(slot != null ? nullSafe(slot.getSkills()) : Collections.emptyList())
                 .experienceLevel(slot != null ? slot.getExperienceLevel() : null)
                 .activityStyle(slot != null ? slot.getActivityStyle() : null)
-                .collaborationTemperature(score != null ? score.getTemperature() : null)
+                .collaborationTemperature(score != null
+                        ? score.getTemperature()
+                        : CollaborationTemperatureCalculator.INITIAL)
                 .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
                 .participatedActivities(activities)
                 .isMe(isMe)

@@ -24,6 +24,7 @@ import com.example.mateon.teams.repository.TeamEmbeddingRepository;
 import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.teams.repository.TeamOfferRepository;
 import com.example.mateon.teams.repository.TeamRepository;
+import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.domain.UserEmbedding;
@@ -303,16 +304,16 @@ public class RecommendationQueryService {
             return Map.of();
         }
 
-        // 평가를 한 번도 안 받았으면 행이 없다. 그건 "0도"가 아니라 비공개(null)와 같게 다룬다.
+        // 평가를 한 번도 안 받았으면 행이 없다. 그건 0건과 같은 상태이므로 기준점 온도로 채운다.
         Map<Long, BigDecimal> temperatures = collaborationScoreRepository.findByUserIdIn(userIds)
           .stream()
-          .filter(score -> score.getTemperature() != null)
           .collect(Collectors.toMap(UserCollaborationScore::getUserId,
             UserCollaborationScore::getTemperature));
 
         Map<Long, UserDisplayInfo> result = new HashMap<>();
         for (Long userId : userIds) {
-            result.put(userId, new UserDisplayInfo(usersById.get(userId), temperatures.get(userId)));
+            result.put(userId, new UserDisplayInfo(usersById.get(userId),
+              temperatures.getOrDefault(userId, CollaborationTemperatureCalculator.INITIAL)));
         }
         return result;
     }

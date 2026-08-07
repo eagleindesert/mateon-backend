@@ -1,5 +1,6 @@
 package com.example.mateon.user.dto;
 
+import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import lombok.AllArgsConstructor;
@@ -26,9 +27,9 @@ import java.util.List;
  * 실어야 하는 쪽은 {@link #from(User, UserCollaborationScore, List)} 를 쓴다.
  *
  * <p>그래서 {@code collaborationReviewCount} 를 {@code int} 가 아니라 {@link Integer} 로 뒀다.
- * 온도가 null 인 이유를 프론트가 판별할 수 있어야 한다 — 평가 건수가 함께 오면 "평가 부족으로
- * 비공개", 건수까지 null 이면 "이 API 는 온도를 안 준다"다. {@code int} 였다면 온도를 싣지 않은
- * 응답도 건수 0 으로 나가 두 상태가 똑같이 보인다. {@code participatedActivities} 의 null 과 빈
+ * 온도를 싣는 응답에서는 건수가 0 이라도 온도가 함께 오므로, 건수가 null 인지 여부가 "이 API 는
+ * 온도를 안 준다"를 가르는 유일한 신호다. {@code int} 였다면 온도를 싣지 않은 응답도 건수 0 으로
+ * 나가 "평가를 아직 못 받은 유저"와 똑같이 보인다. {@code participatedActivities} 의 null 과 빈
  * 배열도 같은 이유로 구분한다.
  */
 @Getter
@@ -54,10 +55,9 @@ public class UserResponse {
     private String profileImageUrl;
 
     /**
-     * 협업 온도. 받은 평가가 2건 미만이면 null(비공개) — 0 도가 아니다. 비공개인 이유는 통계가
-     * 아니라 익명성이다: 2인 팀에서 평가 1건이면 누가 줬는지 자명하다.
+     * 협업 온도. 평가 건수와 무관하게 항상 값이 있고, 0건이면 기준점 36.5 다.
      *
-     * <p>온도를 싣지 않는 경로에서도 null 이다. 구분은 {@link #collaborationReviewCount} 로 한다
+     * <p>온도를 싣지 않는 경로에서만 null 이다. 구분은 {@link #collaborationReviewCount} 로 한다
      * (클래스 주석 참고).
      */
     private BigDecimal collaborationTemperature;
@@ -92,14 +92,16 @@ public class UserResponse {
      * 들고 있어 온도·활동을 읽을 수 없고, 지원자마다 활동을 읽으면 목록 조회가 N+1 이 된다.
      *
      * @param score      협업 온도 집계. 평가를 한 번도 안 받은 유저는 행 자체가 없어 null 이다 —
-     *                   에러가 아니며, 비공개(온도 null + 건수 0)로 내려간다.
+     *                   에러가 아니며, 기준점 온도 + 건수 0 으로 내려간다.
      * @param activities 참여했던 활동 이력. 참여한 팀이 없으면 빈 리스트다 (null 이 아니다).
      */
     public static UserResponse from(User user,
                                     UserCollaborationScore score,
                                     List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
         return baseOf(user)
-                .collaborationTemperature(score != null ? score.getTemperature() : null)
+                .collaborationTemperature(score != null
+                        ? score.getTemperature()
+                        : CollaborationTemperatureCalculator.INITIAL)
                 .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
                 .participatedActivities(activities)
                 .build();

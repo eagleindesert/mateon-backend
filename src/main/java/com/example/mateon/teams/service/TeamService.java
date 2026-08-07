@@ -128,10 +128,10 @@ public class TeamService {
                 .orElseGet(() -> userRepository.findById(team.getLeaderUserId())
                         .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND)));
 
-        // 6. 팀장의 협업 온도. 평가를 안 받았으면 행이 없고, 그건 비공개(null)와 같게 다룬다.
+        // 6. 팀장의 협업 온도. 평가를 안 받았으면 행이 없고, 그건 0건과 같으므로 기준점을 내려보낸다.
         BigDecimal leaderTemperature = collaborationScoreRepository.findById(leaderUser.getId())
                 .map(UserCollaborationScore::getTemperature)
-                .orElse(null);
+                .orElse(CollaborationTemperatureCalculator.INITIAL);
 
         // 7. DTO 생성 시 leaderUser 전달
         return new TeamDetailResponseDTO(team, event, members, isLeader, myApplicationStatus, leaderUser,

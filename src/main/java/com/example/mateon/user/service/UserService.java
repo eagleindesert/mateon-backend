@@ -9,6 +9,7 @@ import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamMember;
 import com.example.mateon.teams.repository.TeamMemberRepository;
+import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.repository.UserCollaborationScoreRepository;
@@ -85,7 +86,7 @@ public class UserService {
     }
 
     /**
-     * 협업 온도 집계. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 비공개(null)와 같게 다룬다.
+     * 협업 온도 집계. 평가를 한 번도 안 받았으면 행이 없다 — 그때는 0건과 같게 다룬다.
      */
     private UserCollaborationScore loadCollaborationScore(Long userId) {
         return collaborationScoreRepository.findById(userId).orElse(null);
@@ -129,7 +130,9 @@ public class UserService {
 
         // 4. DTO 조립 및 반환
         return MyPageResponseDTO.builder()
-                .collaborationTemperature(score != null ? score.getTemperature() : null)
+                .collaborationTemperature(score != null
+                        ? score.getTemperature()
+                        : CollaborationTemperatureCalculator.INITIAL)
                 .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
                 .name(user.getName())
                 .college(user.getCollege())

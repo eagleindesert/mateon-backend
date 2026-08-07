@@ -1,5 +1,6 @@
 package com.example.mateon.user.dto;
 
+import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import org.junit.jupiter.api.DisplayName;
@@ -30,23 +31,24 @@ class UserResponseTest {
     }
 
     @Test
-    @DisplayName("평가를 한 번도 안 받았으면 건수는 0, 온도는 null 이다")
-    void neverReviewedUserGetsZeroCount() {
+    @DisplayName("평가를 한 번도 안 받았으면 건수는 0 이고 온도는 기준점이다 - 집계 행이 없어도 값이 나간다")
+    void neverReviewedUserGetsBaseTemperature() {
         UserResponse response = UserResponse.from(user(), null, List.of());
 
-        assertThat(response.getCollaborationTemperature()).isNull();
+        assertThat(response.getCollaborationTemperature())
+                .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
         assertThat(response.getCollaborationReviewCount()).isZero();
     }
 
     @Test
-    @DisplayName("평가가 2건 미만이면 온도만 null 이고 건수는 실린다 (비공개)")
-    void temperatureStaysNullBelowThreshold() {
+    @DisplayName("평가가 1건이어도 온도가 실린다 - 표본이 적다는 이유로 감추지 않는다")
+    void temperatureIsCarriedWithASingleReview() {
         UserCollaborationScore score = UserCollaborationScore.init(1L);
         score.addRating(5);
 
         UserResponse response = UserResponse.from(user(), score, List.of());
 
-        assertThat(response.getCollaborationTemperature()).isNull();
+        assertThat(response.getCollaborationTemperature()).isEqualByComparingTo("37.0");
         assertThat(response.getCollaborationReviewCount()).isEqualTo(1);
     }
 

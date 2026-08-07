@@ -32,8 +32,8 @@ public class UserCollaborationScore {
     @Column(name = "rating_sum", nullable = false)
     private int ratingSum;
 
-    /** 표본이 부족하면(MIN_REVIEWS 미만) null — 비공개. */
-    @Column(precision = 4, scale = 1)
+    /** 항상 값이 있다. 평가가 0건이면 기준점(36.5)이고, 표본이 적다는 이유로 비우지 않는다. */
+    @Column(nullable = false, precision = 4, scale = 1)
     private BigDecimal temperature;
 
     @Column(name = "updated_at", nullable = false)
@@ -44,7 +44,7 @@ public class UserCollaborationScore {
         score.userId = userId;
         score.reviewCount = 0;
         score.ratingSum = 0;
-        score.temperature = null;
+        score.temperature = CollaborationTemperatureCalculator.INITIAL;
         score.updatedAt = LocalDateTime.now();
         return score;
     }

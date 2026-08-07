@@ -24,6 +24,12 @@ import java.math.RoundingMode;
  * 상승 폭이 늘 더 크다 (30건 만점 +32.1 / 30건 최저 -18.8). 이건 기준점 위치에서 따라 나오는
  * 결과이지 부정 평가를 관대하게 본다는 뜻이 아니다.
  *
+ * <p>표본이 적어도 값을 감추지 않는다. 예전에는 2건 미만이면 비공개(null)였다 — 온도는 평점에서
+ * 정확히 역산되므로 2인 팀에서 평가가 1건이면 상대가 몇 점을 줬는지 특정된다. 그럼에도 화면에서
+ * 온도가 빈 칸으로 남는 쪽이 제품상 더 나쁘다고 보고 걷어냈다. 1건이 움직이는 폭은 E(1)=1/21 이라
+ * ±0.5 도 안쪽이지만, 폭이 작은 것과 역산이 막히는 것은 다른 얘기다. 태그나 코멘트처럼 서술형
+ * 정보를 온도에 붙이게 되면 그때는 임계값을 다시 세워야 한다.
+ *
  * <p>부정 신호에 가중치를 더 주는 방식(negativity bias)도 검토했으나 v1 에서는 뺐다. 표본이 얇은
  * 초기에 하락만 증폭되면 평가 한 건의 실수나 보복이 회복하기 어려운 낙인이 된다. 데이터가 쌓여
  * 실제 평점 분포를 본 뒤 도입 여부를 정한다.
@@ -54,26 +60,23 @@ public final class CollaborationTemperatureCalculator {
     public static final double MIN_TEMP = 0.0;
 
     /**
-     * 온도를 공개하는 최소 평가 수.
+     * 평가를 한 번도 안 받은 유저의 온도. 공식에 n=0 을 넣으면 E(0)=0 이라 기준점이 그대로 나오므로
+     * 예외 분기가 아니라 공식의 자연스러운 결과다.
      *
-     * <p>통계가 아니라 익명성 때문이다 — 2인 팀에서 평가가 1건이면 그 1건을 누가 줬는지 자명하다.
-     * 나중에 태그나 코멘트를 붙이더라도 같은 임계값을 적용해야 한다.
+     * <p>집계 행 자체가 없는 유저에게도 이 값을 내려보낸다 — 행이 없는 것과 0건인 것은 같은 상태다.
      */
-    public static final int MIN_REVIEWS = 2;
+    public static final BigDecimal INITIAL = temperature(0, 0);
 
     private CollaborationTemperatureCalculator() {
     }
 
     /**
-     * @param reviewCount 받은 평가 수
+     * @param reviewCount 받은 평가 수 (0 이상)
      * @param ratingSum   받은 평점의 합 (각 1~5)
-     * @return 소수 첫째 자리까지의 온도. 표본이 {@link #MIN_REVIEWS} 미만이면 {@code null} (비공개).
+     * @return 소수 첫째 자리까지의 온도. 평가가 없으면 기준점({@link #INITIAL})이며 {@code null} 이
+     *         아니다 — 표본이 적다는 이유로 감추지 않는다 (클래스 주석 참고).
      */
     public static BigDecimal temperature(int reviewCount, int ratingSum) {
-        if (reviewCount < MIN_REVIEWS) {
-            return null;
-        }
-
         // 품질: 중립으로 수축시킨 평균을 (-1, +1) 로 정규화.
         double bayesian = (PRIOR_WEIGHT * NEUTRAL_RATING + ratingSum) / (PRIOR_WEIGHT + reviewCount);
         double quality = (bayesian - NEUTRAL_RATING) / 2.0;

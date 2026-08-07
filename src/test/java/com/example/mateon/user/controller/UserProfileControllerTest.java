@@ -151,16 +151,27 @@ class UserProfileControllerTest {
         }
 
         @Test
-        @DisplayName("평가가 2건 미만이면 협업 온도는 0 이 아니라 null (비공개) 이다")
-        void temperatureIsNullWhenSampleTooSmall() throws Exception {
+        @DisplayName("평가가 1건이어도 협업 온도가 실린다 - 표본이 적다는 이유로 감추지 않는다")
+        void temperatureIsExposedWithASingleReview() throws Exception {
             UserCollaborationScore score = UserCollaborationScore.init(TARGET_ID);
             score.addRating(5);
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").doesNotExist())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
                     .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
+        }
+
+        @Test
+        @DisplayName("평가를 한 번도 안 받은 유저는 기준점 36.5 다 - 집계 행이 없어도 값이 나간다")
+        void neverReviewedUserGetsBaseTemperature() throws Exception {
+            when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.empty());
+
+            mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
+                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
         }
 
         @Test
@@ -261,26 +272,26 @@ class UserProfileControllerTest {
         }
 
         @Test
-        @DisplayName("평가가 2건 미만이면 온도는 null 이지만 건수는 실린다 - 비공개임을 프론트가 알 수 있어야 한다")
-        void temperatureIsNullButCountIsPresentWhenSampleTooSmall() throws Exception {
+        @DisplayName("평가가 1건이어도 온도와 건수가 함께 실린다 - 표본이 적다는 이유로 감추지 않는다")
+        void temperatureIsExposedWithASingleReview() throws Exception {
             UserCollaborationScore score = UserCollaborationScore.init(TARGET_ID);
             score.addRating(5);
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").doesNotExist())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
                     .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
         }
 
         @Test
-        @DisplayName("평가를 한 번도 안 받았으면 건수가 0 이다 - 온도를 싣지 않는 응답의 null 과 구분된다")
-        void neverReviewedUserGetsZeroCount() throws Exception {
+        @DisplayName("평가를 한 번도 안 받았으면 기준점 36.5 에 건수 0 이다 - 온도를 싣지 않는 응답과 구분된다")
+        void neverReviewedUserGetsBaseTemperature() throws Exception {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.empty());
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").doesNotExist())
+                    .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
                     .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
         }
 

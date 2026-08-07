@@ -134,8 +134,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("평가 2건이 쌓이면 온도가 공개된다 — 1건까지는 비공개")
-    void temperatureDisclosedAtTwoReviews() {
+    @DisplayName("평가가 쌓이는 대로 온도가 갱신된다 — 1건에서도 값이 있다")
+    void temperatureUpdatesFromTheFirstReview() {
         endTeam();
 
         teamReviewService.submit(team.getId(), leader.getId(), request(memberA.getId(), 5));
@@ -144,7 +144,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         var afterFirst = scoreRepository.findById(memberA.getId()).orElseThrow();
         assertThat(afterFirst.getReviewCount()).isEqualTo(1);
         assertThat(afterFirst.getRatingSum()).isEqualTo(5);
-        assertThat(afterFirst.getTemperature()).isNull();
+        // (5*3 + 5)/(5+1)=3.333 → q=0.167 → E=1/21=0.0476 → 36.5 + 62.5*0.0079 = 37.0
+        assertThat(afterFirst.getTemperature()).isEqualByComparingTo("37.0");
 
         teamReviewService.submit(team.getId(), memberB.getId(), request(memberA.getId(), 5));
 

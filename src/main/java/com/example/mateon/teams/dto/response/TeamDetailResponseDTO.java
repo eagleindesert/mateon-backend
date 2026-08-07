@@ -44,8 +44,8 @@ public class TeamDetailResponseDTO extends TeamResponseDTO { // [핵심] 상속 
     private String leaderMajor;  // 전공 (예: SW융합대학 통계데이터사이언스)
     private String leaderGrade;  // 학년 (예: 3학년)
     private String leaderCollege; // 딘과대
-    // 팀장의 협업 온도. 평가가 2건 미만이면 null (비공개).
-    @Schema(description = "팀장의 협업 온도. 평가가 부족하면 비공개(null)")
+    // 팀장의 협업 온도. 평가가 0건이면 기준점 36.5 다 (항상 값이 있다).
+    @Schema(description = "팀장의 협업 온도. 평가가 0건이면 기준점 36.5")
     private BigDecimal leaderCollaborationTemperature;
 
     /** 조회자의 지원 상태. 지원한 적이 없으면 null — hasApplied 의 상세판이다. */

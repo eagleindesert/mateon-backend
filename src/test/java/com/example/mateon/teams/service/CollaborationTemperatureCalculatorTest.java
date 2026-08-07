@@ -21,25 +21,35 @@ class CollaborationTemperatureCalculatorTest {
     }
 
     @Nested
-    @DisplayName("표본 부족 시 비공개")
-    class Undisclosed {
+    @DisplayName("표본이 적어도 감추지 않는다")
+    class AlwaysDisclosed {
 
         @Test
-        @DisplayName("평가가 없으면 null 이다")
-        void noReviews() {
-            assertThat(temp(0, 0)).isNull();
+        @DisplayName("평가가 없으면 기준점 36.5 다 — null 이 아니다")
+        void noReviewsStartAtBase() {
+            assertThat(temp(0, 0)).isEqualByComparingTo("36.5");
         }
 
         @Test
-        @DisplayName("평가가 1건이면 null 이다 — 누가 줬는지 특정되므로 익명성이 깨진다")
-        void singleReviewStaysHidden() {
-            assertThat(temp(1, 5)).isNull();
+        @DisplayName("INITIAL 은 0건일 때의 계산 결과와 같다 — 집계 행이 없는 유저에게 내려보내는 값")
+        void initialMatchesZeroReviewResult() {
+            assertThat(CollaborationTemperatureCalculator.INITIAL).isEqualByComparingTo(temp(0, 0));
         }
 
         @Test
-        @DisplayName("2건부터 공개한다")
-        void twoReviewsDisclosed() {
-            assertThat(temp(2, 10)).isNotNull();
+        @DisplayName("1건이어도 값이 나온다 — 다만 E(1)=1/21 이라 0.5 도 안쪽으로만 움직인다")
+        void singleReviewBarelyMoves() {
+            assertThat(temp(1, 5)).isEqualByComparingTo("37.0");
+            assertThat(temp(1, 1)).isEqualByComparingTo("36.2");
+        }
+
+        @Test
+        @DisplayName("어떤 건수에서도 null 이 나오지 않는다")
+        void neverNull() {
+            for (int n = 0; n <= 50; n++) {
+                assertThat(temp(n, allFives(n))).isNotNull();
+                assertThat(temp(n, n)).isNotNull();
+            }
         }
     }
 
@@ -50,6 +60,7 @@ class CollaborationTemperatureCalculatorTest {
         @Test
         @DisplayName("중립(3점)만 받으면 건수와 무관하게 36.5 다")
         void neutralAlwaysBase() {
+            assertThat(temp(0, 0)).isEqualByComparingTo("36.5");
             assertThat(temp(2, 6)).isEqualByComparingTo("36.5");
             assertThat(temp(30, 90)).isEqualByComparingTo("36.5");
             assertThat(temp(300, 900)).isEqualByComparingTo("36.5");
@@ -145,8 +156,8 @@ class CollaborationTemperatureCalculatorTest {
         @Test
         @DisplayName("같은 평점이면 건수가 늘수록 온도가 오른다 — 검증된 실적일수록 높다")
         void moreEvidenceRaisesTemperature() {
-            BigDecimal previous = temp(2, allFives(2));
-            for (int n = 3; n <= 200; n++) {
+            BigDecimal previous = temp(0, 0);
+            for (int n = 1; n <= 200; n++) {
                 BigDecimal current = temp(n, allFives(n));
                 assertThat(current).isGreaterThanOrEqualTo(previous);
                 previous = current;

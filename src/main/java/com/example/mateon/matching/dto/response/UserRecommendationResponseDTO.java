@@ -35,7 +35,7 @@ public class UserRecommendationResponseDTO {
     private final String experienceLevel;
     private final String activityStyle;
 
-    /** 협업 온도. 평가 표본이 부족하면 null(비공개) — 0 도가 아니다. */
+    /** 협업 온도. 평가가 0건이면 기준점 36.5 다 (항상 값이 있다). */
     private final BigDecimal collaborationTemperature;
 
     /** AI 가 매긴 적합도 점수. 정렬 기준이자 화면 표시용. */

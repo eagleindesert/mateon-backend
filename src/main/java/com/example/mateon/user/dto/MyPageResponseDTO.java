@@ -25,8 +25,7 @@ public class MyPageResponseDTO {
     // 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null.
     private String profileImageUrl;
 
-    // 2. 협업 온도. 받은 평가가 2건 미만이면 null 이다 (비공개) — 프론트는 "평가 준비 중"으로 표시한다.
-    //    비공개인 이유는 통계가 아니라 익명성이다: 2인 팀에서 평가 1건이면 누가 줬는지 자명하다.
+    // 2. 협업 온도. 평가 건수와 무관하게 항상 값이 있고, 0건이면 기준점 36.5 다.
     private BigDecimal collaborationTemperature;
     private int collaborationReviewCount;
 
