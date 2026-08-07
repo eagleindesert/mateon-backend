@@ -275,7 +275,7 @@ if ($replaced -and $replaced -ne $uploaded) {
 # ---------------------------------------------------------------------------
 Write-Host "`n---------- 3.6.6 삭제 ----------" -ForegroundColor Magenta
 
-#Invoke-Api -Method DELETE -Path "/api/users/me/profile-image" -Auth -Title "3.6.6 사진 삭제" | Out-Null
+Invoke-Api -Method DELETE -Path "/api/users/me/profile-image" -Auth -Title "3.6.6 사진 삭제" | Out-Null
 
 $cleared = Wait-ProfileImageUrl -Until { param($u) -not $u }
 Assert-Test -Title "3.6.6a 삭제 후 profileImageUrl 이 null 로 돌아간다" `
@@ -289,7 +289,7 @@ if ($replaced) {
 
 # 사진이 없는 상태에서 다시 삭제해도 200 이다 — 프론트가 상태를 모른 채 눌러도 에러를
 # 띄우지 않아야 한다(요청이 원한 결과는 이미 그 상태다).
-#Invoke-Api -Method DELETE -Path "/api/users/me/profile-image" -Auth `
+Invoke-Api -Method DELETE -Path "/api/users/me/profile-image" -Auth `
     -Title "3.6.6 사진 없는 상태에서 다시 삭제 (멱등)" | Out-Null
 
 } finally {
