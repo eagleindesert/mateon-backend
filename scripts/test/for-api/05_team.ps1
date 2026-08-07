@@ -58,7 +58,31 @@ Invoke-Api -Method GET -Path "/api/teams?myPosts=true" -Auth -Title "5.1 팀 모
 
 # 5.2 팀 모집글 상세 조회
 if ($teamId) {
-    Invoke-Api -Method GET -Path "/api/teams/$teamId" -Auth -Title "5.2 팀 모집글 상세 조회"
+    $detail = Invoke-Api -Method GET -Path "/api/teams/$teamId" -Auth -PassThru -Title "5.2 팀 모집글 상세 조회"
+
+    # 5.2a~c 프론트가 명세를 보고 기대하는 필드가 실제로 내려오는지.
+    #   한때 명세(docs/api-spec v7)에만 있고 서버에는 없는 필드가 있었다. 이름이 있는지를
+    #   직접 확인해야 그 어긋남이 다시 조용히 생기지 않는다.
+    $fields = @($detail.data.PSObject.Properties.Name)
+    Assert-Test -Title "5.2a 상세 응답에 members 명단이 있다" `
+        -Condition ($fields -contains 'members') `
+        -Detail "members=$($detail.data.members.Count)명" | Out-Null
+    Assert-Test -Title "5.2b 상세 응답에 myApplicationStatus 가 있다" `
+        -Condition ($fields -contains 'myApplicationStatus') `
+        -Detail "value=$($detail.data.myApplicationStatus)" | Out-Null
+    Assert-Test -Title "5.2c 상세 응답에 isEnded 가 있다" `
+        -Condition ($fields -contains 'isEnded') `
+        -Detail "value=$($detail.data.isEnded)" | Out-Null
+
+    # 5.2d 명단과 인원 수는 같은 출처에서 나온다. 어긋나면 둘 중 하나가 거짓이다.
+    Assert-Test -Title "5.2d members 수 = currentMemberCount" `
+        -Condition (@($detail.data.members).Count -eq [int]$detail.data.currentMemberCount) `
+        -Detail ("명단 {0} / 인원 {1}" -f @($detail.data.members).Count, $detail.data.currentMemberCount) | Out-Null
+
+    # 5.2e 갓 만든 팀의 팀원은 팀장 하나뿐이고, 그 한 명은 팀장으로 표시돼야 한다.
+    Assert-Test -Title "5.2e 명단에 팀장이 isLeader=true 로 들어 있다" `
+        -Condition ([bool](@($detail.data.members) | Where-Object { $_.isLeader })) `
+        -Detail ("leader=" + (@($detail.data.members) | Where-Object { $_.isLeader } | ForEach-Object { $_.name }) -join ",") | Out-Null
 }
 
 # 5.4 팀 모집글 수정
@@ -183,9 +207,35 @@ if ($applicationId) {
     Invoke-Api -Method GET -Path "/api/teams/applications/$applicationId" -Auth -Title "5.12 지원서 상세 조회 (팀장 A)"
 
     # 5.9 지원서 승인 (팀장 A)
+    $beforeApprove = Invoke-Api -Method GET -Path "/api/teams/$teamId" -Auth -PassThru -Title "5.9 (사전) 승인 전 팀 상태"
+    $countBefore = [int]$beforeApprove.data.currentMemberCount
+
     $approved = Invoke-Api -Method PATCH -Path "/api/teams/applications/$applicationId`?isApproved=true" -Auth -PassThru -Title "5.9 지원서 승인 (팀장 A)"
     Assert-Test -Title "5.9 팀장 승인 성공" -Condition ([bool]($approved -and $approved.success -eq $true)) `
         -Detail "message=$($approved.message)" | Out-Null
+
+    # 5.9a 승인은 지원서 상태 변경이자 소속 생성이다. 명단에 실제로 들어와야 한다.
+    $afterApprove = Invoke-Api -Method GET -Path "/api/teams/$teamId" -Auth -PassThru -Title "5.9a 승인 후 팀 상태"
+    $countAfter = [int]$afterApprove.data.currentMemberCount
+    Assert-Test -Title "5.9a 승인 즉시 인원 +1 (증분)" -Condition ($countAfter -eq $countBefore + 1) `
+        -Detail ("{0}명 -> {1}명" -f $countBefore, $countAfter) | Out-Null
+    Assert-Test -Title "5.9b 명단 수가 인원 수와 계속 일치" `
+        -Condition (@($afterApprove.data.members).Count -eq $countAfter) `
+        -Detail ("명단 {0} / 인원 {1}" -f @($afterApprove.data.members).Count, $countAfter) | Out-Null
+
+    # 5.9c 승인/거절은 한 번뿐이다. 되돌리기를 허용하면 지원서만 REJECTED 가 되고
+    #      팀원 소속은 활성인 채 남아 인원 수가 실제보다 커진다.
+    $reprocess = Invoke-Api -Method PATCH -Path "/api/teams/applications/$applicationId`?isApproved=false" -Auth -PassThru `
+        -Title "5.9c 처리된 지원서 재처리 - 차단 기대 (400 APPLICATION_ALREADY_PROCESSED)"
+    Assert-Test -Title "5.9c 처리된 지원서 재처리 차단" `
+        -Condition ([bool]($reprocess -and $reprocess.success -eq $false)) `
+        -Detail "message=$($reprocess.message)" | Out-Null
+
+    # 5.9d 차단됐으니 인원은 그대로여야 한다.
+    $afterReprocess = Invoke-Api -Method GET -Path "/api/teams/$teamId" -Auth -PassThru -Title "5.9d 재처리 시도 후 팀 상태"
+    Assert-Test -Title "5.9d 재처리 시도가 인원 수를 건드리지 않음" `
+        -Condition ([int]$afterReprocess.data.currentMemberCount -eq $countAfter) `
+        -Detail ("{0}명 유지" -f $afterReprocess.data.currentMemberCount) | Out-Null
 
     # 5.11 지원 취소 (지원자 B) - 기본은 스킵. 해제하려면 B 토큰으로 전환해야 한다.
     Write-Host "`n[5.11 지원 취소] 예시만 표기 - 실제 취소를 원하면 아래 주석을 해제하세요." -ForegroundColor Yellow

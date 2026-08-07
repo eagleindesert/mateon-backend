@@ -4,12 +4,14 @@ import com.example.mateon.auth.dto.*;
 import com.example.mateon.auth.service.AuthService;
 import com.example.mateon.auth.service.KakaoLoginService;
 import com.example.mateon.common.dto.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "인증", description = "회원가입·로그인·토큰 재발급과 이메일/학교 인증")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor

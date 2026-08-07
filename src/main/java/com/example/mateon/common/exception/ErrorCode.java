@@ -66,6 +66,9 @@
         TEAM_EMBEDDING_NOT_READY("팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
         TEAM_RECRUITMENT_CLOSED("모집이 마감되었거나 종료된 팀입니다."),
         OFFER_ALREADY_RESPONDED("이미 처리된 제안입니다."),
+        // 지원서 쪽의 짝. 승인/거절은 한 번뿐이다 — 승인된 지원서를 거절로 되돌리면 지원서 상태만
+        // 바뀌고 team_members 행은 활성인 채 남아 인원 수가 실제보다 커진다.
+        APPLICATION_ALREADY_PROCESSED("이미 처리된 지원서입니다."),
 
         // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
         // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.

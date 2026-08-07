@@ -99,27 +99,34 @@ public class TeamService {
             event = eventRepository.findById(team.getEventId()).orElse(null);
         }
 
-        // 3. 현재 인원 수 (팀장 포함 — team_members 에 LEADER 로 들어 있다)
-        int currentCount = teamMemberRepository.countByTeamIdAndLeftAtIsNull(team.getId());
+        // 3. 팀원 명단 (팀장 포함 — team_members 에 LEADER 로 들어 있다).
+        //    인원 수는 DTO 가 이 목록의 크기로 채운다. 따로 세면 명단과 숫자가 어긋날 수 있다.
+        List<TeamMember> members = teamMemberRepository.findActiveMembersWithUser(team.getId());
 
         // 4. 유저 상태 확인 (로그인 했을 경우에만)
         boolean isLeader = false;
-        boolean hasApplied = false;
+        ApplicationStatus myApplicationStatus = null;
 
         if (userId != null) {
             User user = userRepository.findById(userId).orElse(null);
             if (user != null) {
                 // 내가 리더인가?
                 isLeader = team.getLeaderUserId().equals(user.getId());
-                // 내가 지원했는가?
-                hasApplied = applicationRepository.findByTeamIdAndApplicantId(teamId, user.getId()).isPresent();
+                // 내가 지원했는가? 상태까지 함께 꺼낸다 (hasApplied 는 DTO 가 여기서 파생시킨다).
+                myApplicationStatus = applicationRepository.findByTeamIdAndApplicantId(teamId, user.getId())
+                        .map(TeamApplication::getStatus)
+                        .orElse(null);
             }
         }
 
-        // 5. 팀장(글쓴이) 정보 조회
-        // 팀의 leaderUserId를 사용해 유저 정보를 가져옵니다.
-        User leaderUser = userRepository.findById(team.getLeaderUserId())
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+        // 5. 팀장(글쓴이) 정보. 이미 읽은 명단에 LEADER 로 들어 있으므로 재사용한다.
+        //    V12 백필 이전에 만들어져 LEADER 행이 없는 팀이 있을 수 있어 조회로 fallback 한다.
+        User leaderUser = members.stream()
+                .filter(member -> member.getRole() == TeamMemberRole.LEADER)
+                .map(TeamMember::getUser)
+                .findFirst()
+                .orElseGet(() -> userRepository.findById(team.getLeaderUserId())
+                        .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND)));
 
         // 6. 팀장의 협업 온도. 평가를 안 받았으면 행이 없고, 그건 비공개(null)와 같게 다룬다.
         BigDecimal leaderTemperature = collaborationScoreRepository.findById(leaderUser.getId())
@@ -127,7 +134,7 @@ public class TeamService {
                 .orElse(null);
 
         // 7. DTO 생성 시 leaderUser 전달
-        return new TeamDetailResponseDTO(team, event, currentCount, isLeader, hasApplied, leaderUser,
+        return new TeamDetailResponseDTO(team, event, members, isLeader, myApplicationStatus, leaderUser,
                 leaderTemperature);
     }
 
@@ -284,6 +291,13 @@ public class TeamService {
 
         if (!team.getLeaderUserId().equals(leader.getId())) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
+        }
+
+        // 승인/거절은 한 번뿐이다. 특히 승인된 지원서를 거절로 되돌리면 지원서 상태만 바뀌고
+        // 아래에서 만든 team_members 행은 활성인 채 남아 인원 수가 실제보다 커진다.
+        // (역제안 쪽 TeamOfferService.respond 는 offer.accept()/reject() 안에서 같은 규칙을 이미 강제한다.)
+        if (application.getStatus() != ApplicationStatus.PENDING) {
+            throw new MateonException(ErrorCode.APPLICATION_ALREADY_PROCESSED);
         }
 
         // 1. 상태 변경

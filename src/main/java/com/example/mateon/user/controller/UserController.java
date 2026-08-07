@@ -8,6 +8,7 @@ import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+@Tag(name = "사용자", description = "내 프로필 조회·수정, 공개 프로필, 프로필 이미지")
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor

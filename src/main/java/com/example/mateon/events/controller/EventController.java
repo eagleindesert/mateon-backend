@@ -10,6 +10,7 @@ import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.service.EventExtractionService;
 import com.example.mateon.events.service.EventService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,9 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+
 @Slf4j
+@Tag(name = "활동/공모전", description = "활동 등록·검색·추천. 포스터 이미지에서 AI 로 정보를 추출한다")
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor

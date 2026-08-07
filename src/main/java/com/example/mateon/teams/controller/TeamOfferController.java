@@ -5,6 +5,8 @@ import com.example.mateon.teams.dto.request.TeamOfferCreateRequestDTO;
 import com.example.mateon.teams.dto.request.TeamOfferRespondRequestDTO;
 import com.example.mateon.teams.dto.response.TeamOfferResponseDTO;
 import com.example.mateon.teams.service.TeamOfferService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import java.util.List;
  *
  * <p>제안 대상은 GET /api/matching/recommendations/team-to-user 로 찾는다.
  */
+@Tag(name = "역제안 (팀→유저)", description = "팀장이 유저에게 먼저 제안하고, 유저가 수락하면 즉시 팀원이 되는 경로")
 @RestController
 @RequestMapping("/api/teams")
 @RequiredArgsConstructor
@@ -30,6 +33,11 @@ public class TeamOfferController {
     private final TeamOfferService teamOfferService;
 
     /** (팀장용) 유저에게 제안 발송. */
+    @Operation(summary = "(팀장용) 유저에게 제안 발송",
+            description = """
+                    이미 팀원이거나, 지원서를 냈거나, 이미 제안을 받은 유저에게는 보낼 수 없다
+                    (400 DUPLICATE_RESOURCE). AI 점수/근거는 요청 값이 아니라 서버가 추천 이력에서
+                    찾아 넣으므로 본문에 담아 보낼 필요가 없다.""")
     @PostMapping("/{teamId}/offers")
     public ResponseEntity<ApiResponse<TeamOfferResponseDTO>> createOffer(
             @PathVariable Long teamId,
@@ -43,6 +51,7 @@ public class TeamOfferController {
     }
 
     /** (팀장용) 이 팀이 보낸 제안 목록. */
+    @Operation(summary = "(팀장용) 이 팀이 보낸 제안 목록", description = "최신순. 팀장만 조회할 수 있다.")
     @GetMapping("/{teamId}/offers")
     public ResponseEntity<ApiResponse<List<TeamOfferResponseDTO>>> getTeamOffers(
             @PathVariable Long teamId,
@@ -53,6 +62,7 @@ public class TeamOfferController {
     }
 
     /** 내가 받은 제안 목록. */
+    @Operation(summary = "내가 받은 제안 목록", description = "최신순.")
     @GetMapping("/offers/me")
     public ResponseEntity<ApiResponse<List<TeamOfferResponseDTO>>> getMyOffers(
             Authentication authentication
@@ -67,6 +77,13 @@ public class TeamOfferController {
      * <p>이미 응답했거나 팀장이 취소한 제안이면 400 OFFER_ALREADY_RESPONDED,
      * 그 사이 정원이 찼거나 활동이 끝났으면 400 TEAM_RECRUITMENT_CLOSED 다.
      */
+    @Operation(summary = "받은 제안에 응답 (수락/거절)",
+            description = """
+                    수락하면 팀장의 재승인 없이 그 자리에서 팀원이 되고, 정원이 차면 모집이 마감된다.
+                    수락에는 학교 인증이 필요하다.
+
+                    이미 응답했거나 팀장이 회수한 제안이면 400 OFFER_ALREADY_RESPONDED,
+                    그 사이 정원이 찼거나 활동이 끝났으면 400 TEAM_RECRUITMENT_CLOSED.""")
     @PatchMapping("/offers/{offerId}")
     public ResponseEntity<ApiResponse<TeamOfferResponseDTO>> respondToOffer(
             @PathVariable Long offerId,
@@ -79,6 +96,7 @@ public class TeamOfferController {
     }
 
     /** (팀장용) 아직 응답받지 않은 제안 회수. */
+    @Operation(summary = "(팀장용) 제안 회수", description = "아직 PENDING 인 제안만 회수할 수 있다.")
     @DeleteMapping("/offers/{offerId}")
     public ResponseEntity<ApiResponse<String>> cancelOffer(
             @PathVariable Long offerId,

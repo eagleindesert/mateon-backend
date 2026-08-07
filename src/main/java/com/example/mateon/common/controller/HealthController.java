@@ -1,6 +1,7 @@
 package com.example.mateon.common.controller;
 
 import com.example.mateon.common.dto.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+@Tag(name = "헬스체크", description = "서버 생존 확인")
 @RestController
 public class HealthController {
 
