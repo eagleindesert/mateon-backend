@@ -24,7 +24,13 @@ import org.testcontainers.utility.DockerImageName;
  * 기동 시간이 그만큼 곱해진다). 테스트 간 격리는 {@code @Transactional} 롤백이 맡고,
  * JVM 이 끝나면 Testcontainers 가 컨테이너를 지운다.
  */
-@SpringBootTest
+/*
+ * storage.max-bytes=0B: 버킷 용량 가드를 끈다. 켜져 있으면 컨텍스트가 뜰 때마다
+ * BucketCapacityGuard 가 실제 운영 버킷을 ListObjectsV2 로 훑는다 — 테스트가 외부 저장소에
+ * 붙는 것 자체가 위 원칙(개발 DB 에 붙지 않는다)과 어긋나고, 자격증명이 없는 CI 에서는
+ * 매번 실패 로그만 쌓인다. 한도 동작은 BucketCapacityGuardTest 가 따로 검증한다.
+ */
+@SpringBootTest(properties = "storage.max-bytes=0B")
 @Transactional
 public abstract class IntegrationTestBase {
 

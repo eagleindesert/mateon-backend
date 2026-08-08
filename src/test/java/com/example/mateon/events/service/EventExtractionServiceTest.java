@@ -2,6 +2,7 @@ package com.example.mateon.events.service;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.common.storage.BucketCapacityGuard;
 import com.example.mateon.common.storage.ObjectStorageService;
 import com.example.mateon.events.client.ContestExtractResponse;
 import com.example.mateon.events.client.ContestImageExtractionClient;
@@ -49,7 +50,9 @@ class EventExtractionServiceTest {
     void setUp() {
         extractionClient = mock(ContestImageExtractionClient.class);
         objectStorageService = mock(ObjectStorageService.class);
-        service = new EventExtractionService(extractionClient, objectStorageService);
+        // 용량 가드는 기본 mock 이라 항상 통과한다. 한도 동작 자체는 BucketCapacityGuardTest 가 본다.
+        service = new EventExtractionService(
+                extractionClient, objectStorageService, mock(BucketCapacityGuard.class));
     }
 
     private MultipartFile image(String filename) {

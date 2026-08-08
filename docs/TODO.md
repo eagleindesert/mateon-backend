@@ -8,8 +8,6 @@
 
 - 공통 AI 클래스는 common 으로
 
-- `../scripts/test/for-api/04_03_portfolio_summarize.ps1` 파일의 위치가 이상함. 차라리 이건 user 하위 셸 쪽으로 가야 함
-
 - UserResponse 에서 from 오버로딩부분 손보기, 및 /api/users/mypage 현재 프론트에서 안쓰므로 deprecated 처리 하기
 
 - boolean 응답 키를 `is` 접두로 통일하기. 지금은 한 응답 안에서 이름 규칙이 섞여 있음

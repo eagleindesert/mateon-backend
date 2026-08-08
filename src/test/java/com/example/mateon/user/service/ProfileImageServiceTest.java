@@ -2,6 +2,7 @@ package com.example.mateon.user.service;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.common.storage.BucketCapacityGuard;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +45,8 @@ class ProfileImageServiceTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         worker = mock(ProfileImageWorker.class);
-        service = new ProfileImageService(userRepository, worker);
+        // 용량 가드는 기본 mock 이라 항상 통과한다. 한도 동작 자체는 BucketCapacityGuardTest 가 본다.
+        service = new ProfileImageService(userRepository, worker, mock(BucketCapacityGuard.class));
 
         when(userRepository.existsById(USER_ID)).thenReturn(true);
     }

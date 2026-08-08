@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.util.unit.DataSize;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -37,6 +38,19 @@ public class ObjectStorageProperties {
 
     /** Customer Secret Key 의 Secret Key. 생성 직후 한 번만 보여주므로 .env 에 보관한다. */
     private String secretKey;
+
+    /**
+     * 버킷 총 사용량 상한. OCI 가 버킷 단위 쿼터를 안 주기 때문에 {@link BucketCapacityGuard} 가
+     * 앱에서 대신 지킨다. {@code 18GB} 처럼 단위를 붙여 쓴다.
+     *
+     * <p>0 이면 검사를 끈다(실제 기본값은 application.properties 의 storage.max-bytes 가 정한다).
+     * 위의 다섯 값과 달리 {@link #validate()} 의 필수 목록에 넣지 않는 이유: 이 검사는 버킷 목록
+     * 조회 권한을 요구하는데, 로컬/테스트에서 쓰는 키에는 그 권한이 없을 수 있다.
+     *
+     * <p>실제 여유(Always Free 20GB 등)보다 낮게 잡는다. 카운터가 인스턴스 메모리에 있어
+     * 재실측 사이의 오차와 다중 인스턴스 위험을 이 차이로 흡수한다.
+     */
+    private DataSize maxBytes = DataSize.ofBytes(0);
 
     /**
      * 설정 누락을 부팅 시점에 잡는다. 이유는 AiServerProperties.validateInternalSecret 과 같다 —

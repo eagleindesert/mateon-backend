@@ -91,6 +91,11 @@
         // (ProfileImageWorker) 라 이 코드가 HTTP 응답으로 나가지는 않지만, 저장소 실패를
         // IMAGE_UPLOAD_FAILED 로 뭉뚱그리면 로그에서 업로드 실패와 구분되지 않는다.
         IMAGE_DELETE_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소에서 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."),
+        // 버킷 총량 한도(BucketCapacityGuard)에 걸렸을 때. IMAGE_TOO_LARGE(413) 와 가르는 이유는
+        // 사용자가 할 수 있는 일이 다르기 때문이다 — 413 은 "더 작은 파일로 다시", 이쪽은
+        // 사용자가 무엇을 해도 통과하지 못한다. 507 은 "저장 공간이 없다"는 뜻 그대로다.
+        STORAGE_QUOTA_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE,
+                "저장 공간이 가득 차 파일을 업로드할 수 없습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요."),
 
         // 포트폴리오 PDF 요약 관련 ---
         // 이미지 쪽과 같은 이유로 INVALID_INPUT 에 뭉뚱그리지 않는다. 확장자가 .pdf 가 아닌 경우와

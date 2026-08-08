@@ -28,14 +28,22 @@ public class ObjectStorageService {
 
     private final S3Client ociS3Client;
     private final ObjectStorageProperties properties;
+    private final BucketCapacityGuard capacityGuard;
 
     /**
      * 바이트 배열을 버킷에 올리고 공개 조회 URL 을 돌려준다.
      *
+     * <p>버킷 총량 한도 검사({@link BucketCapacityGuard})가 여기 붙어 있는 이유: 업로드가 이 한
+     * 곳을 지나므로, 새 업로드 기능을 붙이는 사람이 한도 검사를 잊을 수 없다.
+     *
      * @param key 버킷 내 객체 키 (예: contest-images/2026/07/{uuid}.jpg)
-     * @throws MateonException IMAGE_UPLOAD_FAILED (502) — 저장소 장애/자격증명 오류
+     * @throws MateonException STORAGE_QUOTA_EXCEEDED (507) — 버킷 총량 한도 초과,
+     *                         IMAGE_UPLOAD_FAILED (502) — 저장소 장애/자격증명 오류
      */
     public String upload(String key, byte[] bytes, String contentType) {
+        capacityGuard.reserve(bytes.length);
+
+        boolean stored = false;
         try {
             ociS3Client.putObject(
                     PutObjectRequest.builder()
@@ -44,10 +52,19 @@ public class ObjectStorageService {
                             .contentType(contentType)
                             .build(),
                     RequestBody.fromBytes(bytes));
+            stored = true;
         } catch (SdkException e) {
             // 자격증명 오류(403)와 네트워크 장애가 같은 예외 계열로 오므로 메시지를 남겨 둔다.
             log.error("OCI Object Storage 업로드 실패: bucket={}, key={}", properties.getBucket(), key, e);
             throw new MateonException(ErrorCode.IMAGE_UPLOAD_FAILED);
+        } finally {
+            // finally 인 이유: SdkException 외의 무엇이 튀어도 예약이 남지 않아야 한다.
+            // 예약이 새면 그 바이트는 다음 재실측까지 아무도 못 쓰는 자리로 묶인다.
+            if (stored) {
+                capacityGuard.commit(bytes.length);
+            } else {
+                capacityGuard.rollback(bytes.length);
+            }
         }
         return publicUrl(key);
     }
@@ -71,6 +88,10 @@ public class ObjectStorageService {
         }
 
         String key = decodeKey(publicUrl.substring(prefix.length()));
+
+        // 크기는 지우기 전에 물어봐야 한다(지운 뒤엔 알 길이 없다). 한도가 꺼져 있으면 0 을
+        // 돌려주므로 이 왕복 자체가 생기지 않는다.
+        long freedBytes = capacityGuard.sizeOf(key);
         try {
             ociS3Client.deleteObject(
                     DeleteObjectRequest.builder()
@@ -81,6 +102,8 @@ public class ObjectStorageService {
             log.error("OCI Object Storage 삭제 실패: bucket={}, key={}", properties.getBucket(), key, e);
             throw new MateonException(ErrorCode.IMAGE_DELETE_FAILED);
         }
+        // 삭제가 확정된 뒤에만 반납한다. 실패한 삭제를 반납하면 없는 자리를 내주게 된다.
+        capacityGuard.release(freedBytes);
     }
 
     /**

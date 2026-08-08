@@ -2,6 +2,7 @@ package com.example.mateon.user.service;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.common.storage.BucketCapacityGuard;
 import com.example.mateon.common.storage.ImageFileValidator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
@@ -34,6 +35,7 @@ public class ProfileImageService {
 
     private final UserRepository userRepository;
     private final ProfileImageWorker profileImageWorker;
+    private final BucketCapacityGuard capacityGuard;
 
     /**
      * 프로필 이미지 업로드를 접수한다. 실제 교체(이전 객체 삭제 → 새 객체 업로드)는 비동기다.
@@ -42,11 +44,16 @@ public class ProfileImageService {
      * 사용자가 다시 고를 수 있고, {@link MultipartFile} 의 임시 파일은 응답 후 정리되므로
      * 바이트도 요청 스레드에서 읽어 둬야 한다.
      *
+     * <p>버킷 여유 확인을 여기서 한 번 더 하는 이유: 실제 업로드는 워커 안에서 일어나는데, 거기서
+     * 한도에 걸리면 사용자는 이미 200 을 받은 뒤라 로그만 남는다. 접수 시점에 미리 보면 "가득 참"이
+     * 확실한 경우를 507 로 바로 알려줄 수 있다. 자리를 잡지는 않으므로 최종 판정은 워커의 몫이다.
+     *
      * @throws MateonException INVALID_IMAGE_FILE(400) / IMAGE_TOO_LARGE(413) — 업로드 파일 문제,
-     *                         USER_NOT_FOUND(404)
+     *                         STORAGE_QUOTA_EXCEEDED(507) — 버킷 여유 없음, USER_NOT_FOUND(404)
      */
     public void upload(Long userId, MultipartFile image) {
         ImageFileValidator.ValidatedImage validated = ImageFileValidator.validate(image, MAX_IMAGE_BYTES);
+        capacityGuard.checkRoomFor(validated.bytes().length);
         if (!userRepository.existsById(userId)) {
             throw new MateonException(ErrorCode.USER_NOT_FOUND);
         }

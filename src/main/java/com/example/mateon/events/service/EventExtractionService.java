@@ -1,6 +1,7 @@
 package com.example.mateon.events.service;
 
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.common.storage.BucketCapacityGuard;
 import com.example.mateon.common.storage.ImageFileValidator;
 import com.example.mateon.common.storage.ObjectStorageService;
 import com.example.mateon.events.client.ContestExtractResponse;
@@ -40,14 +41,19 @@ public class EventExtractionService {
 
     private final ContestImageExtractionClient extractionClient;
     private final ObjectStorageService objectStorageService;
+    private final BucketCapacityGuard capacityGuard;
 
     /**
      * @throws MateonException INVALID_IMAGE_FILE(400) / IMAGE_TOO_LARGE(413) — 업로드 파일 문제,
+     *                         STORAGE_QUOTA_EXCEEDED(507) — 버킷 총량 한도 초과,
      *                         AI_SERVER_UNAVAILABLE(503) / AI_SERVER_ERROR(502) — AI 서버 문제,
      *                         IMAGE_UPLOAD_FAILED(502) — 객체 저장소 문제
      */
     public EventExtractionResponseDTO extractFromImage(MultipartFile image) {
         ImageFileValidator.ValidatedImage validated = ImageFileValidator.validate(image, MAX_IMAGE_BYTES);
+        // AI 호출 앞에 여유를 미리 본다. 어차피 뒤에서 거절될 요청에 AI 서버 비용을 쓸 이유가 없다.
+        // (자리를 잡지는 않는다. 실제 판정은 아래 upload 안의 예약이 한다.)
+        capacityGuard.checkRoomFor(validated.bytes().length);
 
         // AI 추출을 먼저 한다. 순서를 뒤집으면 판독 실패한 이미지가 버킷에 그대로 남는다
         // (초안을 못 받은 사용자는 다시 올릴 테니 지울 사람도 없다).
