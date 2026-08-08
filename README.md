@@ -74,4 +74,4 @@ DOCKERHUB_USERNAME=your-dockerhub-username
 # DOCKERHUB_TOKEN=dckr_pat_xxxxx   # CI 등 토큰 로그인 시에만
 ```
 
-> ⚠️ 두 `.env` 파일에는 시크릿이 포함됩니다. 절대 커밋하지 말고, 팀원에게는 안전한 채널로 공유하세요.
+> ⚠️ 두 `.env` 파일에는 시크릿이 포함됩니다. 절대 커밋하지 말고, 팀원에게는 안전한 채널로 공유해야 합니다.
