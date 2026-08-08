@@ -1,23 +1,17 @@
+# 로컬 개발용 Compose (인프라 + 선택적 앱 컨테이너)
+# ------------------------------------------------------------------------------
+# postgres/pgadmin 은 프로파일이 없어 항상 기동된다. 반면 app 은 "app" 프로파일에 묶여 있어
+# 명시적으로 켤 때만 뜬다 — bootRun 은 앱을 Gradle 이 직접 실행하므로 컨테이너 앱까지
+# 같이 뜨면 8080 포트가 겹친다.
+#
+#   ./gradlew bootRun                    # Boot 의 Compose 지원이 이 파일을 자동 탐지해
+#                                        # postgres/pgadmin 만 기동 (앱은 Gradle 이 실행)
+#   docker compose --profile app up -d   # 앱까지 컨테이너로 띄우는 전체 스택
+#   docker compose down                  # 종료 (--profile 없이도 전체가 내려간다)
+#
+# 배포는 이 파일을 쓰지 않는다 — docker-compose-deployment.yml 을 사용한다.
+# ------------------------------------------------------------------------------
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: mateon-app
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
-      SPRING_DATASOURCE_USERNAME: admin
-      SPRING_DATASOURCE_PASSWORD: admin
-      TZ: Asia/Seoul
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   postgres:
     image: pgvector/pgvector:pg16
     container_name: mateon-postgres
@@ -30,7 +24,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - mateon-postgres-data:/var/lib/postgresql/data
+      - mateon-postgres-dev-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d mateon_db"]
       interval: 10s
@@ -49,11 +43,34 @@ services:
     ports:
       - "5050:80"
     volumes:
-      - mateon-pgadmin-data:/var/lib/pgadmin
+      - mateon-pgadmin-dev-data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
 
+  app:
+    # 프로파일이 지정된 서비스는 --profile app 을 줄 때만 기동된다.
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mateon-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      TZ: Asia/Seoul
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# 이름의 -dev- 는 그대로 둔다. 배포(docker-compose-deployment.yml)가 쓰는
+# mateon-postgres-data 와 반드시 구분되어야 한다 — 두 볼륨은 스키마 계보가 다르다.
 volumes:
-  mateon-postgres-data:
-  mateon-pgadmin-data:
+  mateon-postgres-dev-data:
+  mateon-pgadmin-dev-data:

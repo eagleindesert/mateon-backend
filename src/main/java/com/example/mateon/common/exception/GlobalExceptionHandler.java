@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -124,6 +125,27 @@ public class GlobalExceptionHandler {
     public void handleAsyncRequestNotUsable(AsyncRequestNotUsableException e) {
         // 사용자가 창을 닫은 정상적인 상황이라 스택트레이스를 남길 이유가 없다.
         log.debug("클라이언트 연결 종료로 응답 생략: {}", e.getMessage());
+    }
+
+    /**
+     * async 요청이 타임아웃됐다. SSE 구독(/api/notifications/subscribe)이 emitter 타임아웃
+     * (notification.sse-timeout, 기본 1시간)에 도달한 정상적인 수명 종료다 — 브라우저 EventSource 는 곧바로 재연결하고, emitter 는 onTimeout
+     * 콜백이 이미 저장소에서 지운 뒤다.
+     *
+     * <p>
+     * 이 핸들러가 없으면 catch-all 이 가로채 두 줄짜리 오류가 접속자 수만큼 쌓인다.
+     * 스프링 기본 처리(503, 본문 없음)로 갔을 예외를 catch-all 이 먼저 잡아 ERROR 로 찍고,
+     * 이어서 ApiResponse(JSON) 를 쓰려다 응답 Content-Type 이 text/event-stream 으로 굳어 있어
+     * 컨버터를 못 찾고 HttpMessageNotWritableException 까지 WARN 으로 남는다. 이건 예외 핸들러의
+     * 반환값을 쓰다 터진 거라 아래 handleNotWritable 로 다시 오지도 않는다.
+     *
+     * <p>
+     * {@link AsyncRequestNotUsableException} 과 별개 계층이라 그 핸들러에 걸리지 않으므로 따로 둔다.
+     * 반환 타입이 void 라 스프링은 '처리 완료, 본문 없음' 으로 간주한다.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handleAsyncRequestTimeout(AsyncRequestTimeoutException e) {
+        log.debug("async 요청 타임아웃으로 응답 생략");
     }
 
     /**
