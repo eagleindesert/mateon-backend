@@ -11,11 +11,13 @@ import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +31,11 @@ public class NotificationService {
     private final EmitterRepository emitterRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    // 앞단 nginx 의 proxy_read_timeout 과 맞물리는 값이라 배포 환경에 따라 조정한다.
+    // 근거는 application.properties 의 notification.sse-timeout 주석 참고.
+    @Value("${notification.sse-timeout:1h}")
+    private Duration sseTimeout;
+
     // -------------------------------------------------------------------------
     // 1. SSE 구독 (연결)
     // -------------------------------------------------------------------------
@@ -36,18 +43,18 @@ public class NotificationService {
      * SSE 구독. 이 메서드는 DB 를 건드리지 않는다 — 의도적이다.
      *
      * <p>예전엔 시작할 때 userRepository.existsById() 로 유저 존재를 확인했다. 그런데 이 요청은
-     * emitter 타임아웃(1시간)까지 살아 있는 async 요청이라, 쿼리를 한 번이라도 돌리면 그 커넥션이
+     * emitter 타임아웃(기본 1시간)까지 살아 있는 async 요청이라, 쿼리를 한 번이라도 돌리면 그 커넥션이
      * 요청이 끝날 때까지 풀로 돌아오지 않았다(open-in-view 기본값 true). 접속자 10명이면 풀
      * (기본 10)이 통째로 말라 로그인까지 막혔다.
      *
      * <p>open-in-view=false 로 근본 원인은 막았지만, 검증 자체도 되살릴 이유가 없다. userId 는
      * JwtAuthenticationFilter 가 이미 검증한 토큰에서 나온 값이라 여기서 재확인해도 얻는 게 없다.
-     * 실제로 없는 유저면 emitter 는 만들어지되 알림이 안 갈 뿐이고, 그 emitter 는 1시간 뒤
-     * 타임아웃으로 정리된다.
+     * 실제로 없는 유저면 emitter 는 만들어지되 알림이 안 갈 뿐이고, 그 emitter 는 타임아웃 때
+     * 정리된다.
      */
     public SseEmitter subscribe(Long userId) {
-        // 1. Emitter 생성 (타임아웃 1시간 설정)
-        SseEmitter emitter = new SseEmitter(60L * 1000 * 60);
+        // 1. Emitter 생성 (타임아웃은 notification.sse-timeout)
+        SseEmitter emitter = new SseEmitter(sseTimeout.toMillis());
 
         // 2. 저장소에 저장 (유저 ID를 키로 사용)
         emitterRepository.save(userId, emitter);
