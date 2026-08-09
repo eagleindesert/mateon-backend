@@ -9,13 +9,18 @@
 #   docker compose --profile app up -d   # 앱까지 컨테이너로 띄우는 전체 스택
 #   docker compose down                  # 종료 (--profile 없이도 전체가 내려간다)
 #
+# restart 정책은 두지 않는다. 로컬 컨테이너는 bootRun 이 수명을 관리하면 그만인데,
+# unless-stopped 를 걸면 Docker 데스크톱을 켤 때마다 postgres 가 되살아나고, 그러면
+# Boot 의 spring.docker.compose.start.skip 기본값(if-running)에 걸려 up 이 통째로
+# 스킵된다 — 나중에 서비스를 추가해도 영영 안 뜬다. (배포 파일은 서버 재부팅 복구가
+# 필요하므로 unless-stopped 를 유지한다)
+#
 # 배포는 이 파일을 쓰지 않는다 — docker-compose-deployment.yml 을 사용한다.
 # ------------------------------------------------------------------------------
 services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: mateon-postgres
-    restart: unless-stopped
     environment:
       POSTGRES_DB: mateon_db
       POSTGRES_USER: admin
@@ -34,7 +39,6 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mateon-pgadmin
-    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -55,7 +59,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: mateon-app
-    restart: unless-stopped
     env_file:
       - .env
     environment:
