@@ -285,6 +285,11 @@ Assert-Test -Title "14.9b 제안 알림이 B 에게 도착 (증분)" `
     -Condition ($notifyCountBAfter -gt $notifyCountBBefore) `
     -Detail ("{0}건 -> {1}건" -f $notifyCountBBefore, $notifyCountBAfter) | Out-Null
 
+# 취소 알림 기준값. 아래 7) 에서 서브팀 제안 발송("팀 제안 도착")도 B 에게 가므로 전체 건수로는
+# 취소분을 가려낼 수 없다. 제목으로 좁혀 센다 (15_review.ps1 의 평가 요청 알림과 같은 방식).
+$cancelNotiBefore = @((Invoke-Api -Method GET -Path "/api/notifications" -Auth -PassThru -NoTrack).data `
+    | Where-Object { $_.title -eq "제안 취소" }).Count
+
 # ============================================================================
 #  7) 제안 취소 — 서브팀으로 검증 (제안 유일성이 (팀,유저) 단위라 팀을 갈라야 한다)
 # ============================================================================
@@ -315,6 +320,16 @@ Invoke-Api -Method PATCH -Path "/api/teams/offers/$subOfferId" -Auth `
     -Title "14.10e (B) 취소된 제안에 응답 - 차단 기대 (400 OFFER_ALREADY_RESPONDED)" -Body @{
     accepted = $true
 } | Out-Null
+
+# 14.10f 취소 알림이 대상 유저에게 갔는지 (회귀 방지)
+#   B 는 "제안 도착" 알림을 이미 받았다. 회수 알림이 없으면 목록에 다시 들어가 CANCELED 를
+#   보고서야 알게 된다. 알림 저장은 AFTER_COMMIT + @Async 라 잠깐 기다린다.
+Start-Sleep -Seconds 2
+$cancelNotiAfter = @((Invoke-Api -Method GET -Path "/api/notifications" -Auth -PassThru -NoTrack).data `
+    | Where-Object { $_.title -eq "제안 취소" }).Count
+Assert-Test -Title "14.10f 제안 취소 시 대상 유저 B 에게 알림 (증분)" `
+    -Condition ($cancelNotiAfter -gt $cancelNotiBefore) `
+    -Detail "$cancelNotiBefore → $cancelNotiAfter (증분 기대)" | Out-Null
 
 # ============================================================================
 #  8) 수락 — 즉시 팀원 확정 + 정원 마감

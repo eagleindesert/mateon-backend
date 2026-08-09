@@ -48,7 +48,7 @@ public class TeamCompletionService {
             throw new MateonException(ErrorCode.TEAM_ALREADY_ENDED);
         }
 
-        complete(team);
+        complete(team, false);
     }
 
     /**
@@ -59,17 +59,21 @@ public class TeamCompletionService {
     @Transactional
     public int completeExpiredTeams(LocalDate today) {
         List<Team> expired = teamRepository.findEndedEventTeamsNotCompleted(today);
-        expired.forEach(this::complete);
+        expired.forEach(team -> complete(team, true));
         return expired.size();
     }
 
-    /** 종료 처리 + 이벤트 발행. 이미 종료된 팀은 호출부에서 걸러진다. */
-    private void complete(Team team) {
+    /**
+     * 종료 처리 + 이벤트 발행. 이미 종료된 팀은 호출부에서 걸러진다.
+     *
+     * @param autoCompleted 이 호출이 스케줄러발(發)인지. 알림 문구가 갈리므로 이벤트에 실어 보낸다.
+     */
+    private void complete(Team team, boolean autoCompleted) {
         team.setEndedAt(LocalDateTime.now());
         // 종료된 팀은 더 이상 모집하지 않는다 (수동 종료 시 모집 중일 수 있다).
         team.setIsRecruiting(false);
 
         // 커밋 후 팀원 전원에게 평가 요청 알림 (TeamCompletedNotificationListener)
-        eventPublisher.publishEvent(new TeamCompletedEvent(team.getId()));
+        eventPublisher.publishEvent(new TeamCompletedEvent(team.getId(), autoCompleted));
     }
 }

@@ -1,6 +1,7 @@
 package com.example.mateon.teams.repository;
 
 import com.example.mateon.teams.domain.TeamMember;
+import com.example.mateon.user.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,6 +27,16 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
      */
     @Query("SELECT m FROM TeamMember m JOIN FETCH m.user WHERE m.team.id = :teamId AND m.leftAt IS NULL")
     List<TeamMember> findActiveMembersWithUser(@Param("teamId") Long teamId);
+
+    /**
+     * 팀의 활성 멤버 <b>유저만</b> (리더 포함).
+     *
+     * <p>{@link #findActiveMembersWithUser} 와 달리 TeamMember 를 영속성 컨텍스트에 올리지 않는다.
+     * 팀 삭제처럼 곧 team 행이 사라지는 흐름에서 필요하다 — TeamMember 가 컨텍스트에 남아 있으면
+     * 삭제된 Team 을 참조한 채로 flush 되어 TransientPropertyValueException 이 난다.
+     */
+    @Query("SELECT m.user FROM TeamMember m WHERE m.team.id = :teamId AND m.leftAt IS NULL")
+    List<User> findActiveMemberUsers(@Param("teamId") Long teamId);
 
     /** 평가 자격 검증용. */
     boolean existsByTeamIdAndUserIdAndLeftAtIsNull(Long teamId, Long userId);

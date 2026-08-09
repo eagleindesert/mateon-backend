@@ -2,6 +2,7 @@ package com.example.mateon.teams.repository;
 
 import com.example.mateon.teams.domain.ApplicationStatus;
 import com.example.mateon.teams.domain.TeamApplication;
+import com.example.mateon.user.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +23,16 @@ public interface TeamApplicationRepository extends JpaRepository<TeamApplication
 
     // 팀 삭제 시 지원서 일괄 삭제
     void deleteByTeamId(Long teamId);
+
+    /**
+     * 특정 상태의 지원자 <b>유저만</b>.
+     *
+     * <p>지원서 엔티티를 컨텍스트에 올리지 않는 게 요점이다 — 팀 삭제 알림처럼 곧 team 행이
+     * 사라지는 흐름에서 TeamApplication 이 남아 있으면 삭제된 Team 을 참조한 채 flush 된다.
+     */
+    @Query("SELECT a.applicant FROM TeamApplication a WHERE a.team.id = :teamId AND a.status = :status")
+    List<User> findApplicantsByTeamIdAndStatus(@Param("teamId") Long teamId,
+                                               @Param("status") ApplicationStatus status);
 
     int countByTeamIdAndStatus(Long teamId, ApplicationStatus status);
     // 특정 사용자의 승인된 지원서 목록 조회
