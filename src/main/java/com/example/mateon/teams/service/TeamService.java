@@ -7,6 +7,7 @@ import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.notification.domain.Notification;
 import com.example.mateon.notification.service.NotificationService;
 import com.example.mateon.teams.domain.ApplicationStatus;
+import com.example.mateon.teams.domain.OfferStatus;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamApplication;
 import com.example.mateon.teams.domain.TeamMember;
@@ -31,8 +32,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -198,11 +202,46 @@ public class TeamService {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
         }
 
+        // 하드 삭제라 행이 사라진 뒤에는 알릴 대상을 알 수 없다. 지우기 전에 모은다.
+        notifyTeamDeleted(team);
+
         applicationRepository.deleteByTeamId(teamId);
         // 제안도 함께 지운다. DB 는 FK CASCADE 로 정리하지만, 지원서와 대칭을 맞추고
         // 영속성 컨텍스트에 남은 제안이 팀 삭제 뒤에 flush 되는 일을 막는다.
         offerRepository.deleteByTeamId(teamId);
         teamRepository.delete(team);
+    }
+
+    /**
+     * 팀이 사라진다는 사실을 이 팀에 걸려 있던 사람 전원에게 알린다.
+     *
+     * <p>지원서·제안은 하드 삭제고 team_members 는 DB CASCADE 라, 이 알림이 없으면 목록에서
+     * 행이 증발하는 것 말고는 아무 신호가 남지 않는다. 확정된 팀원조차 마이페이지의 참여 활동이
+     * 조용히 사라질 뿐이다.
+     *
+     * <p><b>받는 사람만 조회하고 소유 엔티티(TeamMember/TeamApplication/TeamOffer)는 절대 올리지
+     * 않는다.</b> 올리는 순간 아래에서 team 을 지운 뒤 flush 될 때 삭제된 Team 을 참조한 채로
+     * 남아 TransientPropertyValueException 이 난다. User 는 Team 을 참조하지 않아 안전하다.
+     */
+    private void notifyTeamDeleted(Team team) {
+        String content = String.format("[%s] 팀이 삭제되었습니다.", team.getTitle());
+
+        // 한 사람이 팀원이면서 제안 대상일 수 있다. 유저 단위로 합쳐 중복 발송을 막는다.
+        Map<Long, User> receivers = new LinkedHashMap<>();
+        // 이미 거절·취소된 지원서/제안의 상대는 뺀다 — 그쪽은 이미 끝난 관계다.
+        Stream.of(teamMemberRepository.findActiveMemberUsers(team.getId()),
+                        applicationRepository.findApplicantsByTeamIdAndStatus(
+                                team.getId(), ApplicationStatus.PENDING),
+                        offerRepository.findTargetUsersByTeamIdAndStatus(
+                                team.getId(), OfferStatus.PENDING))
+                .flatMap(List::stream)
+                .forEach(receiver -> receivers.putIfAbsent(receiver.getId(), receiver));
+
+        receivers.remove(team.getLeaderUserId());  // 본인이 지운 팀이다
+
+        receivers.values().forEach(receiver ->
+                notificationService.send(receiver, "팀 삭제", content,
+                        Notification.NotificationType.INFO));
     }
 
     // --- 2. 지원(Application) 로직 ---
@@ -233,6 +272,15 @@ public class TeamService {
                 .build();
 
         applicationRepository.save(application);
+
+        // 팀장에게 알림. 역제안 발송(TeamOfferService.createOffer)의 반대 방향이다.
+        // 팀장 계정이 사라진 팀이어도 지원 자체는 성립해야 하므로, 없으면 조용히 건너뛴다
+        // (getUserById 는 USER_NOT_FOUND 를 던져 정상 지원까지 막으므로 쓰지 않는다).
+        userRepository.findById(team.getLeaderUserId()).ifPresent(leader ->
+                notificationService.send(leader, "지원서 도착",
+                        String.format("[%s] 팀에 %s 님이 지원했습니다.",
+                                team.getTitle(), applicant.getName()),
+                        Notification.NotificationType.INFO));
     }
 
     @Transactional(readOnly = true)
@@ -376,8 +424,17 @@ public class TeamService {
             throw new IllegalArgumentException("이미 처리된 지원서는 취소할 수 없습니다.");
         }
 
-        // 3. 데이터 삭제
+        // 3. 데이터 삭제. team 은 삭제 전에 잡아 둔다.
+        Team team = application.getTeam();
         applicationRepository.delete(application);
+
+        // 4. 팀장에게 알림. 하드 삭제라 목록에서 행이 그냥 사라지므로 알림이 유일한 신호다
+        //    (역제안 취소 → 대상 유저 의 거울이다).
+        userRepository.findById(team.getLeaderUserId()).ifPresent(leader ->
+                notificationService.send(leader, "지원 취소",
+                        String.format("[%s] 팀에 낸 %s 님의 지원이 취소되었습니다.",
+                                team.getTitle(), applicant.getName()),
+                        Notification.NotificationType.INFO));
     }
 
     private User getUserById(Long userId) {

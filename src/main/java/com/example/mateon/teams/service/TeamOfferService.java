@@ -117,12 +117,23 @@ public class TeamOfferService {
                 .toList();
     }
 
-    /** 팀장이 아직 응답받지 않은 제안을 회수한다. */
+    /**
+     * 팀장이 아직 응답받지 않은 제안을 회수한다.
+     *
+     * <p>유저 쪽에는 "제안 도착" 알림이 이미 가 있으므로 회수도 알려야 한다 — 안 그러면 목록에
+     * 들어가 CANCELED 를 보고서야 알게 된다.
+     */
     public void cancelOffer(Long offerId, Long leaderId) {
         TeamOffer offer = getOfferById(offerId);
-        requireLeader(offer.getTeam(), leaderId);
+        Team team = offer.getTeam();
+        requireLeader(team, leaderId);
 
         offer.cancel();  // PENDING 이 아니면 OFFER_ALREADY_RESPONDED
+
+        // 반드시 cancel() 뒤다. 앞에 두면 이미 수락/거절된 제안에도 취소 알림이 나간다.
+        notificationService.send(offer.getTargetUser(), "제안 취소",
+                String.format("[%s] 팀의 제안이 취소되었습니다.", team.getTitle()),
+                Notification.NotificationType.INFO);
     }
 
     // ── 유저: 받은 제안 조회 / 응답 ──────────────────────────────────────────

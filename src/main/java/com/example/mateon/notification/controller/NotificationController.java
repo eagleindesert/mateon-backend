@@ -26,6 +26,7 @@ public class NotificationController {
     public SseEmitter subscribe(Authentication authentication) {
         return notificationService.subscribe(Long.valueOf(authentication.getName()));
     }
+
     // 내 알림 목록 조회
     @GetMapping
     public ApiResponse<List<NotificationResponseDTO>> getNotifications(Authentication authentication) {

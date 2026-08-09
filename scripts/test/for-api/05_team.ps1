@@ -180,8 +180,17 @@ if ($teamId) {
     Assert-Test -Title "5.6a 본인 팀 지원 차단" -Condition $blocked -Detail "message=$blockMsg" | Out-Null
 }
 
+# 지원 알림은 팀장(A) 앞으로 간다. B 로 전환하기 전(= 아직 A 토큰)에 기준값을 잡아 둔다.
+# 절대 개수가 아니라 증분으로 본다 — 누적 데이터라 절대값으로는 이번 실행의 결과를 알 수 없다.
+function Get-NotificationCountByTitle([string]$Title) {
+    $r = Invoke-Api -Method GET -Path "/api/notifications" -Auth -PassThru -NoTrack
+    return @($r.data | Where-Object { $_.title -eq $Title }).Count
+}
+
 # 5.6b 팀 지원하기 (B → A 의 팀) : 정상 성공 경로
 if ($teamId -and $tokenB) {
+    $applyNotiBefore = Get-NotificationCountByTitle "지원서 도착"
+
     Save-AccessToken $tokenB
     $applied = Invoke-Api -Method POST -Path "/api/teams/$teamId/apply" -Auth -PassThru -Title "5.6b 팀 지원하기 (B → A 팀)" -Body @{
         introduction  = "안녕하세요, 백엔드 지원합니다."
@@ -222,6 +231,16 @@ if ($teamId -and $tokenB) {
     }
 
     Save-AccessToken $tokenA   # 이후 팀장(A) 관점 테스트
+
+    # 5.6d 지원 알림이 팀장에게 도착했는지 (회귀 방지)
+    #   지원서는 팀장이 목록을 직접 열어야만 보이므로, 알림이 빠지면 지원이 들어온 사실 자체를
+    #   모른다. 알림 저장은 AFTER_COMMIT + @Async 라 잠깐 기다린다 (15.7d 와 같은 이유).
+    #   5.6c 중복 지원은 차단되므로 증분은 1 이지만, 그래도 -gt 로만 본다.
+    Start-Sleep -Seconds 2
+    $applyNotiAfter = Get-NotificationCountByTitle "지원서 도착"
+    Assert-Test -Title "5.6d 지원서 제출 시 팀장 A 에게 알림 (증분)" `
+        -Condition ($applyNotiAfter -gt $applyNotiBefore) `
+        -Detail "$applyNotiBefore → $applyNotiAfter (증분 기대)" | Out-Null
 }
 
 # 5.8 내 팀에 온 지원서 목록 (팀장 A)
@@ -297,6 +316,84 @@ if ($applicationId) {
 
 # 저장 토큰을 유저 A 로 확정 복구 (이후 스크립트가 A 세션을 이어 쓰도록)
 if ($tokenA) { Save-AccessToken $tokenA }
+
+# ============================================================================
+#  5.13 지원 취소 / 팀 삭제 알림 — 일회용 팀으로 검증
+#
+#  위 메인 팀($teamId)으로는 못 한다. 5.9 에서 이미 승인해 버려 지원 취소가 막히고(PENDING 만
+#  취소 가능), 팀 삭제는 뒤 스크립트가 이 팀을 계속 쓰기 때문에 5.5 가 주석 처리돼 있다.
+#  14_reverse_offer.ps1 이 제안 취소를 '서브팀'으로 검증하는 것과 같은 이유다.
+#
+#  두 이벤트 모두 행을 하드 삭제한다 — 목록에서 그냥 사라지므로 알림이 유일한 신호다.
+#  알림이 빠지면 API 는 여전히 200 이라 상태 검증만으로는 절대 못 잡는다.
+# ============================================================================
+if ($tokenB) {
+    $tempTeam = Invoke-Api -Method POST -Path "/api/teams" -Auth -PassThru -Title "5.13 (A) 일회용 팀 생성 (취소/삭제 알림 검증용)" -Body @{
+        eventId              = $null
+        title                = "취소·삭제 알림 검증용 팀 $((Get-Random -Maximum 9999))"
+        promotionText        = "알림 검증 후 삭제됩니다."
+        role                 = @("백엔드")
+        characteristic       = "일회용"
+        capacity             = 4
+        recruitmentStartDate = (Get-Date).ToString("yyyy-MM-dd")
+        recruitmentEndDate   = (Get-Date).AddDays(30).ToString("yyyy-MM-dd")
+    }
+    $tempTeamId = $tempTeam.data.id
+
+    if ($tempTeamId) {
+        # --- 5.13a 지원 취소 → 팀장 A 에게 알림 ---
+        $cancelNotiBefore = Get-NotificationCountByTitle "지원 취소"
+
+        Save-AccessToken $tokenB
+        Invoke-Api -Method POST -Path "/api/teams/$tempTeamId/apply" -Auth -Title "5.13 (B) 일회용 팀에 지원" -Body @{
+            introduction  = "취소할 지원서"
+            message       = "곧 취소합니다"
+            contactNumber = "010-1234-5678"
+        } | Out-Null
+
+        $tempApps = Invoke-Api -Method GET -Path "/api/teams/applications/me" -Auth -PassThru -NoTrack
+        $tempApplicationId = @($tempApps.data | Where-Object { $_.teamId -eq $tempTeamId })[0].applicationId
+
+        Invoke-Api -Method DELETE -Path "/api/teams/applications/$tempApplicationId" -Auth `
+            -Title "5.13 (B) 지원 취소" | Out-Null
+
+        Save-AccessToken $tokenA
+        Start-Sleep -Seconds 2
+        $cancelNotiAfter = Get-NotificationCountByTitle "지원 취소"
+        Assert-Test -Title "5.13a 지원 취소 시 팀장 A 에게 알림 (증분)" `
+            -Condition ($cancelNotiAfter -gt $cancelNotiBefore) `
+            -Detail "$cancelNotiBefore → $cancelNotiAfter (증분 기대)" | Out-Null
+
+        # --- 5.13b 팀 삭제 → 대기 지원자 B 에게 알림 ---
+        # 방금 취소해서 행이 사라졌으므로 중복 지원 검사에 걸리지 않는다. 이번엔 PENDING 인 채로 둔다.
+        Save-AccessToken $tokenB
+        $deleteNotiBefore = Get-NotificationCountByTitle "팀 삭제"
+        Invoke-Api -Method POST -Path "/api/teams/$tempTeamId/apply" -Auth -Title "5.13 (B) 삭제 검증용 재지원" -Body @{
+            introduction  = "팀 삭제 검증용"
+            message       = "대기 상태로 둡니다"
+            contactNumber = "010-1234-5678"
+        } | Out-Null
+
+        Save-AccessToken $tokenA
+        Invoke-Api -Method DELETE -Path "/api/teams/$tempTeamId" -Auth -Title "5.13 (A) 일회용 팀 삭제" | Out-Null
+
+        $goneDetail = Invoke-Api -Method GET -Path "/api/teams/$tempTeamId" -PassThru -NoTrack
+        Assert-Test -Title "5.13c 삭제된 팀은 더 이상 조회되지 않는다" `
+            -Condition ([bool]($goneDetail -and $goneDetail.success -eq $false)) `
+            -Detail "message=$($goneDetail.message)" | Out-Null
+
+        Save-AccessToken $tokenB
+        Start-Sleep -Seconds 2
+        $deleteNotiAfter = Get-NotificationCountByTitle "팀 삭제"
+        Assert-Test -Title "5.13b 팀 삭제 시 대기 지원자 B 에게 알림 (증분)" `
+            -Condition ($deleteNotiAfter -gt $deleteNotiBefore) `
+            -Detail "$deleteNotiBefore → $deleteNotiAfter (증분 기대)" | Out-Null
+
+        Save-AccessToken $tokenA   # 이후 스크립트가 A 세션을 이어 쓰도록 복구
+    }
+} else {
+    Write-Host "`n[5.13 취소/삭제 알림] 스킵 - 유저 B 토큰이 없습니다." -ForegroundColor Yellow
+}
 
 # 5.5 팀 모집글 삭제 (정리) - 기본은 스킵하여 데이터 확인 가능
 if ($teamId) {
