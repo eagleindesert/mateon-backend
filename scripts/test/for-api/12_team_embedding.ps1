@@ -46,7 +46,7 @@ if (-not (Get-AccessToken)) {
 
 # ── 12.1 requiredSkills 포함 생성 ──────────────────────────────────────────
 $created = Invoke-Api -Method POST -Path "/api/teams" -Auth -PassThru -Title "12.1 팀 생성 (requiredSkills 포함)" -Body @{
-    eventId              = $null
+    eventId              = 25
     title                = "임베딩테스트 팀 $((Get-Random -Maximum 9999))"
     promotionText        = "커머스 플랫폼을 만드는 팀입니다. 현재 FE 2명, Design 1명으로 구성돼 있습니다. 매주 화, 목요일 저녁 오프라인으로 모이고, 초보자도 편하게 참여할 수 있는 분위기를 지향합니다. 이번 학기 교내 공모전 수상이 목표입니다."
     role                 = @("BE")
