@@ -53,7 +53,7 @@ public class UserService {
     public UserResponse getMyProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
-        return UserResponse.from(
+        return UserResponse.ofFull(
                 user,
                 loadCollaborationScore(userId),
                 loadParticipatedActivities(userId));
@@ -80,7 +80,7 @@ public class UserService {
         userRepository.save(user);
         // GET /me 와 같은 DTO 로 나가므로 온도·활동도 같이 싣는다. 한쪽만 담으면 프로필 수정 직후
         // 화면에서 그 값들이 사라진다.
-        return UserResponse.from(
+        return UserResponse.ofFull(
                 user,
                 loadCollaborationScore(userId),
                 loadParticipatedActivities(userId));
@@ -117,6 +117,12 @@ public class UserService {
                 targetUserId.equals(viewerId));
     }
 
+    /**
+     * @deprecated {@link #getMyProfile}({@code GET /api/users/me}) 이 같은 값을 모두 싣는다.
+     *             프론트가 쓰지 않는 중복 경로라 폐기 예정이며, 새 호출부를 만들지 말 것.
+     *             제거는 프론트 확인 후 별건으로 한다 — 그때까지 동작은 그대로 유지한다.
+     */
+    @Deprecated
     @Transactional
     public MyPageResponseDTO getMyPage(Long userId) {
         // 1. 유저 정보 조회

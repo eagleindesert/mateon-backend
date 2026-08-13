@@ -1,4 +1,4 @@
-package com.example.mateon.matching.config;
+package com.example.mateon.common.ai;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -15,8 +15,9 @@ public class AiRestTemplateConfig {
     /**
      * AI 서버 전용 RestTemplate.
      *
-     * 기본 restTemplate 빈(config/RestTemplateConfig)은 타임아웃이 없어 무한 대기하지만,
-     * 카카오/OpenAI 호출의 동작을 바꾸지 않기 위해 그대로 두고 여기서 별도 빈을 만든다.
+     * 기본 restTemplate 빈(common/config/RestTemplateConfig)과 타임아웃 값이 다르다 — 저쪽은
+     * 카카오 OAuth 기준(3s/5s)이고 AI 는 LLM 응답을 기다려야 해서 read 가 훨씬 길다.
+     * 그래서 공유하지 않고 여기서 별도 빈을 만든다.
      *
      * Spring Boot 4 에서 RestTemplateBuilder 는 spring-boot-restclient 모듈로 이동했고,
      * 이 프로젝트엔 test 스코프로만 들어와 있다(main 클래스패스에 없음). 그래서 Builder 대신

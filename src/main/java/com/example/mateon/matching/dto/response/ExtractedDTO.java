@@ -1,6 +1,6 @@
 package com.example.mateon.matching.dto.response;
 
-import com.example.mateon.matching.client.IntentExtractResponse;
+import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

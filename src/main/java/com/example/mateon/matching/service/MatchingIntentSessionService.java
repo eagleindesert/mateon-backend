@@ -2,8 +2,8 @@ package com.example.mateon.matching.service;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.client.IntentExtractResponse;
-import com.example.mateon.matching.config.AiServerProperties;
+import com.example.mateon.matching.client.intent.IntentExtractResponse;
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.matching.domain.*;
 import com.example.mateon.matching.dto.response.ExtractedDTO;
 import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;

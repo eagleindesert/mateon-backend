@@ -8,6 +8,7 @@ import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,18 @@ public class UserController {
         UserResponse response = userService.updateMyProfile(userId, request);
         return ResponseEntity.ok(ApiResponse.success("정보가 수정되었습니다.", response));
     }
+    /**
+     * 마이페이지 종합 정보 [인증 필수].
+     *
+     * @deprecated {@code GET /api/users/me} 가 같은 값을 모두 싣는다 (협업 온도·평가 건수·참여 활동
+     *             포함). 프론트가 쓰지 않는 중복 경로이며, 새로 붙이는 화면은 {@code /me} 를 쓸 것.
+     *             경로 제거는 프론트 확인 후 별건으로 진행하므로 <b>지금 응답은 그대로다</b>.
+     */
+    @Deprecated
+    @Operation(
+            deprecated = true,
+            summary = "[폐기 예정] 마이페이지 종합 정보 조회",
+            description = "GET /api/users/me 로 대체되었습니다. 같은 값을 모두 주므로 새 호출부는 /me 를 쓰세요.")
     @GetMapping("/mypage")
     public ResponseEntity<ApiResponse<MyPageResponseDTO>> getMyPage(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());

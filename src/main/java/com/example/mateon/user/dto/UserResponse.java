@@ -20,11 +20,16 @@ import java.util.List;
  * <b>기존 키는 건드리지 않고 필드만 더했다</b>: 이 DTO 를 이미 읽고 있는 화면들이 있으므로 키
  * 구성이 바뀌면 그쪽이 깨진다.
  *
- * <p>협업 온도 2종과 참여 활동은 <b>모든 응답에 담기지 않는다</b>. {@link #from(User)} 로 만든
+ * <p>협업 온도 2종과 참여 활동은 <b>모든 응답에 담기지 않는다</b>. {@link #ofBasic(User)} 로 만든
  * 응답은 세 값이 모두 null 이고, 이는 "비공개"나 "없음"이 아니라 <b>"이 응답은 그 값을 싣지
  * 않는다"</b>는 뜻이다. 지원서 응답의 {@code applicant} 필드가 이 DTO 를 재사용하기 때문에 생기는
  * 구분이며 ({@link com.example.mateon.teams.dto.response.TeamApplicationResponseDTO#applicant}),
- * 실어야 하는 쪽은 {@link #from(User, UserCollaborationScore, List)} 를 쓴다.
+ * 실어야 하는 쪽은 {@link #ofFull(User, UserCollaborationScore, List)} 를 쓴다.
+ *
+ * <p>두 팩터리 이름을 {@code from} 오버로딩으로 두지 않은 이유가 여기 있다. 인자 개수만 다를 뿐
+ * <b>만들어 내는 응답의 계약이 서로 다르므로</b>, 같은 이름이면 호출부에서 어느 쪽 계약인지 읽히지
+ * 않는다. 이름을 갈라 두면 {@code ofBasic} 이라고 쓴 자리에서 "여긴 온도를 안 싣는다"가 그대로 보이고,
+ * 온도만 싣고 활동은 빠뜨리는 어중간한 조합도 애초에 만들어지지 않는다.
  *
  * <p>그래서 {@code collaborationReviewCount} 를 {@code int} 가 아니라 {@link Integer} 로 뒀다.
  * 온도를 싣는 응답에서는 건수가 0 이라도 온도가 함께 오므로, 건수가 null 인지 여부가 "이 API 는
@@ -82,7 +87,7 @@ public class UserResponse {
      * 유저 엔티티만으로 조립하는 응답용. 지원서 응답의 {@code applicant} 처럼 온도·활동을 읽지 않는
      * 경로가 쓴다.
      */
-    public static UserResponse from(User user) {
+    public static UserResponse ofBasic(User user) {
         // 건수·활동까지 null 로 둬야 "안 싣는 응답"이 "평가 0 건"/"참여 활동 없음"과 구분된다.
         return baseOf(user).build();
     }
@@ -90,16 +95,18 @@ public class UserResponse {
     /**
      * 마이페이지 화면용 전체 조립 ({@code GET /api/users/me}, {@code PUT /api/users/me}).
      *
-     * <p>얇은 {@link #from(User)} 와 갈라 둔 이유는 지원서 응답 쪽 제약이다 — 거기서는 엔티티만
+     * <p>얇은 {@link #ofBasic(User)} 와 갈라 둔 이유는 지원서 응답 쪽 제약이다 — 거기서는 엔티티만
      * 들고 있어 온도·활동을 읽을 수 없고, 지원자마다 활동을 읽으면 목록 조회가 N+1 이 된다.
      *
      * @param score      협업 온도 집계. 평가를 한 번도 안 받은 유저는 행 자체가 없어 null 이다 —
      *                   에러가 아니며, 기준점 온도 + 건수 0 으로 내려간다.
      * @param activities 참여했던 활동 이력. 참여한 팀이 없으면 빈 리스트다 (null 이 아니다).
+     *                   여기에 null 을 넘기면 안 된다 — 온도는 실렸는데 활동만 "안 실음"인,
+     *                   프론트가 해석할 수 없는 반쪽 응답이 된다.
      */
-    public static UserResponse from(User user,
-                                    UserCollaborationScore score,
-                                    List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
+    public static UserResponse ofFull(User user,
+                                      UserCollaborationScore score,
+                                      List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
         return baseOf(user)
                 .collaborationTemperature(score != null
                         ? score.getTemperature()

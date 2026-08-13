@@ -1,5 +1,6 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.matching.client.recommendation;
 
+import com.example.mateon.common.ai.AiCallTemplate;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import lombok.RequiredArgsConstructor;

@@ -2,7 +2,7 @@ package com.example.mateon.portfolios.client;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.client.AiCallTemplate;
+import com.example.mateon.common.ai.AiCallTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

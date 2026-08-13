@@ -1,6 +1,6 @@
 package com.example.mateon.events.client;
 
-import com.example.mateon.matching.client.AiCallTemplate;
+import com.example.mateon.common.ai.AiCallTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;

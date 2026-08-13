@@ -1,4 +1,4 @@
-package com.example.mateon.config;
+package com.example.mateon.common.config;
 
 import lombok.Getter;
 import lombok.Setter;

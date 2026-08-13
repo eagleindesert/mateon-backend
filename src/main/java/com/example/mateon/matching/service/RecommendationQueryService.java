@@ -211,11 +211,11 @@ public class RecommendationQueryService {
     // ════════════════════════════════════════════════════════════════════════
     //  역제안 (팀 → 유저)
     // ════════════════════════════════════════════════════════════════════════
-
     /**
      * 팀을 질의로 삼아 후보 유저들을 모아 detach 된 스냅샷으로 돌려준다.
      *
-     * <p>질의 벡터는 팀의 기존 team_embeddings 를 그대로 재사용한다 — 팀 embedding_text 가 이미
+     * <p>
+     * 질의 벡터는 팀의 기존 team_embeddings 를 그대로 재사용한다 — 팀 embedding_text 가 이미
      * 모집 역할/요구 스킬 중심으로 렌더링돼 있어 "이 팀이 뭘 필요로 하는가"를 충분히 대변한다.
      *
      * @param leaderUserId 요청자. 팀장이 아니면 거절한다.
@@ -270,7 +270,7 @@ public class RecommendationQueryService {
           .sorted(Comparator.comparing((MatchingIntentSlot slot) -> slot.getUser().getId()).reversed())
           .limit(MAX_CANDIDATES)
           .map(slot -> new UserRecommendationSnapshot.Candidate(
-            slot.getUser(), slot, embeddings.get(slot.getUser().getId()).getEmbedding()))
+          slot.getUser(), slot, embeddings.get(slot.getUser().getId()).getEmbedding()))
           .toList();
 
         // 후보 0건은 정상(추천할 사람이 아직 없음)일 수도, 사고(의도 추출 유저는 있는데 전부
@@ -295,11 +295,12 @@ public class RecommendationQueryService {
     /**
      * 응답에 실을 유저들의 표시 정보를 한 번에 모아 온다.
      *
-     * <p>{@link #loadDisplayInfo} 와 같은 이유로 상위 N 건을 자른 뒤에 호출한다. User 는 이미
+     * <p>
+     * {@link #loadDisplayInfo} 와 같은 이유로 상위 N 건을 자른 뒤에 호출한다. User 는 이미
      * 스냅샷에 들어 있으므로 여기서는 협업 온도만 배치로 붙인다.
      */
     public Map<Long, UserDisplayInfo> loadUserDisplayInfo(List<Long> userIds,
-                                                          Map<Long, User> usersById) {
+      Map<Long, User> usersById) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
@@ -325,11 +326,11 @@ public class RecommendationQueryService {
     // 두 메서드 모두 요약 문자열 조립까지 여기서 끝낸다. 폴백이 slot/user/embedding/team 네
     // 엔티티를 오가는데 그걸 TX 밖으로 들고 나가면 LazyInitializationException 표면적만 넓어진다
     // (ReasonSnapshot 이 엔티티를 하나도 담지 않는 이유).
-
     /**
      * 유저→팀 방향의 상세 이유 재료. 후보는 선택된 팀, 대상은 요청자 본인이다.
      *
-     * <p>권한 검사가 따로 없는 건 조회 자체가 곧 검사이기 때문이다 — 자기 로그에 없는 팀은
+     * <p>
+     * 권한 검사가 따로 없는 건 조회 자체가 곧 검사이기 때문이다 — 자기 로그에 없는 팀은
      * 애초에 찾히지 않는다.
      */
     public ReasonSnapshot gatherReasonForUserToTeam(Long userId, Long teamId) {
@@ -364,7 +365,7 @@ public class RecommendationQueryService {
      * @param leaderUserId 요청자. 팀장이 아니면 거절한다 — {@link #gatherForTeam} 과 같은 규칙이다.
      */
     public ReasonSnapshot gatherReasonForTeamToUser(Long teamId, Long targetUserId,
-                                                     Long leaderUserId) {
+      Long leaderUserId) {
         // 팀장 검증이 먼저다. 남의 팀 추천 이력을 캐시 hit 로 흘리지 않으려면 순서가 중요하다.
         Team team = teamRepository.findById(teamId)
           .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -403,11 +404,11 @@ public class RecommendationQueryService {
     //
     // 그래도 gatherReason* 과 합치지 않는다 — 반환 타입과 캐시 유무가 달라, 합치면 호출자마다
     // 쓰지 않는 필드를 들고 다니게 된다.
-
     /**
      * 유저→팀 방향의 제안 조립 재료. 후보는 선택된 팀, 대상은 요청자 본인이다.
      *
-     * <p>권한 검사가 따로 없는 건 {@link #gatherReasonForUserToTeam} 과 같은 이유다 — 자기
+     * <p>
+     * 권한 검사가 따로 없는 건 {@link #gatherReasonForUserToTeam} 과 같은 이유다 — 자기
      * 로그에 없는 팀은 애초에 찾히지 않는다.
      */
     public ProposalSnapshot gatherProposalForUserToTeam(Long userId, Long teamId) {
@@ -425,7 +426,7 @@ public class RecommendationQueryService {
         TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
 
         return new ProposalSnapshot(userId, teamId,
-          team.getEventId(),   // 자율 프로젝트면 null — 정상이다
+          team.getEventId(), // 자율 프로젝트면 null — 정상이다
           slot.getId(),
           item.getScore(),
           RecommendationSummaryFactory.teamSummary(teamEmbedding, team),
@@ -438,7 +439,7 @@ public class RecommendationQueryService {
      * @param leaderUserId 요청자. 팀장이 아니면 거절한다 — {@link #gatherForTeam} 과 같은 규칙이다.
      */
     public ProposalSnapshot gatherProposalForTeamToUser(Long teamId, Long targetUserId,
-                                                        Long leaderUserId) {
+      Long leaderUserId) {
         // 팀장 검증이 먼저다. 남의 팀 추천 이력의 존재 여부를 404/200 차이로 흘리지 않는다.
         Team team = teamRepository.findById(teamId)
           .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));

@@ -11,7 +11,7 @@ import java.util.List;
  * FastAPI POST /internal/teams/embedding:refresh 응답 본문.
  *
  * <p>@JsonNaming 을 쓰지 않고 @JsonProperty 만 쓰는 이유, @JsonIgnoreProperties 를 클래스에
- * 명시하는 이유는 {@link com.example.mateon.matching.client.IntentExtractResponse} 참조
+ * 명시하는 이유는 {@link com.example.mateon.matching.client.intent.IntentExtractResponse} 참조
  * (Jackson 2/3 공존 + aiRestTemplate 자체 컨버터).
  *
  * <p>의도 추출과 달리 missing_fields 가 남아 있어도 임베딩은 항상 함께 온다 —

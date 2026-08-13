@@ -1,6 +1,6 @@
 package com.example.mateon.auth.jwt;
 
-import com.example.mateon.config.JwtProperties;
+import com.example.mateon.common.config.JwtProperties;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;

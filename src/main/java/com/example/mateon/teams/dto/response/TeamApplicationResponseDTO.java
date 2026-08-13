@@ -41,7 +41,7 @@ public class TeamApplicationResponseDTO {
                 .applicationId(application.getId())
                 .teamId(application.getTeam().getId())
                 .teamTitle(application.getTeam().getTitle())
-                .applicant(UserResponse.from(application.getApplicant()))
+                .applicant(UserResponse.ofBasic(application.getApplicant()))
                 .isMine(application.getApplicant().getId().equals(currentUserId))
                 .introduction(application.getIntroduction())
                 .message(application.getMessage())

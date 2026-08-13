@@ -2,7 +2,7 @@ package com.example.mateon.teams.service;
 
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
-import com.example.mateon.matching.config.AiServerProperties;
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.teams.client.TeamEmbeddingClient;
 import com.example.mateon.teams.client.TeamEmbeddingRefreshRequest;
 import com.example.mateon.teams.client.TeamEmbeddingRefreshResponse;

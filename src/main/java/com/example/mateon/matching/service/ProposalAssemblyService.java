@@ -1,8 +1,8 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.ProposalAssemblyRequest;
-import com.example.mateon.matching.client.ProposalClient;
-import com.example.mateon.matching.client.ProposalResponse;
+import com.example.mateon.matching.client.proposal.ProposalAssemblyRequest;
+import com.example.mateon.matching.client.proposal.ProposalClient;
+import com.example.mateon.matching.client.proposal.ProposalResponse;
 import com.example.mateon.matching.dto.response.ProposalDraftResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ProposalSnapshot;
 import lombok.RequiredArgsConstructor;
