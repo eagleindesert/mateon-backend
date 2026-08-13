@@ -9,6 +9,7 @@ import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,14 @@ public class UserController {
     private final UserService userService;
     private final ProfileImageService profileImageService;
 
+    @Operation(summary = "내 정보 조회",
+      description = """
+                    마이페이지 화면이 쓰는 경로다. 프로필 기본 항목에 더해 협업 온도·평가 건수·
+                    참여 활동까지 한 번에 실린다 (폐기 예정인 `/mypage` 와 같은 값).
+
+                    대상은 토큰의 주인이라 경로에 userId 를 넣지 않는다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyProfile(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
@@ -34,6 +43,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Operation(summary = "내 정보 수정",
+      description = """
+                    보낸 필드만 바뀐다 — 생략하거나 null 로 둔 항목은 기존 값이 유지되므로
+                    수정 화면에서 바꾼 것만 실어 보내도 된다.
+
+                    이메일·학교 인증 상태·비밀번호는 여기서 바꿀 수 없다
+                    (비밀번호는 `POST /api/users/password/change`).""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PutMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
             Authentication authentication,
@@ -54,6 +72,8 @@ public class UserController {
             deprecated = true,
             summary = "[폐기 예정] 마이페이지 종합 정보 조회",
             description = "GET /api/users/me 로 대체되었습니다. 같은 값을 모두 주므로 새 호출부는 /me 를 쓰세요.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/mypage")
     public ResponseEntity<ApiResponse<MyPageResponseDTO>> getMyPage(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
@@ -70,6 +90,16 @@ public class UserController {
      * <p>경로를 숫자로 못박아 둔 이유: {@code /me}, {@code /mypage} 같은 리터럴 경로가
      * 실수로 이 핸들러에 잡혀 Long 파싱 400 이 나는 걸 구조적으로 막는다.
      */
+    @Operation(summary = "남의 프로필 조회",
+            description = """
+                          추천 목록·팀 상세·역제안·DM 어디서든 응답에 담긴 userId 하나로 이 경로를
+                          열면 된다. 내려가는 값은 **연락처를 배제한 공개 항목뿐**이다.
+
+                          자기 자신을 조회하면 isMe 가 true 로 온다. 매칭 의도 슬롯이나 협업 온도는
+                          아직 없을 수 있고(의도 추출 전·평가 0건) 그때는 null 이다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
+    @Parameter(name = "userId", description = "조회할 사용자. 숫자만 받는다(/me 같은 리터럴 경로와 겹치지 않게 하기 위함).")
     @GetMapping("/{userId:\\d+}")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
             Authentication authentication,
@@ -90,6 +120,25 @@ public class UserController {
      * <p>형식·크기가 잘못된 파일은 접수 단계에서 400/413 으로 즉시 거절되므로, 200 을 받았다면
      * 파일 자체에는 문제가 없다는 뜻이다.
      */
+    @Operation(summary = "프로필 이미지 업로드",
+            description = """
+                          `multipart/form-data` 로 보내고 **파트 이름은 `image`** 다
+                          (jpg/jpeg/png, 10MB 이하).
+
+                          **응답에 이미지 URL 이 없다.** 버킷 작업(이전 사진 삭제 → 새 사진 업로드)이
+                          비동기라 이 응답은 "접수했다"까지만 알린다. 새 URL 은 잠시 뒤 유저 조회
+                          (`/me`, `/{userId}`)의 profileImageUrl 로 확인한다.
+
+                          형식·크기가 잘못된 파일은 접수 단계에서 400/413 으로 즉시 거절되므로,
+                          200 을 받았다면 파일 자체에는 문제가 없다는 뜻이다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413",
+            description = "IMAGE_TOO_LARGE — 이미지는 10MB 이하만 업로드할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "507",
+            description = "STORAGE_QUOTA_EXCEEDED — 저장 공간이 가득 찼습니다. 파일을 줄여도 통과하지 않는다.")
     @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Void>> uploadProfileImage(
             Authentication authentication,
@@ -104,6 +153,14 @@ public class UserController {
      *
      * <p>이미지가 없는 상태에서 불러도 성공한다(멱등) — 요청이 원한 결과가 이미 그 상태다.
      */
+    @Operation(summary = "프로필 이미지 삭제",
+            description = """
+                          업로드와 마찬가지로 실제 처리는 비동기다.
+
+                          이미지가 없는 상태에서 불러도 성공한다(멱등) — 요청이 원한 결과가
+                          이미 그 상태이기 때문이다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @DeleteMapping("/me/profile-image")
     public ResponseEntity<ApiResponse<Void>> deleteProfileImage(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
@@ -111,6 +168,16 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("프로필 이미지 삭제가 요청되었습니다.", null));
     }
 
+    @Operation(summary = "비밀번호 변경 (로그인 상태)",
+            description = """
+                          대상을 토큰으로 정하므로 email 을 받지 않는다. 로그인하지 않은 채
+                          바꾸는 화면이라면 `POST /api/auth/password/change` 를 쓴다.
+
+                          성공하면 저장된 refreshToken 이 폐기되므로 **다시 로그인해야 한다.**""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "PASSWORD_MISMATCH — 현재 비밀번호가 틀렸거나, 새 비밀번호와 확인값이 다릅니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PostMapping("/password/change")
     public ResponseEntity<ApiResponse<Object>> changePassword(
             Authentication authentication,

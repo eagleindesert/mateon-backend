@@ -2,6 +2,7 @@ package com.example.mateon.matching.dto.response;
 
 import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.user.domain.User;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -18,6 +19,12 @@ import java.util.List;
  * <p>desiredRoles/skills 등은 slot(AI 정규화 값)에서 온다 — 팀 쪽 recruiting_roles 와 같은
  * 어휘라 화면에서 나란히 비교된다.
  */
+@Schema(description = """
+        역제안 추천으로 나온 유저 1명. 배열은 점수 내림차순이다.
+
+        연락처 성격의 값(email 등)은 담기지 않는다 — 아직 아무 관계도 없는 유저의 목록이기
+        때문이다. 연락은 제안이 수락된 뒤이거나 DM 으로 한다
+        (userId 가 POST /api/chat/rooms/dm 의 targetUserId 다).""")
 @Getter
 public class UserRecommendationResponseDTO {
 
@@ -30,18 +37,24 @@ public class UserRecommendationResponseDTO {
     private final String tagline;
 
     /** AI 가 정규화한 희망 역할 코드 (예: "BE"). */
+    @Schema(description = "AI 가 정규화한 희망 역할 코드. 팀의 모집 역할과 같은 어휘라 화면에서 나란히 비교된다.",
+            example = "[\"BE\"]")
     private final List<String> desiredRoles;
     private final List<String> skills;
     private final String experienceLevel;
     private final String activityStyle;
 
     /** 협업 온도. 평가가 0건이면 기준점 36.5 다 (항상 값이 있다). */
+    @Schema(description = "협업 온도. 평가가 0건이면 기준점 36.5 다 — 항상 값이 있다.")
     private final BigDecimal collaborationTemperature;
 
     /** AI 가 매긴 적합도 점수. 정렬 기준이자 화면 표시용. */
+    @Schema(description = "AI 가 매긴 적합도 점수. 배열의 정렬 기준이자 화면 표시용이다.")
     private final double score;
 
     /** 추천 근거 문구 (예: "BE 역할을 희망하고 있어요"). AI 가 만든 문장을 그대로 내려준다. */
+    @Schema(description = "짧은 추천 근거 한 줄. 긴 설명이 필요하면 POST /reason/team-to-user 를 부른다.",
+            example = "BE 역할을 희망하고 있어요")
     private final String label;
 
     public UserRecommendationResponseDTO(User user, MatchingIntentSlot slot,

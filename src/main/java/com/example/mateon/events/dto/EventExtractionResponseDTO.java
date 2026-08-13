@@ -2,6 +2,7 @@ package com.example.mateon.events.dto;
 
 import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -14,6 +15,11 @@ import java.time.LocalDate;
  * 수정만 받은 뒤 그대로 POST /api/events 의 본문으로 되돌려보낼 수 있어야 한다.
  * (deprecated 인 campusScope/targetColleges 는 새 경로에서 쓰지 않으므로 뺐다)
  */
+@Schema(description = """
+        포스터에서 뽑아낸 활동 등록 초안. **아직 저장된 것이 아니다.**
+
+        필드 구성을 등록 요청(EventRequestDTO)과 맞춰 두었으니, 사용자가 고친 값을 그대로
+        POST /api/events 의 본문으로 되돌려보내면 된다. 읽어 내지 못한 항목은 null 이다.""")
 @Getter
 @Builder
 public class EventExtractionResponseDTO {

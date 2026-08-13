@@ -1,5 +1,6 @@
 package com.example.mateon.bookmarks.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -14,10 +15,13 @@ import lombok.Getter;
  * (UserProfileResponse 가 {@code @JsonProperty("isMe")} 를 달아야 했던 건 필드명 자체가
  * {@code is-} 로 시작해서 생긴 별개 사정이다.)
  */
+@Schema(description = "북마크 등록·해제 후의 현재 상태")
 @Getter
 @AllArgsConstructor
 public class BookmarkToggleResponseDTO {
 
     private Long eventId;
+    @Schema(description = "**요청 성공 여부가 아니라 지금 찜한 상태인지**를 뜻한다. "
+            + "이 값 하나로 별 아이콘을 칠하면 되고, 요청이 중복이었는지는 신경 쓰지 않아도 된다.")
     private boolean bookmarked;
 }

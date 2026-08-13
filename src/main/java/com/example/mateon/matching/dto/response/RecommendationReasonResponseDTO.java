@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -12,10 +13,12 @@ import lombok.RequiredArgsConstructor;
  * <p>캐시에서 나온 값인지 방금 만든 값인지는 알려주지 않는다. 프론트가 다르게 다룰 이유가 없고,
  * 노출하면 백엔드 캐시 전략에 프론트가 묶인다.
  */
+@Schema(description = "추천 상세 이유 1건. 두 방향이 같은 모양이다.")
 @Getter
 @RequiredArgsConstructor
 public class RecommendationReasonResponseDTO {
 
     /** AI 가 만든 문장을 그대로. 백엔드는 해석하지 않는다 (label 과 같은 규약). */
+    @Schema(description = "AI 가 만든 긴 설명. 목록의 label(한 줄)보다 자세하며, 한 번 만들어지면 값이 고정된다.")
     private final String reason;
 }

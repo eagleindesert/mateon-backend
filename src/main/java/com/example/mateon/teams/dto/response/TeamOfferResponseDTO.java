@@ -3,6 +3,7 @@ package com.example.mateon.teams.dto.response;
 import com.example.mateon.teams.domain.OfferStatus;
 import com.example.mateon.teams.domain.TeamOffer;
 import com.example.mateon.user.domain.User;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -18,6 +19,12 @@ import java.util.List;
  * <p>이메일 등 연락처 성격의 값은 담지 않는다 — 제안이 수락되기 전에는 아직 아무 관계도 아니다.
  * 대화가 필요하면 DM(POST /api/chat/rooms/dm)의 targetUserId 로 leaderId/targetUserId 를 쓰면 된다.
  */
+@Schema(description = """
+        역제안 1건. 받은 쪽(유저)과 보낸 쪽(팀장)이 같은 모양을 쓰고 화면이 필요한 면만 읽는다 —
+        유저 화면은 team*·aiLabel, 팀장 화면은 targetUser*·status 가 관심사다.
+
+        연락처 성격의 값은 담기지 않는다. 대화가 필요하면 leaderId/targetUserId 를
+        POST /api/chat/rooms/dm 의 targetUserId 로 쓴다.""")
 @Getter
 @Builder
 public class TeamOfferResponseDTO {
@@ -42,14 +49,21 @@ public class TeamOfferResponseDTO {
     private String targetUserMajor;
 
     // ── 제안 내용 ────────────────────────────────────────────────────────────
+    @Schema(description = "팀장이 덧붙인 한마디.")
     private String message;
     /** 제안 시점의 AI 적합도 점수. 추천을 거치지 않고 보낸 제안이면 null. */
+    @Schema(description = "제안 시점의 AI 적합도 점수. 추천을 거치지 않고 보낸 제안이면 null.")
     private Double aiScore;
     /** 제안 시점의 AI 추천 근거 문구. 추천을 거치지 않고 보낸 제안이면 null. */
+    @Schema(description = "제안 시점의 AI 추천 근거 문구. 추천을 거치지 않고 보낸 제안이면 null.")
     private String aiLabel;
 
+    @Schema(description = "PENDING 은 응답 대기(팀장이 회수할 수 있는 유일한 상태), ACCEPTED 는 그 즉시 팀원이 된 상태, "
+            + "REJECTED 는 유저의 거절, CANCELED 는 팀장의 회수다.",
+            allowableValues = {"PENDING", "ACCEPTED", "REJECTED", "CANCELED"})
     private OfferStatus status;
     private LocalDateTime createdAt;
+    @Schema(description = "유저가 응답한 시각. 아직 PENDING 이면 null.")
     private LocalDateTime respondedAt;
 
     /**

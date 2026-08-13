@@ -3,6 +3,7 @@ package com.example.mateon.user.dto;
 import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,14 +38,20 @@ import java.util.List;
  * 나가 "평가를 아직 못 받은 유저"와 똑같이 보인다. {@code participatedActivities} 의 null 과 빈
  * 배열도 같은 이유로 구분한다.
  */
+@Schema(description = """
+        내 프로필. 지원서 응답의 applicant 로도 재사용되는데, 그때는 협업 온도 2종과
+        참여 활동이 모두 null 이다 — "없음"이 아니라 "이 응답은 그 값을 싣지 않는다"는 뜻이다.""")
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserResponse {
     private Long id;
+    @Schema(description = "로그인 이메일. 자체 가입 계정은 학교 이메일과 같다.")
     private String email;
+    @Schema(description = "학교 인증에 사용한 이메일. 인증 전이면 null.")
     private String schoolEmail;
+    @Schema(description = "재학생 인증 여부. false 면 팀 모집글 작성·지원이 400 SCHOOL_NOT_VERIFIED 로 막힌다.")
     private boolean schoolVerified;
     private String name;
     private String school;
@@ -57,8 +64,11 @@ public class UserResponse {
     private String interestJobTertiary;
     private String tagline;
     /** 사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null. */
+    @Schema(description = "사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null.")
     private String portfolio;
     /** 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null. */
+    @Schema(description = "프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null "
+            + "(업로드는 비동기라 200 을 받은 직후에도 잠시 null 일 수 있다).")
     private String profileImageUrl;
 
     /**
@@ -67,8 +77,11 @@ public class UserResponse {
      * <p>온도를 싣지 않는 경로에서만 null 이다. 구분은 {@link #collaborationReviewCount} 로 한다
      * (클래스 주석 참고).
      */
+    @Schema(description = "협업 온도. 평가 0건이면 기준점 36.5 다 — 이 값을 싣는 응답에서는 항상 값이 있다.")
     private BigDecimal collaborationTemperature;
     /** 받은 평가 건수. 온도를 싣지 않는 응답에서는 0 이 아니라 null 이다 (클래스 주석 참고). */
+    @Schema(description = "받은 평가 건수. **null 이면 '이 응답은 온도를 싣지 않는다'는 뜻**이고, "
+            + "0 이면 '아직 평가를 못 받았다'는 뜻이다.")
     private Integer collaborationReviewCount;
 
     /**
@@ -78,6 +91,7 @@ public class UserResponse {
      * <p>{@code /mypage} 와 {@code /api/users/{userId}} 가 쓰는 것과 같은 타입을 그대로 쓴다.
      * 세 응답의 활동 항목이 프론트에서 같은 컴포넌트로 렌더링되므로 키 구성이 갈릴 이유가 없다.
      */
+    @Schema(description = "참여했던 활동 이력. 참여한 팀이 없으면 빈 배열이고, 이 값을 싣지 않는 응답에서는 null 이다.")
     private List<MyPageResponseDTO.ActivitySummaryDTO> participatedActivities;
 
     private LocalDateTime createdAt;

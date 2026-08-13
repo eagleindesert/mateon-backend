@@ -4,6 +4,8 @@ import com.example.mateon.bookmarks.dto.BookmarkToggleResponseDTO;
 import com.example.mateon.bookmarks.service.BookmarkService;
 import com.example.mateon.common.dto.ApiResponse;
 import com.example.mateon.events.dto.EventResponseDTO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -46,6 +48,16 @@ public class BookmarkController {
      * ({@code bookmarked: true}) — 프론트는 상태코드를 구분하지 않아도 되고, 구분하고 싶으면
      * 할 수 있다.
      */
+    @Operation(summary = "활동 북마크 등록",
+      description = """
+                    새로 생기면 **201**, 이미 찜한 상태였으면 **200** 이다. 둘 다 성공이고 응답
+                    본문도 같으므로(`bookmarked: true`) 상태코드를 구분하지 않아도 된다.
+
+                    같은 활동을 여러 번 눌러도 안전하다(멱등).""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = """
+            EVENT_NOT_FOUND — 활동을 찾을 수 없습니다.
+            USER_NOT_FOUND — 사용자를 찾을 수 없습니다.""")
+    @Parameter(name = "eventId", description = "찜할 활동. 숫자만 받는다(/events/ids 와 겹치지 않게 하기 위함).")
     @PostMapping("/events/{eventId:\\d+}")
     public ResponseEntity<ApiResponse<BookmarkToggleResponseDTO>> addBookmark(
       Authentication authentication,
@@ -63,6 +75,13 @@ public class BookmarkController {
     /**
      * 활동 북마크 해제. 원래 찜하지 않았더라도 200 이다 — 결과 상태가 같으므로 실패로 볼 이유가 없다.
      */
+    @Operation(summary = "활동 북마크 해제",
+      description = """
+                    원래 찜하지 않았더라도 200 이다 — 결과 상태가 같으므로 실패로 볼 이유가 없다.
+                    응답 본문은 항상 `bookmarked: false` 다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
+    @Parameter(name = "eventId", description = "찜을 해제할 활동.")
     @DeleteMapping("/events/{eventId:\\d+}")
     public ResponseEntity<ApiResponse<BookmarkToggleResponseDTO>> removeBookmark(
       Authentication authentication,
@@ -82,6 +101,14 @@ public class BookmarkController {
      * <p>경로 앞에 {@code /events} 를 둔 건 나중에 다른 대상(팀 모집글 등)이 생겼을 때
      * {@code /api/bookmarks/teams} 로 나란히 붙일 수 있게 하기 위해서다.
      */
+    @Operation(summary = "내 북마크 목록",
+      description = """
+                    북마크한 순서의 최신순이다. 실린 활동은 전부 `bookmarked: true` 다.
+
+                    페이징 규칙은 활동 검색과 같다 — **배열 길이가 요청한 size 와 같으면 다음
+                    페이지가 있다.** size 상한은 100 이다.""")
+    @Parameter(name = "page", description = "0-기반 페이지 번호. 음수는 0 으로 취급한다.")
+    @Parameter(name = "size", description = "페이지당 건수. 최대 100 이며 1 미만은 1 로 올린다.")
     @GetMapping("/events")
     public ResponseEntity<ApiResponse<List<EventResponseDTO>>> getMyBookmarks(
       Authentication authentication,
@@ -98,6 +125,12 @@ public class BookmarkController {
      * <p>위 {@code /events/{eventId:\d+}} 가 숫자로 못박혀 있어 이 경로가 그쪽에 잡히지 않는다
      * (UserController 의 {@code /{userId:\d+}} 와 같은 이유).
      */
+    @Operation(summary = "내가 찜한 활동 id 전량",
+      description = """
+                    화면 여러 곳에서 별 아이콘을 칠해야 할 때 대조표로 쓴다. 페이징이 없고
+                    id 배열만 내려오므로 목록 API 를 여러 번 부르는 것보다 가볍다.
+
+                    찜한 게 없으면 빈 배열이다.""")
     @GetMapping("/events/ids")
     public ResponseEntity<ApiResponse<List<Long>>> getMyBookmarkedEventIds(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());

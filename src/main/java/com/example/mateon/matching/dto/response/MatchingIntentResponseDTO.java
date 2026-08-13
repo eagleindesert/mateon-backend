@@ -1,6 +1,7 @@
 package com.example.mateon.matching.dto.response;
 
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
 import java.util.Collections;
@@ -12,12 +13,15 @@ import java.util.List;
  * <p>embeddingText/embeddingVector 는 일부러 담지 않는다 — 1536 개 float 를 프론트에 흘릴
  * 이유가 없다 (~20KB).
  */
+@Schema(description = "의도 추출 대화의 한 턴 응답. assistantMessage 를 그대로 화면에 보여주면 된다.")
 @Getter
 public class MatchingIntentResponseDTO {
 
     private final Long sessionId;
 
     /** true 면 missingFields 가 비어있고 slotId 가 채워진다. */
+    @Schema(description = "의도 추출 완료 여부. **true 가 되어야 추천 API 를 쓸 수 있다.** "
+            + "true 면 missingFields 가 비고 slotId 가 채워진다.")
     private final boolean completed;
 
     /**
@@ -25,14 +29,19 @@ public class MatchingIntentResponseDTO {
      * extracted 는 camelCase 로 변환하는데 여기만 snake_case 인 건 의도적이다 —
      * missingFields 의 값은 AI 스펙이 계약이고, extracted 의 키는 우리 API 의 스키마다.
      */
+    @Schema(description = "아직 못 채운 항목. AI 스펙이 계약이라 여기만 snake_case 다(extracted 의 키는 camelCase).",
+            example = "[\"desired_roles\"]")
     private final List<String> missingFields;
 
+    @Schema(description = "지금까지 추출된 매칭 조건.")
     private final ExtractedDTO extracted;
 
     /** 프론트가 그대로 화면에 보여주면 되는 챗봇 문구. */
+    @Schema(description = "챗봇 문구. 그대로 화면에 보여주면 된다.")
     private final String assistantMessage;
 
     /** 완료 시에만 채워진다. */
+    @Schema(description = "완성된 매칭 조건 슬롯의 id. completed 가 true 일 때만 채워진다.")
     private final Long slotId;
 
     public MatchingIntentResponseDTO(Long sessionId, IntentExtractResponse ai, Long slotId) {

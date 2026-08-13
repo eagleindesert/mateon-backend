@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,6 +14,7 @@ import lombok.Setter;
  *
  * <p>팀장 여부는 서버가 확인한다 — 요청자는 JWT 에서 나온다.
  */
+@Schema(description = "팀→유저 제안 초안 요청. 팀장 여부는 서버가 토큰으로 확인한다.")
 @Getter
 @Setter
 public class UserProposalRequestDTO {

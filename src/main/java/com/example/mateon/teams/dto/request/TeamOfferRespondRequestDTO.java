@@ -1,5 +1,6 @@
 package com.example.mateon.teams.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,11 +12,13 @@ import lombok.Setter;
  * 수락은 곧 팀 합류라 되돌릴 수 없는 동작이고, 링크 클릭 한 번(GET/쿼리스트링 형태)으로 일어나
  * 보이면 안 되기 때문이다.
  */
+@Schema(description = "받은 제안에 대한 응답")
 @Getter
 @Setter
 public class TeamOfferRespondRequestDTO {
 
     /** true = 수락(즉시 팀원 확정), false = 거절. */
+    @Schema(description = "**true 는 수락이며 그 즉시 팀원이 확정된다**(되돌릴 수 없다). false 는 거절.")
     @NotNull(message = "수락 여부를 지정해주세요.")
     private Boolean accepted;
 }

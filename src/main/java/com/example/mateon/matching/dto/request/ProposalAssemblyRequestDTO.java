@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import lombok.Setter;
  * 프론트에서 받지 않는 것도 같은 이유다 — 되보낸 값은 신뢰할 수 없어 서버가 추천 이력에서
  * 직접 찾는다 ({@code TeamOfferCreateRequestDTO} 가 ai_score 를 받지 않는 것과 같은 규약).
  */
+@Schema(description = "유저→팀 제안 초안 요청. 적합도 점수는 **받지 않는다** — 서버가 추천 이력에서 직접 찾는다.")
 @Getter
 @Setter
 public class ProposalAssemblyRequestDTO {

@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -11,6 +12,8 @@ import lombok.Setter;
  * <p>대화 이력은 백엔드가 보관하므로 프론트는 새 답변 한 줄만 보낸다.
  * 세션은 JWT 의 userId 로 찾으므로 sessionId 도 받지 않는다.
  */
+@Schema(description = "의도 추출 대화의 답변 한 줄. 대화 이력은 서버가 보관하므로 새 답변만 보내면 되고, "
+        + "세션도 토큰으로 찾으므로 sessionId 를 받지 않는다.")
 @Getter
 @Setter
 public class MatchingIntentMessageRequestDTO {

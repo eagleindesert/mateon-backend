@@ -2,6 +2,7 @@ package com.example.mateon.matching.dto.response;
 
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,14 +21,19 @@ import java.util.List;
  * camelCase JSON 이다 (AI 원본이 아니다). 저장/응답 포맷을 하나로 맞춰 매핑을 이중으로
  * 관리하지 않는다.
  */
+@Schema(description = "지금까지 추출된 매칭 조건. 대화 진행상황을 표시하는 용도이며, 아직 못 채운 항목은 "
+        + "missingFields 로 알려준다.")
 @Getter
 @Setter
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ExtractedDTO {
 
+    @Schema(description = "희망 역할. 아직 안 나왔으면 **null 이 아니라 빈 배열**이다.", example = "[\"BE\"]")
     private List<String> desiredRoles = Collections.emptyList();
+    @Schema(description = "보유 기술. 아직 안 나왔으면 빈 배열.")
     private List<String> skills = Collections.emptyList();
+    @Schema(description = "관심 분야. 아직 안 나왔으면 빈 배열.")
     private List<String> interests = Collections.emptyList();
     private String activityGoal;
     private String activityStyle;
