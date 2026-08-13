@@ -72,3 +72,17 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// 개발 루프용 단축 태스크. Docker(Testcontainers)가 필요한 테스트만 빼고 돌린다 —
+// 단위/컨트롤러 테스트 수백 건이 컨테이너 기동을 기다리지 않게 하려는 것뿐이고,
+// 관문은 여전히 `./gradlew test` 다 (이 태스크는 check 에 걸지 않는다).
+// 별도 태그가 필요 없는 이유: Docker 를 쓰는 클래스는 이미 *IntegrationTest 로 명명돼 있다.
+tasks.register('fastTest', Test) {
+	group = 'verification'
+	description = 'Docker 없이 돌아가는 테스트만 실행한다 (통합 테스트 제외).'
+	useJUnitPlatform()
+	filter {
+		excludeTestsMatching '*IntegrationTest'
+		excludeTestsMatching 'com.example.mateon.MateonBackendApplicationTests'
+	}
+}
