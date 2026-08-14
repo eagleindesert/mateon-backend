@@ -1,8 +1,8 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.matching.client.intent;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.config.AiServerProperties;
+import com.example.mateon.common.ai.AiServerProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;

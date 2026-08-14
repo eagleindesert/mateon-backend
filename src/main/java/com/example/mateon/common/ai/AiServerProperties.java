@@ -1,4 +1,4 @@
-package com.example.mateon.matching.config;
+package com.example.mateon.common.ai;
 
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
@@ -10,12 +10,11 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 
 /**
- * 별도 FastAPI AI 서버 설정. (config/JwtProperties 와 같은 형태)
+ * 별도 FastAPI AI 서버 설정. (common/config/JwtProperties 와 같은 형태)
  *
- * JwtProperties 가 config/ 에 있는 건 JWT 가 횡단 관심사여서다.
- * AI 설정은 처음엔 matching 도메인 전용이라 여기 뒀고, 지금은 teams 도메인
- * (팀 임베딩 갱신, TeamEmbeddingClient)도 공유한다 — 빈은 전역 싱글톤이라
- * 패키지 위치는 기능에 영향이 없어 물리 이동 없이 그대로 둔다.
+ * 처음엔 matching 도메인 전용이라 matching/config/ 에 뒀지만, 지금은 teams(팀 임베딩 갱신),
+ * events(포스터 이미지 추출), portfolios(PDF 요약)가 모두 AI 서버를 호출한다. 특정 도메인의
+ * 설정이 아니므로 {@link AiCallTemplate}·{@link AiRestTemplateConfig} 와 함께 common/ai 로 옮겼다.
  */
 @Getter
 @Setter

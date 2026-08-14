@@ -1,4 +1,4 @@
-package com.example.mateon.config;
+package com.example.mateon.common.config;
 
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;

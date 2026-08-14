@@ -1,7 +1,7 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.IntentExtractResponse;
-import com.example.mateon.matching.client.IntentExtractionClient;
+import com.example.mateon.matching.client.intent.IntentExtractResponse;
+import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;

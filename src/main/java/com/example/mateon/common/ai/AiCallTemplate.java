@@ -1,8 +1,7 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.common.ai;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.config.AiServerProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
@@ -20,9 +19,13 @@ import org.springframework.web.client.RestTemplate;
 /**
  * FastAPI AI 서버로 POST 를 보내는 공통 호출부. 인증 헤더와 실패 처리 규약이 여기 한 벌만 있다.
  *
- * <p>원래 {@link RecommendationClient} 안의 private 메서드였는데, 제안 조립(/proposals/*)이
- * 같은 규약을 필요로 하면서 밖으로 뺐다. 복사하지 않은 이유는 그 클래스 주석에 적힌 그대로다 —
- * 클라이언트를 복사하면 401/422 진단 로그가 여러 벌이 되고 한쪽만 고쳐지는 사고가 난다.
+ * <p>원래 {@code matching.client.recommendation.RecommendationClient} 안의 private 메서드였는데,
+ * 제안 조립(/proposals/*)이 같은 규약을 필요로 하면서 밖으로 뺐다. 복사하지 않은 이유는 그 클래스
+ * 주석에 적힌 그대로다 — 클라이언트를 복사하면 401/422 진단 로그가 여러 벌이 되고 한쪽만 고쳐지는
+ * 사고가 난다.
+ *
+ * <p>지금은 matching 외에 events(포스터 이미지 추출)·portfolios(PDF 요약)·teams(임베딩 갱신)도
+ * 이 한 벌을 쓴다. 특정 도메인 소유가 아니라서 common 에 둔다.
  *
  * <p>여기서 보는 건 "본문이 왔는가"까지다. 스키마별 필수 필드 검증은 각 클라이언트가 한다
  * (이 클래스는 어떤 응답 타입인지 모른다).

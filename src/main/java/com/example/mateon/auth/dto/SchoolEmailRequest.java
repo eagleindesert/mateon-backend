@@ -1,11 +1,13 @@
 package com.example.mateon.auth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
 // 로그인 후 학교(재학생) 이메일 인증코드 발송 요청.
+@Schema(description = "학교(재학생) 이메일 인증코드 발송 요청. 로그인한 상태에서 부른다.")
 @Getter
 @Setter
 public class SchoolEmailRequest {

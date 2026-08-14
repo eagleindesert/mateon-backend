@@ -23,7 +23,7 @@ class UserResponseTest {
     @Test
     @DisplayName("온도·활동을 싣지 않는 경로는 건수까지 null 이다 - 0 이나 빈 배열이면 '없음'과 구분되지 않는다")
     void withoutScoreAndActivitiesFieldsAreNull() {
-        UserResponse response = UserResponse.from(user());
+        UserResponse response = UserResponse.ofBasic(user());
 
         assertThat(response.getCollaborationTemperature()).isNull();
         assertThat(response.getCollaborationReviewCount()).isNull();
@@ -33,7 +33,7 @@ class UserResponseTest {
     @Test
     @DisplayName("평가를 한 번도 안 받았으면 건수는 0 이고 온도는 기준점이다 - 집계 행이 없어도 값이 나간다")
     void neverReviewedUserGetsBaseTemperature() {
-        UserResponse response = UserResponse.from(user(), null, List.of());
+        UserResponse response = UserResponse.ofFull(user(), null, List.of());
 
         assertThat(response.getCollaborationTemperature())
                 .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
@@ -46,7 +46,7 @@ class UserResponseTest {
         UserCollaborationScore score = UserCollaborationScore.init(1L);
         score.addRating(5);
 
-        UserResponse response = UserResponse.from(user(), score, List.of());
+        UserResponse response = UserResponse.ofFull(user(), score, List.of());
 
         assertThat(response.getCollaborationTemperature()).isEqualByComparingTo("37.0");
         assertThat(response.getCollaborationReviewCount()).isEqualTo(1);
@@ -59,7 +59,7 @@ class UserResponseTest {
         score.addRating(5);
         score.addRating(5);
 
-        UserResponse response = UserResponse.from(user(), score, List.of());
+        UserResponse response = UserResponse.ofFull(user(), score, List.of());
 
         assertThat(response.getCollaborationTemperature()).isEqualByComparingTo(score.getTemperature());
         assertThat(response.getCollaborationReviewCount()).isEqualTo(2);
@@ -68,7 +68,7 @@ class UserResponseTest {
     @Test
     @DisplayName("참여 활동이 없으면 null 이 아니라 빈 배열이다 - 프론트가 그대로 map 한다")
     void activityListIsEmptyNotNullWhenCarried() {
-        UserResponse response = UserResponse.from(user(), null, List.of());
+        UserResponse response = UserResponse.ofFull(user(), null, List.of());
 
         assertThat(response.getParticipatedActivities()).isEmpty();
     }
@@ -82,7 +82,7 @@ class UserResponseTest {
                 .category("교내")
                 .build();
 
-        UserResponse response = UserResponse.from(user(), null, List.of(activity));
+        UserResponse response = UserResponse.ofFull(user(), null, List.of(activity));
 
         assertThat(response.getParticipatedActivities()).singleElement()
                 .satisfies(summary -> {

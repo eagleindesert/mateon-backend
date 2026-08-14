@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,6 +14,7 @@ import lombok.Setter;
  * 이력과 임베딩에서 직접 조립한다. 되보낸 점수를 신뢰하지 않는 건 team_offers 의
  * ai_score/ai_label 과 같은 방침이다.
  */
+@Schema(description = "유저→팀 상세 이유 요청. 이유 생성에 필요한 컨텍스트는 서버가 추천 이력에서 직접 조립한다.")
 @Getter
 @Setter
 public class RecommendationReasonRequestDTO {

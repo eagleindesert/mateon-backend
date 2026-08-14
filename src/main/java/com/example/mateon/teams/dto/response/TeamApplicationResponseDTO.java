@@ -3,11 +3,13 @@ package com.example.mateon.teams.dto.response;
 import com.example.mateon.teams.domain.ApplicationStatus;
 import com.example.mateon.teams.domain.TeamApplication;
 import com.example.mateon.user.dto.UserResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
 
+@Schema(description = "지원서 1건. 지원자 화면과 팀장 화면이 같은 DTO 를 쓰고 isMine 으로 갈린다.")
 @Getter
 @Builder
 public class TeamApplicationResponseDTO {
@@ -27,12 +29,17 @@ public class TeamApplicationResponseDTO {
      * 좁힐 때는 이 필드를 얇은 요약 DTO 로 바꾸고, 상세는 지원자 id 로
      * {@code GET /api/users/{userId}} 를 부르게 하면 된다.
      */
+    @Schema(description = "지원자 정보. 협업 온도·참여 활동은 **이 응답에서는 항상 null** 이다 "
+            + "(내 프로필 DTO 를 재사용하는 자리라 그렇다). 필요하면 GET /api/users/{userId} 를 부른다.")
     private UserResponse applicant;
     private String introduction;
     private String message;
     private String contactNumber;
     private String portfolioUrl;
+    @Schema(description = "조회자가 이 지원서의 작성자인지. **JSON 키는 `mine`** 이다.")
     private boolean isMine;
+    @Schema(description = "지원 상태. 팀장이 처리하기 전에는 PENDING 이다.",
+            allowableValues = {"PENDING", "APPROVED", "REJECTED"})
     private ApplicationStatus status;
     private LocalDateTime createdAt;
 
@@ -41,7 +48,7 @@ public class TeamApplicationResponseDTO {
                 .applicationId(application.getId())
                 .teamId(application.getTeam().getId())
                 .teamTitle(application.getTeam().getTitle())
-                .applicant(UserResponse.from(application.getApplicant()))
+                .applicant(UserResponse.ofBasic(application.getApplicant()))
                 .isMine(application.getApplicant().getId().equals(currentUserId))
                 .introduction(application.getIntroduction())
                 .message(application.getMessage())

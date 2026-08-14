@@ -6,6 +6,7 @@ import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -28,6 +29,13 @@ import java.util.List;
  * 일부러 똑같이 맞췄다. 추천 목록에서 이 프로필로 넘어왔을 때 같은 어휘가 그대로 보여야
  * "아까 그 사람"으로 읽힌다.
  */
+@Schema(description = """
+        남이 보는 프로필. **연락처 성격의 값(email 등)은 담기지 않는다** — 로그인한 사람이면
+        누구나 부를 수 있는 API 이기 때문이다. 연락은 DM 으로 한다
+        (userId 가 POST /api/chat/rooms/dm 의 targetUserId 다).
+
+        슬롯 필드(desiredRoles/skills/experienceLevel/activityStyle)는 추천 카드와 같은 어휘라,
+        추천 목록에서 넘어와도 "아까 그 사람"으로 읽힌다.""")
 @Getter
 @Builder
 public class UserProfileResponse {
@@ -62,19 +70,27 @@ public class UserProfileResponse {
     private final String interestJobTertiary;
 
     /** AI 가 정규화한 희망 역할 코드 (예: "BE"). 슬롯 미작성이면 빈 배열. */
+    @Schema(description = "AI 가 정규화한 희망 역할 코드. 의도 추출 전이면 **null 이 아니라 빈 배열**이다.",
+            example = "[\"BE\"]")
     private final List<String> desiredRoles;
     /** 슬롯 미작성이면 빈 배열. */
+    @Schema(description = "AI 가 정규화한 보유 기술. 의도 추출 전이면 빈 배열.")
     private final List<String> skills;
     /** 슬롯 미작성이면 null. */
+    @Schema(description = "AI 가 정규화한 경험 수준. 의도 추출 전이면 null.")
     private final String experienceLevel;
     /** 슬롯 미작성이면 null. */
+    @Schema(description = "AI 가 정규화한 활동 성향. 의도 추출 전이면 null.")
     private final String activityStyle;
 
     /** 협업 온도. 평가 건수와 무관하게 항상 값이 있고, 0건이면 기준점 36.5 다. */
+    @Schema(description = "협업 온도. 평가 0건이면 기준점 36.5 다 — 이 응답에서는 항상 값이 있다.")
     private final BigDecimal collaborationTemperature;
+    @Schema(description = "받은 평가 건수. 이 응답에서는 항상 값이 있고, 아직 못 받았으면 0 이다.")
     private final int collaborationReviewCount;
 
     /** 참여했던 활동 이력. */
+    @Schema(description = "참여했던 활동 이력. 없으면 빈 배열.")
     private final List<MyPageResponseDTO.ActivitySummaryDTO> participatedActivities;
 
     /**
@@ -85,6 +101,7 @@ public class UserProfileResponse {
      * 3 이 함께 클래스패스에 있다 (Boot 4 는 Jackson 3, jjwt-jackson 이 2 를 끌고 옴). 프론트가
      * 읽는 키를 런타임 조합에 맡길 이유가 없다.
      */
+    @Schema(description = "조회자 본인의 프로필인지. '프로필 수정' 버튼을 띄울지 판단하는 데 쓴다. JSON 키는 `isMe` 로 못박혀 있다.")
     @JsonProperty("isMe")
     private final boolean isMe;
 

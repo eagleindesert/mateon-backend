@@ -1,7 +1,8 @@
 package com.example.mateon.teams.service;
 
+import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
-import com.example.mateon.matching.config.AiServerProperties;
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.teams.client.TeamEmbeddingClient;
 import com.example.mateon.teams.client.TeamEmbeddingRefreshRequest;
 import com.example.mateon.teams.client.TeamEmbeddingRefreshResponse;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,6 +49,9 @@ import static org.mockito.Mockito.when;
 class TeamEmbeddingServiceTest {
 
     private static final long TEAM_ID = 21L;
+
+    /** 팀에 연결된 공모전(활동). 자율 프로젝트면 팀의 eventId 가 null 이다. */
+    private static final long EVENT_ID = 7L;
 
     /** 실제 컬럼은 vector(1536)지만, 여기서 검증하는 건 차원 값 자체가 아니라 판정 로직이다. */
     private static final int DIMENSION = 4;
@@ -205,17 +210,90 @@ class TeamEmbeddingServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("AI 요청에 실리는 공모전 정보")
+    class ContestField {
+
+        @Test
+        @DisplayName("연결된 공모전의 제목이 contest_field 로 실린다")
+        void sendsEventTitleAsContestField() {
+            givenTeam(CREATED_AT, EVENT_ID);
+            givenEvent("2026 커머스 아이디어 공모전");
+            givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
+
+            service.refresh(TEAM_ID);
+
+            // 카테고리(CONTEST)의 한글 표기 "공모전"이 아니라 제목이어야 한다 — 분야 정보가
+            // 담기는 곳이 제목이라는 것이 이 필드를 title 로 채우는 이유다.
+            assertThat(captureRequest().getContestField()).isEqualTo("2026 커머스 아이디어 공모전");
+        }
+
+        @Test
+        @DisplayName("intro_text 의 제목은 팀 제목이다 (공모전 제목과 섞이지 않는다)")
+        void keepsTeamTitleInIntroText() {
+            givenTeam(CREATED_AT, EVENT_ID);
+            givenEvent("2026 커머스 아이디어 공모전");
+            givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
+
+            service.refresh(TEAM_ID);
+
+            assertThat(captureRequest().getIntroText()).startsWith("제목: 임베딩테스트 팀");
+        }
+
+        @Test
+        @DisplayName("자율 프로젝트(eventId 없음)는 contest_field 가 null 이고 활동을 조회하지도 않는다")
+        void sendsNullContestFieldWhenTeamHasNoEvent() {
+            givenTeam(CREATED_AT, null);
+            givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
+
+            service.refresh(TEAM_ID);
+
+            assertThat(captureRequest().getContestField()).isNull();
+            verifyNoInteractions(eventRepository);
+        }
+
+        @Test
+        @DisplayName("연결된 활동이 사라졌어도 임베딩 갱신은 계속된다 (contest_field 만 null)")
+        void sendsNullContestFieldWhenEventRowMissing() {
+            givenTeam(CREATED_AT, EVENT_ID);
+            when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
+
+            service.refresh(TEAM_ID);
+
+            assertThat(captureRequest().getContestField()).isNull();
+            // 공모전 하나가 지워졌다고 그 팀들의 임베딩이 통째로 실패하면 안 된다.
+            assertThat(captureSaved().getRefreshStatus()).isEqualTo(TeamEmbeddingRefreshStatus.SUCCESS);
+        }
+    }
+
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────
 
     private void givenTeam(LocalDateTime updatedAt) {
+        givenTeam(updatedAt, null);
+    }
+
+    private void givenTeam(LocalDateTime updatedAt, Long eventId) {
         Team team = new Team();
         team.setId(TEAM_ID);
+        team.setEventId(eventId);
         team.setTitle("임베딩테스트 팀");
         team.setPromotionText("커머스 플랫폼을 만드는 팀입니다.");
         team.setRole(List.of("BE"));
         team.setRequiredSkills(List.of("Spring Boot", "PostgreSQL"));
         team.setUpdatedAt(updatedAt);
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+    }
+
+    /** category/field 는 NOT NULL 컬럼이라 채우지만, contest_field 로 나가는 값은 title 뿐이다. */
+    private void givenEvent(String title) {
+        Event event = new Event();
+        event.setId(EVENT_ID);
+        event.setCategory(Event.Category.CONTEST);
+        event.setField(Event.Field.PLANNING_IDEA);
+        event.setTitle(title);
+        when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.of(event));
     }
 
     private void givenStoredRow(LocalDateTime sourceUpdatedAt, List<String> requiredSkills) {
@@ -243,6 +321,13 @@ class TeamEmbeddingServiceTest {
         response.setMetadata(metadata);
 
         when(client.refresh(any(TeamEmbeddingRefreshRequest.class))).thenReturn(response);
+    }
+
+    private TeamEmbeddingRefreshRequest captureRequest() {
+        ArgumentCaptor<TeamEmbeddingRefreshRequest> captor =
+                ArgumentCaptor.forClass(TeamEmbeddingRefreshRequest.class);
+        verify(client).refresh(captor.capture());
+        return captor.getValue();
     }
 
     private TeamEmbedding captureSaved() {

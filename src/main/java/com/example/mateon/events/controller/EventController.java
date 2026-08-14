@@ -10,6 +10,9 @@ import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.service.EventExtractionService;
 import com.example.mateon.events.service.EventService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -55,6 +58,12 @@ public class EventController {
      * 활동(공모전 등) 등록 [인증 필수]
      * 인증 여부는 SecurityConfig 의 POST /api/events 매처가 강제한다.
      */
+    @Operation(summary = "활동 등록",
+      description = """
+                    공모전·대외활동·교내 활동을 새로 올린다. 포스터 이미지가 있으면
+                    `POST /api/events/extract-image` 로 초안을 받아 채운 뒤 여기로 보내면 된다.
+
+                    등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.""")
     @PostMapping
     public ResponseEntity<ApiResponse<EventResponseDTO>> createEvent(
       @Valid @RequestBody EventRequestDTO request
@@ -71,6 +80,28 @@ public class EventController {
      * POST /api/events 로 등록한다. 그래서 201 이 아니라 200 이다.
      * 인증 여부는 SecurityConfig 의 매처가 강제한다.
      */
+    @Operation(summary = "포스터 이미지에서 활동 등록 초안 추출",
+      description = """
+                    `multipart/form-data` 로 보내고 **파트 이름은 `image`** 다
+                    (jpg/jpeg/png, 10MB 이하).
+
+                    **저장하지 않는다.** 응답은 AI 가 읽어 낸 초안일 뿐이라, 사용자에게 보여주고
+                    고치게 한 뒤 `POST /api/events` 로 등록해야 실제 활동이 생긴다.
+                    그래서 201 이 아니라 200 이다.
+
+                    읽어 내지 못한 항목은 null 이고, category·field 는 판독이 애매하면 ETC 로 온다 —
+                    빈칸 없이 다 채워질 거라고 가정하지 말 것.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+      description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413",
+      description = "IMAGE_TOO_LARGE — 이미지는 10MB 이하만 업로드할 수 있습니다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = """
+            AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.
+            IMAGE_UPLOAD_FAILED — 이미지 저장소 업로드에 실패했습니다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+      description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다. 잠시 후 재시도하면 된다.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "507",
+      description = "STORAGE_QUOTA_EXCEEDED — 저장 공간이 가득 찼습니다.")
     @PostMapping(value = "/extract-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<EventExtractionResponseDTO> extractFromImage(
       @RequestPart("image") MultipartFile image
@@ -91,6 +122,28 @@ public class EventController {
      * <p>비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
      * {@code bookmarked} 로 실릴 뿐, 필터도 순서도 달라지지 않는다.
      */
+    @Operation(summary = "활동 검색",
+      description = """
+                    필터는 모두 선택이고 자유롭게 조합된다(지정한 것끼리 AND). 아무것도 안 주면
+                    전체 조회와 같다. 결과는 **활동 시작일 최신순**이며, 로그인 여부와 무관하게
+                    순서가 같다.
+
+                    문자열 필터는 부분일치다("단국대"로 "단국대학교"가 잡힌다). 값에 `"전체"` 를
+                    보내면 그 필터를 안 준 것으로 취급한다 — 파라미터를 아예 빼도 결과는 같다.
+
+                    페이징은 `page`(0-기반)·`size` 로 한다. **배열 길이가 요청한 size 와 같으면
+                    다음 페이지가 있다**고 보면 된다. size 상한은 100 이라 그보다 크게 보내도 잘린다.
+
+                    비로그인도 그대로 쓸 수 있다. 토큰을 함께 보내면 각 활동에 내 북마크 여부가
+                    `bookmarked` 로 실릴 뿐, 필터도 순서도 달라지지 않는다(비로그인이면 전부 false).""")
+    @Parameter(name = "college", description = "대상 단과대학. [폐기 예정] — 대상 범위는 school 로 일원화한다. 신규 사용 금지.")
+    @Parameter(name = "school", description = "대상 대학교. 부분일치이며 \"전체\"는 필터 미적용.")
+    @Parameter(name = "category", description = "활동 분류. 정확히 일치해야 하며 없는 값을 보내면 400 이다.")
+    @Parameter(name = "field", description = "활동 분야. category 와 마찬가지로 정확 일치다.")
+    @Parameter(name = "keyword", description = "제목·설명·주최를 아우르는 자유 검색어. 셋 중 하나라도 걸리면 잡힌다(OR).")
+    @Parameter(name = "page", description = "0-기반 페이지 번호. 음수는 0 으로 취급한다.")
+    @Parameter(name = "size", description = "페이지당 건수. 최대 100 이며 1 미만은 1 로 올린다.")
+    @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping("/search")
     public ApiResponse<List<EventResponseDTO>> searchEvents(
       @RequestParam(required = false) String college,
@@ -124,6 +177,22 @@ public class EventController {
      * 호출하면 Deprecation/Sunset 응답 헤더와 서버 경고 로그가 남는다.
      */
     @Deprecated
+    @Operation(deprecated = true,
+      summary = "[폐기 예정] 홈화면 맞춤 활동 추천",
+      description = """
+                    **신규 사용 금지.** 관련도 점수가 어휘 매칭이라 순위를 신뢰할 수 없다 —
+                    활동 본문에 희망직무 문자열이 그대로 있어야 점수가 붙어서 "서버 운영자"와
+                    "백엔드 개발자"는 0점인 반면, 부분 문자열 오탐(희망직무 "AI" ↔ 본문 "email")은
+                    만점을 받는다. 즉 이 순서는 관련도가 아니라 공고문의 어휘·길이를 반영한다.
+
+                    category 를 주면 그 안에서 1건, 생략하면 카테고리마다 1건씩 내려온다.
+
+                    호출하면 `Deprecation`/`Sunset` 응답 헤더가 붙고 서버에 경고 로그가 남는다
+                    (누가 아직 쓰는지 파악해 걷어내기 위한 것). 대체 방식이 정해지기 전까지
+                    동작은 그대로 둔다.""")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
+    @Parameter(name = "category", description = "생략하면 모든 카테고리에서 각각 1건씩 반환한다.")
     @GetMapping("/recommended")
     public ApiResponse<List<EventResponseDTO>> getRecommendedEvents(
       @RequestParam(required = false) Category category,
@@ -153,6 +222,17 @@ public class EventController {
      *
      * <p>/search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
      */
+    @Operation(summary = "활동 목록 (무작위 표본)",
+      description = """
+                    홈 화면용으로 카테고리가 섞인 표본을 size 건까지 내려준다.
+
+                    **정렬이 무작위라 page 파라미터가 없다** — 호출할 때마다 순서가 다시 섞여
+                    페이지를 넘기면 중복·누락이 생기기 때문이다. 목록을 순회해야 하면
+                    `GET /api/events/search` 를 쓴다(그쪽은 시작일 순이라 페이징이 안정적이다).
+
+                    `/search` 와 마찬가지로 토큰을 보내면 `bookmarked` 가 채워진다.""")
+    @Parameter(name = "size", description = "내려받을 건수. 최대 100 이며 1 미만은 1 로 올린다.")
+    @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping
     public ApiResponse<List<EventResponseDTO>> getAllEvents(
       @RequestParam(defaultValue = "20") int size,

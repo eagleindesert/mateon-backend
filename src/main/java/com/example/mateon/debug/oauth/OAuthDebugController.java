@@ -1,5 +1,8 @@
 package com.example.mateon.debug.oauth;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,6 +31,17 @@ public class OAuthDebugController {
 
     private final OAuthDebugCodeRepository repository;
 
+    @Operation(summary = "[디버그] 카카오 인가코드 수신",
+            description = """
+                          **로컬 테스트 전용이며 프론트가 부를 일이 없다.**
+                          `debug.oauth.enabled=true` 일 때만 빈으로 등록되므로, 그 밖에서는 이
+                          경로 자체가 404 다.
+
+                          카카오 authorize 후 브라우저가 redirect_uri 로 이동하면 그 인가코드를
+                          DB 에 저장하고, `get-kakao-token.ps1` 이 그걸 읽어 access token 으로
+                          교환한다. 응답은 JSON 이 아니라 안내용 HTML 이다.""")
+    @Parameter(name = "code", description = "카카오가 redirect_uri 에 붙여 주는 인가코드.")
+    @SecurityRequirement(name = "")  // 비로그인 허용 (/debug/** permitAll)
     @GetMapping("/debug/oauth")
     public ResponseEntity<String> receiveCode(@RequestParam("code") String code) {
         // 항상 최신 코드 하나만 남긴다(셸이 LIMIT 1 로 읽지만, 누적 방지).

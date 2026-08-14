@@ -1,4 +1,4 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.matching.client.recommendation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;

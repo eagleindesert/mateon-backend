@@ -2,7 +2,7 @@ package com.example.mateon.portfolios.client;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.client.AiCallTemplate;
+import com.example.mateon.common.ai.AiCallTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;

@@ -9,7 +9,7 @@ import com.example.mateon.auth.repository.EmailVerificationRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
-import com.example.mateon.config.JwtProperties;
+import com.example.mateon.common.config.JwtProperties;
 import com.example.mateon.mail.event.VerificationCodeIssuedEvent;
 import com.example.mateon.user.domain.AuthProvider;
 import com.example.mateon.user.domain.User;

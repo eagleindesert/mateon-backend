@@ -1,7 +1,7 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.RecommendationClient;
-import com.example.mateon.matching.client.RecommendationReasonRequest;
+import com.example.mateon.matching.client.recommendation.RecommendationClient;
+import com.example.mateon.matching.client.recommendation.RecommendationReasonRequest;
 import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
