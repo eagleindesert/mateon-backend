@@ -1,15 +1,5 @@
-- [x] maching 기능의 client 디렉토리 안의 파일들을 디렉토리들로 깔끔하게 정리하기
-
-- [x] config를 common 안으로 넣기
-
-- [x] properties를  yml로 변환하기. 더러워짐
-
 - [ ] .env안에 production과 debug 구분하기
   - [x] 관련해서 다뤄야할 설정 먼저 살피기
-
-- [x] 공통 AI 클래스는 common 으로
-
-- [x] UserResponse 에서 from 오버로딩부분 손보기, 및 /api/users/mypage 현재 프론트에서 안쓰므로 deprecated 처리 하기
 
 - [ ] boolean 응답 키를 `is` 접두로 통일하기. 지금은 한 응답 안에서 이름 규칙이 섞여 있음
     - 최상위는 접두어가 떨어진 `leader` / `recruiting` (자바 필드가 `is-` 로 시작해 Jackson 이 뗀 것)
@@ -54,9 +44,4 @@
       `TeamServiceCrudTest.unknownEventFailsAfterSave` 가 지금 순서를 고정하고 있으므로 함께 뒤집기
 
 - 비밀번호 변경의 두 실패가 같은 에러 코드라 프론트가 구분 안내를 못 함
-    - `UserService.changePassword` 에서 "확인란 불일치" 와 "현재 비밀번호 오류" 가 모두
-      `ErrorCode.PASSWORD_MISMATCH`
-    - 사용자는 어느 칸을 잘못 쳤는지 알 수 없음. 확인란 불일치는 프론트에서도 잡을 수 있지만,
-      현재 비밀번호 오류는 서버만 알 수 있어 구분이 필요함
-    - 고칠 때: 현재 비밀번호 오류용 코드를 새로 두고(예: `INVALID_CURRENT_PASSWORD`)
-      `UserServiceTest.wrongCurrentPasswordSameCode` 를 함께 뒤집기
+  - 이건 의도됨. 보안 이슈
