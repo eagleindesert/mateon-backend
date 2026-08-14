@@ -2,8 +2,8 @@ package com.example.mateon.matching.service;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.client.IntentExtractResponse;
-import com.example.mateon.matching.client.IntentExtractionClient;
+import com.example.mateon.matching.client.intent.IntentExtractResponse;
+import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
 import org.junit.jupiter.api.BeforeEach;

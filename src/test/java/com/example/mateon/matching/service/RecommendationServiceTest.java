@@ -1,8 +1,8 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.RecommendationClient;
-import com.example.mateon.matching.client.RecommendationResponse;
-import com.example.mateon.matching.client.UserToTeamRecommendationRequest;
+import com.example.mateon.matching.client.recommendation.RecommendationClient;
+import com.example.mateon.matching.client.recommendation.RecommendationResponse;
+import com.example.mateon.matching.client.recommendation.UserToTeamRecommendationRequest;
 import com.example.mateon.matching.dto.response.TeamRecommendationResponseDTO;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;

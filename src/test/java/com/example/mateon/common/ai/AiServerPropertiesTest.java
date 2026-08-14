@@ -1,4 +1,4 @@
-package com.example.mateon.matching.config;
+package com.example.mateon.common.ai;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

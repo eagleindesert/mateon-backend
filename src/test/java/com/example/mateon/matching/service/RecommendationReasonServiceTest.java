@@ -1,7 +1,7 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.RecommendationClient;
-import com.example.mateon.matching.client.RecommendationReasonRequest;
+import com.example.mateon.matching.client.recommendation.RecommendationClient;
+import com.example.mateon.matching.client.recommendation.RecommendationReasonRequest;
 import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

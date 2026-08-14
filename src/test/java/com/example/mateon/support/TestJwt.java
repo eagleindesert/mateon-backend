@@ -1,7 +1,7 @@
 package com.example.mateon.support;
 
 import com.example.mateon.auth.jwt.JwtTokenProvider;
-import com.example.mateon.config.JwtProperties;
+import com.example.mateon.common.config.JwtProperties;
 
 /**
  * JWT 를 쓰는 단위 테스트의 공통 설정.

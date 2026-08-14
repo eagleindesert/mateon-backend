@@ -1,5 +1,6 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.matching.client.proposal;
 
+import com.example.mateon.common.ai.AiCallTemplate;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import org.junit.jupiter.api.BeforeEach;

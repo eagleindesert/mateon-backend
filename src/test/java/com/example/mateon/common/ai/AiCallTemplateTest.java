@@ -1,8 +1,7 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.common.ai;
 
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.config.AiServerProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

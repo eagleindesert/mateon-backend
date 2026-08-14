@@ -1,8 +1,8 @@
-package com.example.mateon.matching.client;
+package com.example.mateon.matching.client.intent;
 
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.config.AiServerProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

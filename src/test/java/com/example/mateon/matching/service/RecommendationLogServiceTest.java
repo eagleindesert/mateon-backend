@@ -1,6 +1,6 @@
 package com.example.mateon.matching.service;
 
-import com.example.mateon.matching.client.RecommendationResponse.Recommendation;
+import com.example.mateon.matching.client.recommendation.RecommendationResponse.Recommendation;
 import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import com.example.mateon.matching.domain.UserToTeamRecommendationLog;
 import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
