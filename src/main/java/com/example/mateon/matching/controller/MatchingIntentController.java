@@ -1,11 +1,12 @@
 package com.example.mateon.matching.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.matching.dto.request.MatchingIntentMessageRequestDTO;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.service.MatchingIntentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,20 +39,20 @@ public class MatchingIntentController {
                           첫 호출이면 세션이 새로 만들어진다 — 별도의 "시작" API 는 없다.
                           완료 여부는 응답의 완료 플래그로 판단하고, 끝나야 추천 API 가
                           400 MATCHING_INTENT_REQUIRED 를 내지 않는다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/messages")
-    public ResponseEntity<ApiResponse<MatchingIntentResponseDTO>> submitMessage(
+    public ResponseEntity<BaseResponse<MatchingIntentResponseDTO>> submitMessage(
             @Valid @RequestBody MatchingIntentMessageRequestDTO request,
             Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
         MatchingIntentResponseDTO response = matchingIntentService.submitMessage(userId, request.getMessage());
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     /**
@@ -66,11 +67,11 @@ public class MatchingIntentController {
                           진행 중인 세션이 없으면 **data 가 null 이다** — "아직 시작 안 함"은 정상
                           상태라 404 가 아니다. 이때는 `POST /messages` 로 첫 답변을 보내면 된다.""")
     @GetMapping("/session")
-    public ResponseEntity<ApiResponse<IntentSessionResponseDTO>> getCurrentSession(
+    public ResponseEntity<BaseResponse<IntentSessionResponseDTO>> getCurrentSession(
             Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 matchingIntentService.getCurrentSession(userId).orElse(null)));
     }
 
@@ -82,9 +83,9 @@ public class MatchingIntentController {
 
                           진행 중인 대화가 없어도 성공한다.""")
     @PostMapping("/session/restart")
-    public ResponseEntity<ApiResponse<Void>> restart(Authentication authentication) {
+    public ResponseEntity<BaseResponse<Void>> restart(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         matchingIntentService.restart(userId);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(BaseResponse.success(null));
     }
 }

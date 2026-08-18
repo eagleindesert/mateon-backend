@@ -80,7 +80,7 @@ public class OpenApiConfig {
     }
 
     /**
-     * 실패 응답의 본문. {@code ApiResponse.error(...)} 가 내는 형태 그대로다 —
+     * 실패 응답의 본문. {@code BaseResponse.error(...)} 가 내는 형태 그대로다 —
      * success 는 항상 false 이고 data 는 null 이다(검증 실패만 예외적으로 필드→메시지 맵).
      */
     private Schema<?> errorSchema() {

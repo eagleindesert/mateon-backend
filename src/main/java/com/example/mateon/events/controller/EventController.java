@@ -1,6 +1,6 @@
 package com.example.mateon.events.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.dto.EventExtractionResponseDTO;
@@ -12,6 +12,7 @@ import com.example.mateon.events.service.EventExtractionService;
 import com.example.mateon.events.service.EventService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -65,11 +66,11 @@ public class EventController {
 
                     등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.""")
     @PostMapping
-    public ResponseEntity<ApiResponse<EventResponseDTO>> createEvent(
+    public ResponseEntity<BaseResponse<EventResponseDTO>> createEvent(
       @Valid @RequestBody EventRequestDTO request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-          .body(ApiResponse.success(eventService.createEvent(request)));
+          .body(BaseResponse.success(eventService.createEvent(request)));
     }
 
     /**
@@ -91,22 +92,22 @@ public class EventController {
 
                     읽어 내지 못한 항목은 null 이고, category·field 는 판독이 애매하면 ETC 로 온다 —
                     빈칸 없이 다 채워질 거라고 가정하지 말 것.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
       description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413",
+    @ApiResponse(responseCode = "413",
       description = "IMAGE_TOO_LARGE — 이미지는 10MB 이하만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = """
+    @ApiResponse(responseCode = "502", description = """
             AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.
             IMAGE_UPLOAD_FAILED — 이미지 저장소 업로드에 실패했습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
       description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다. 잠시 후 재시도하면 된다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "507",
+    @ApiResponse(responseCode = "507",
       description = "STORAGE_QUOTA_EXCEEDED — 저장 공간이 가득 찼습니다.")
     @PostMapping(value = "/extract-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<EventExtractionResponseDTO> extractFromImage(
+    public BaseResponse<EventExtractionResponseDTO> extractFromImage(
       @RequestPart("image") MultipartFile image
     ) {
-        return ApiResponse.success(eventExtractionService.extractFromImage(image));
+        return BaseResponse.success(eventExtractionService.extractFromImage(image));
     }
 
     /**
@@ -145,7 +146,7 @@ public class EventController {
     @Parameter(name = "size", description = "페이지당 건수. 최대 100 이며 1 미만은 1 로 올린다.")
     @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping("/search")
-    public ApiResponse<List<EventResponseDTO>> searchEvents(
+    public BaseResponse<List<EventResponseDTO>> searchEvents(
       @RequestParam(required = false) String college,
       @RequestParam(required = false) String school,
       @RequestParam(required = false) Category category,
@@ -160,7 +161,7 @@ public class EventController {
         if (college != null && !college.isBlank()) {
             log.warn("deprecated 검색 파라미터 사용: college={} (school 로 전환 필요)", college);
         }
-        return ApiResponse.success(eventService.search(
+        return BaseResponse.success(eventService.search(
           college, school, category, field, keyword, page, size, currentUserId(authentication)));
     }
 
@@ -184,17 +185,17 @@ public class EventController {
                     활동 본문에 희망직무 문자열이 그대로 있어야 점수가 붙어서 "서버 운영자"와
                     "백엔드 개발자"는 0점인 반면, 부분 문자열 오탐(희망직무 "AI" ↔ 본문 "email")은
                     만점을 받는다. 즉 이 순서는 관련도가 아니라 공고문의 어휘·길이를 반영한다.
-
+                    
                     category 를 주면 그 안에서 1건, 생략하면 카테고리마다 1건씩 내려온다.
 
                     호출하면 `Deprecation`/`Sunset` 응답 헤더가 붙고 서버에 경고 로그가 남는다
                     (누가 아직 쓰는지 파악해 걷어내기 위한 것). 대체 방식이 정해지기 전까지
                     동작은 그대로 둔다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "category", description = "생략하면 모든 카테고리에서 각각 1건씩 반환한다.")
     @GetMapping("/recommended")
-    public ApiResponse<List<EventResponseDTO>> getRecommendedEvents(
+    public BaseResponse<List<EventResponseDTO>> getRecommendedEvents(
       @RequestParam(required = false) Category category,
       Authentication authentication,
       HttpServletResponse response
@@ -213,7 +214,7 @@ public class EventController {
         log.warn("deprecated 엔드포인트 호출: GET /api/events/recommended (userId={}, category={})",
           userId, category);
 
-        return ApiResponse.success(eventService.recommend(category, userId));
+        return BaseResponse.success(eventService.recommend(category, userId));
     }
 
     /**
@@ -234,11 +235,11 @@ public class EventController {
     @Parameter(name = "size", description = "내려받을 건수. 최대 100 이며 1 미만은 1 로 올린다.")
     @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping
-    public ApiResponse<List<EventResponseDTO>> getAllEvents(
+    public BaseResponse<List<EventResponseDTO>> getAllEvents(
       @RequestParam(defaultValue = "20") int size,
       Authentication authentication
     ) {
-        return ApiResponse.success(eventService.findAllRandomly(size, currentUserId(authentication)));
+        return BaseResponse.success(eventService.findAllRandomly(size, currentUserId(authentication)));
     }
 
     /**

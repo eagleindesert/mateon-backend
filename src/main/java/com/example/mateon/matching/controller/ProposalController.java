@@ -1,11 +1,12 @@
 package com.example.mateon.matching.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.matching.dto.request.ProposalAssemblyRequestDTO;
 import com.example.mateon.matching.dto.request.UserProposalRequestDTO;
 import com.example.mateon.matching.dto.response.ProposalDraftResponseDTO;
 import com.example.mateon.matching.service.ProposalAssemblyService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,22 +67,22 @@ public class ProposalController {
                           적합도 점수의 출처가 추천 이력뿐이라, 추천에 뜬 적 없는 팀이면
                           404 RECOMMENDATION_NOT_FOUND 다. 추천을 거치지 않고 그냥 지원하려면
                           이 API 없이 곧바로 지원 API 를 쓰면 된다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "RECOMMENDATION_NOT_FOUND — 추천 이력을 찾을 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/user-to-team")
-    public ResponseEntity<ApiResponse<ProposalDraftResponseDTO>> draftForTeam(
+    public ResponseEntity<BaseResponse<ProposalDraftResponseDTO>> draftForTeam(
             @Valid @RequestBody ProposalAssemblyRequestDTO request,
             Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 proposalAssemblyService.draftForTeam(userId, request.getTeamId())));
     }
 
@@ -98,23 +99,23 @@ public class ProposalController {
                           나온다. 사용자가 고친 뒤 `POST /api/teams/{teamId}/offers` 로 보낸다.
 
                           **선행 호출:** `GET /api/matching/recommendations/team-to-user`.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 호출할 수 있습니다.
             MATCHING_INTENT_REQUIRED — 상대 유저의 매칭 의도 정보가 없습니다.
             RESOURCE_NOT_FOUND — 팀 또는 유저를 찾을 수 없습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "RECOMMENDATION_NOT_FOUND — 추천 이력을 찾을 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/team-to-user")
-    public ResponseEntity<ApiResponse<ProposalDraftResponseDTO>> draftForUser(
+    public ResponseEntity<BaseResponse<ProposalDraftResponseDTO>> draftForUser(
             @Valid @RequestBody UserProposalRequestDTO request,
             Authentication authentication
     ) {
         Long leaderUserId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(proposalAssemblyService.draftForUser(
+        return ResponseEntity.ok(BaseResponse.success(proposalAssemblyService.draftForUser(
                 request.getTeamId(), request.getUserId(), leaderUserId)));
     }
 }

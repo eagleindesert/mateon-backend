@@ -2,10 +2,11 @@ package com.example.mateon.bookmarks.controller;
 
 import com.example.mateon.bookmarks.dto.BookmarkToggleResponseDTO;
 import com.example.mateon.bookmarks.service.BookmarkService;
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.events.dto.EventResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -54,12 +55,12 @@ public class BookmarkController {
                     본문도 같으므로(`bookmarked: true`) 상태코드를 구분하지 않아도 된다.
 
                     같은 활동을 여러 번 눌러도 안전하다(멱등).""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = """
+    @ApiResponse(responseCode = "404", description = """
             EVENT_NOT_FOUND — 활동을 찾을 수 없습니다.
             USER_NOT_FOUND — 사용자를 찾을 수 없습니다.""")
     @Parameter(name = "eventId", description = "찜할 활동. 숫자만 받는다(/events/ids 와 겹치지 않게 하기 위함).")
     @PostMapping("/events/{eventId:\\d+}")
-    public ResponseEntity<ApiResponse<BookmarkToggleResponseDTO>> addBookmark(
+    public ResponseEntity<BaseResponse<BookmarkToggleResponseDTO>> addBookmark(
       Authentication authentication,
       @PathVariable Long eventId
     ) {
@@ -69,7 +70,7 @@ public class BookmarkController {
         HttpStatus status = created ? HttpStatus.CREATED : HttpStatus.OK;
         String message = created ? "북마크에 추가되었습니다." : "이미 북마크한 활동입니다.";
         return ResponseEntity.status(status)
-          .body(ApiResponse.success(message, new BookmarkToggleResponseDTO(eventId, true)));
+          .body(BaseResponse.success(message, new BookmarkToggleResponseDTO(eventId, true)));
     }
 
     /**
@@ -79,11 +80,11 @@ public class BookmarkController {
       description = """
                     원래 찜하지 않았더라도 200 이다 — 결과 상태가 같으므로 실패로 볼 이유가 없다.
                     응답 본문은 항상 `bookmarked: false` 다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "eventId", description = "찜을 해제할 활동.")
     @DeleteMapping("/events/{eventId:\\d+}")
-    public ResponseEntity<ApiResponse<BookmarkToggleResponseDTO>> removeBookmark(
+    public ResponseEntity<BaseResponse<BookmarkToggleResponseDTO>> removeBookmark(
       Authentication authentication,
       @PathVariable Long eventId
     ) {
@@ -92,7 +93,7 @@ public class BookmarkController {
 
         String message = removed ? "북마크가 해제되었습니다." : "북마크한 적 없는 활동입니다.";
         return ResponseEntity.ok(
-          ApiResponse.success(message, new BookmarkToggleResponseDTO(eventId, false)));
+          BaseResponse.success(message, new BookmarkToggleResponseDTO(eventId, false)));
     }
 
     /**
@@ -110,13 +111,13 @@ public class BookmarkController {
     @Parameter(name = "page", description = "0-기반 페이지 번호. 음수는 0 으로 취급한다.")
     @Parameter(name = "size", description = "페이지당 건수. 최대 100 이며 1 미만은 1 로 올린다.")
     @GetMapping("/events")
-    public ResponseEntity<ApiResponse<List<EventResponseDTO>>> getMyBookmarks(
+    public ResponseEntity<BaseResponse<List<EventResponseDTO>>> getMyBookmarks(
       Authentication authentication,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size
     ) {
         Long userId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(bookmarkService.getMyBookmarks(userId, page, size)));
+        return ResponseEntity.ok(BaseResponse.success(bookmarkService.getMyBookmarks(userId, page, size)));
     }
 
     /**
@@ -132,8 +133,8 @@ public class BookmarkController {
 
                     찜한 게 없으면 빈 배열이다.""")
     @GetMapping("/events/ids")
-    public ResponseEntity<ApiResponse<List<Long>>> getMyBookmarkedEventIds(Authentication authentication) {
+    public ResponseEntity<BaseResponse<List<Long>>> getMyBookmarkedEventIds(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(bookmarkService.getMyBookmarkedEventIds(userId)));
+        return ResponseEntity.ok(BaseResponse.success(bookmarkService.getMyBookmarkedEventIds(userId)));
     }
 }

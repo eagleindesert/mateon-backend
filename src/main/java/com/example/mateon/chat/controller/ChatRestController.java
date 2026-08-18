@@ -6,9 +6,10 @@ import com.example.mateon.chat.dto.request.ReadRequest;
 import com.example.mateon.chat.dto.response.ChatMessageResponse;
 import com.example.mateon.chat.dto.response.ChatRoomResponse;
 import com.example.mateon.chat.service.ChatService;
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,16 +35,16 @@ public class ChatRestController {
                     확인할 필요가 없다.
 
                     받은 roomId 로 이력을 조회하고, 실제 송수신은 STOMP(`/ws-stomp`)로 한다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
       description = "CANNOT_CHAT_WITH_SELF — 자기 자신과는 채팅할 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 상대 사용자를 찾을 수 없습니다.")
     @PostMapping("/rooms/dm")
-    public ApiResponse<Map<String, Long>> createOrGetDmRoom(@Valid @RequestBody CreateDmRequest request,
-                                                            Authentication authentication) {
+    public BaseResponse<Map<String, Long>> createOrGetDmRoom(@Valid @RequestBody CreateDmRequest request,
+                                                             Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         ChatRoom room = chatService.getOrCreateDmRoom(userId, request.getTargetUserId());
-        return ApiResponse.success(Map.of("roomId", room.getId()));
+        return BaseResponse.success(Map.of("roomId", room.getId()));
     }
 
     // 내가 참여한 방 목록 (마지막 메시지 미리보기 + 안읽음 수)
@@ -54,9 +55,9 @@ public class ChatRestController {
 
                     참여한 방이 없으면 빈 배열이다.""")
     @GetMapping("/rooms")
-    public ApiResponse<List<ChatRoomResponse>> getMyRooms(Authentication authentication) {
+    public BaseResponse<List<ChatRoomResponse>> getMyRooms(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
-        return ApiResponse.success(chatService.getMyRooms(userId));
+        return BaseResponse.success(chatService.getMyRooms(userId));
     }
 
     // 메시지 이력 조회 (before 이전 size 건, 오래된→최신 순)
@@ -70,19 +71,19 @@ public class ChatRestController {
                     그대로 화면에 그리면 된다.
 
                     받은 배열이 size 보다 짧으면 더 이상 과거가 없다는 뜻이다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             NOT_ROOM_MEMBER — 해당 채팅방의 참여자가 아닙니다.
             CHAT_ROOM_NOT_FOUND — 채팅방을 찾을 수 없습니다.""")
     @Parameter(name = "roomId", description = "조회할 방. 내가 참여 중인 방이어야 한다.")
     @Parameter(name = "before", description = "이 메시지 id 보다 과거만 가져온다. 생략하면 최신부터.")
     @Parameter(name = "size", description = "한 번에 가져올 건수.")
     @GetMapping("/rooms/{roomId}/messages")
-    public ApiResponse<List<ChatMessageResponse>> getMessages(@PathVariable Long roomId,
-                                                              @RequestParam(required = false) Long before,
-                                                              @RequestParam(defaultValue = "30") int size,
-                                                              Authentication authentication) {
+    public BaseResponse<List<ChatMessageResponse>> getMessages(@PathVariable Long roomId,
+                                                               @RequestParam(required = false) Long before,
+                                                               @RequestParam(defaultValue = "30") int size,
+                                                               Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
-        return ApiResponse.success(chatService.getMessages(userId, roomId, before, size));
+        return BaseResponse.success(chatService.getMessages(userId, roomId, before, size));
     }
 
     // 읽음 처리
@@ -92,15 +93,15 @@ public class ChatRestController {
                     안 읽은 개수를 계산하는 기준이다.
 
                     보통 방을 열거나 새 메시지를 받았을 때 화면에 보인 마지막 메시지 id 로 부른다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
       description = "NOT_ROOM_MEMBER — 해당 채팅방의 참여자가 아닙니다.")
     @Parameter(name = "roomId", description = "읽음을 표시할 방.")
     @PostMapping("/rooms/{roomId}/read")
-    public ApiResponse<Void> markAsRead(@PathVariable Long roomId,
-                                        @Valid @RequestBody ReadRequest request,
-                                        Authentication authentication) {
+    public BaseResponse<Void> markAsRead(@PathVariable Long roomId,
+                                         @Valid @RequestBody ReadRequest request,
+                                         Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         chatService.markAsRead(userId, roomId, request.getLastReadMessageId());
-        return ApiResponse.success(null);
+        return BaseResponse.success(null);
     }
 }

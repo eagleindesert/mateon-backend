@@ -1,6 +1,6 @@
 package com.example.mateon.common.exception;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.apache.catalina.connector.ClientAbortException;
@@ -290,7 +290,7 @@ class GlobalExceptionHandlerTest {
             HttpMessageNotWritableException e = new HttpMessageNotWritableException(
                     "순환 참조", new IllegalStateException("cycle"));
 
-            ResponseEntity<ApiResponse<Object>> response = handler.handleNotWritable(e);
+            ResponseEntity<BaseResponse<Object>> response = handler.handleNotWritable(e);
 
             assertThat(response).isNotNull();
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);

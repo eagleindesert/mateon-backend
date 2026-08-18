@@ -1,6 +1,6 @@
 package com.example.mateon.user.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.user.dto.MyPageResponseDTO;
 import com.example.mateon.user.dto.PasswordChangeRequest;
 import com.example.mateon.user.dto.UserProfileResponse;
@@ -10,6 +10,7 @@ import com.example.mateon.user.service.ProfileImageService;
 import com.example.mateon.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +35,13 @@ public class UserController {
                     참여 활동까지 한 번에 실린다 (폐기 예정인 `/mypage` 와 같은 값).
 
                     대상은 토큰의 주인이라 경로에 userId 를 넣지 않는다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getMyProfile(Authentication authentication) {
+    public ResponseEntity<BaseResponse<UserResponse>> getMyProfile(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         UserResponse response = userService.getMyProfile(userId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     @Operation(summary = "내 정보 수정",
@@ -50,15 +51,15 @@ public class UserController {
 
                     이메일·학교 인증 상태·비밀번호는 여기서 바꿀 수 없다
                     (비밀번호는 `POST /api/users/password/change`).""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PutMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
+    public ResponseEntity<BaseResponse<UserResponse>> updateMyProfile(
             Authentication authentication,
             @Valid @RequestBody UserUpdateRequest request) {
         Long userId = Long.valueOf(authentication.getName());
         UserResponse response = userService.updateMyProfile(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("정보가 수정되었습니다.", response));
+        return ResponseEntity.ok(BaseResponse.success("정보가 수정되었습니다.", response));
     }
     /**
      * 마이페이지 종합 정보 [인증 필수].
@@ -72,13 +73,13 @@ public class UserController {
             deprecated = true,
             summary = "[폐기 예정] 마이페이지 종합 정보 조회",
             description = "GET /api/users/me 로 대체되었습니다. 같은 값을 모두 주므로 새 호출부는 /me 를 쓰세요.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/mypage")
-    public ResponseEntity<ApiResponse<MyPageResponseDTO>> getMyPage(Authentication authentication) {
+    public ResponseEntity<BaseResponse<MyPageResponseDTO>> getMyPage(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         MyPageResponseDTO response = userService.getMyPage(userId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     /**
@@ -97,16 +98,16 @@ public class UserController {
 
                           자기 자신을 조회하면 isMe 가 true 로 온다. 매칭 의도 슬롯이나 협업 온도는
                           아직 없을 수 있고(의도 추출 전·평가 0건) 그때는 null 이다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "userId", description = "조회할 사용자. 숫자만 받는다(/me 같은 리터럴 경로와 겹치지 않게 하기 위함).")
     @GetMapping("/{userId:\\d+}")
-    public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
+    public ResponseEntity<BaseResponse<UserProfileResponse>> getUserProfile(
             Authentication authentication,
             @PathVariable Long userId) {
         Long viewerId = Long.valueOf(authentication.getName());
         UserProfileResponse response = userService.getPublicProfile(userId, viewerId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(BaseResponse.success(response));
     }
 
     /**
@@ -131,21 +132,21 @@ public class UserController {
 
                           형식·크기가 잘못된 파일은 접수 단계에서 400/413 으로 즉시 거절되므로,
                           200 을 받았다면 파일 자체에는 문제가 없다는 뜻이다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
             description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413",
+    @ApiResponse(responseCode = "413",
             description = "IMAGE_TOO_LARGE — 이미지는 10MB 이하만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "507",
+    @ApiResponse(responseCode = "507",
             description = "STORAGE_QUOTA_EXCEEDED — 저장 공간이 가득 찼습니다. 파일을 줄여도 통과하지 않는다.")
     @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<Void>> uploadProfileImage(
+    public ResponseEntity<BaseResponse<Void>> uploadProfileImage(
             Authentication authentication,
             @RequestPart("image") MultipartFile image) {
         Long userId = Long.valueOf(authentication.getName());
         profileImageService.upload(userId, image);
-        return ResponseEntity.ok(ApiResponse.success("프로필 이미지 업로드가 진행 중입니다.", null));
+        return ResponseEntity.ok(BaseResponse.success("프로필 이미지 업로드가 진행 중입니다.", null));
     }
 
     /**
@@ -159,13 +160,13 @@ public class UserController {
 
                           이미지가 없는 상태에서 불러도 성공한다(멱등) — 요청이 원한 결과가
                           이미 그 상태이기 때문이다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @DeleteMapping("/me/profile-image")
-    public ResponseEntity<ApiResponse<Void>> deleteProfileImage(Authentication authentication) {
+    public ResponseEntity<BaseResponse<Void>> deleteProfileImage(Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         profileImageService.delete(userId);
-        return ResponseEntity.ok(ApiResponse.success("프로필 이미지 삭제가 요청되었습니다.", null));
+        return ResponseEntity.ok(BaseResponse.success("프로필 이미지 삭제가 요청되었습니다.", null));
     }
 
     @Operation(summary = "비밀번호 변경 (로그인 상태)",
@@ -174,17 +175,16 @@ public class UserController {
                           바꾸는 화면이라면 `POST /api/auth/password/change` 를 쓴다.
 
                           성공하면 저장된 refreshToken 이 폐기되므로 **다시 로그인해야 한다.**""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
             description = "PASSWORD_MISMATCH — 현재 비밀번호가 틀렸거나, 새 비밀번호와 확인값이 다릅니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PostMapping("/password/change")
-    public ResponseEntity<ApiResponse<Object>> changePassword(
+    public ResponseEntity<BaseResponse<Object>> changePassword(
             Authentication authentication,
             @Valid @RequestBody PasswordChangeRequest request) {
         Long userId = Long.valueOf(authentication.getName());
         userService.changePassword(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요."));
+        return ResponseEntity.ok(BaseResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요."));
     }
 }
-

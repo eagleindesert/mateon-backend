@@ -1,6 +1,6 @@
 package com.example.mateon.notification.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.notification.dto.NotificationResponseDTO;
 import com.example.mateon.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,8 +48,8 @@ public class NotificationController {
 
                     알림이 없으면 빈 배열이다.""")
     @GetMapping
-    public ApiResponse<List<NotificationResponseDTO>> getNotifications(Authentication authentication) {
+    public BaseResponse<List<NotificationResponseDTO>> getNotifications(Authentication authentication) {
         List<NotificationResponseDTO> response = notificationService.getMyNotifications(Long.valueOf(authentication.getName()));
-        return ApiResponse.success(response);
+        return BaseResponse.success(response);
     }
 }

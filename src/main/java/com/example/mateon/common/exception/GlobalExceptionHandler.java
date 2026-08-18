@@ -1,6 +1,6 @@
 package com.example.mateon.common.exception;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.HttpStatus;
@@ -29,28 +29,28 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MateonException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMateonException(MateonException e) {
+    public ResponseEntity<BaseResponse<Object>> handleMateonException(MateonException e) {
         return ResponseEntity
           .status(e.getErrorCode().getStatus())
-          .body(ApiResponse.error(e.getMessage()));
+          .body(BaseResponse.error(e.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+    public ResponseEntity<BaseResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
-          .body(ApiResponse.error(e.getMessage()));
+          .body(BaseResponse.error(e.getMessage()));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ApiResponse<Object>> handleBadCredentialsException(BadCredentialsException e) {
+    public ResponseEntity<BaseResponse<Object>> handleBadCredentialsException(BadCredentialsException e) {
         return ResponseEntity
           .status(HttpStatus.UNAUTHORIZED)
-          .body(ApiResponse.error(ErrorCode.INVALID_CREDENTIALS.getMessage()));
+          .body(BaseResponse.error(ErrorCode.INVALID_CREDENTIALS.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<BaseResponse<Map<String, String>>> handleValidationException(MethodArgumentNotValidException e) {
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
         });
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
-          .body(ApiResponse.error("입력값 검증에 실패했습니다.", errors));
+          .body(BaseResponse.error("입력값 검증에 실패했습니다.", errors));
     }
 
     /**
@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
      * 클라이언트가 400 을 한 가지 방식으로 처리할 수 있다.
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleNotReadable(HttpMessageNotReadableException e) {
+    public ResponseEntity<BaseResponse<Map<String, String>>> handleNotReadable(HttpMessageNotReadableException e) {
         Map<String, String> errors = new HashMap<>();
         if (e.getCause() instanceof InvalidFormatException cause && !cause.getPath().isEmpty()) {
             String field = cause.getPath().get(cause.getPath().size() - 1).getPropertyName();
@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
-          .body(ApiResponse.error("입력값 검증에 실패했습니다.", errors));
+          .body(BaseResponse.error("입력값 검증에 실패했습니다.", errors));
     }
 
     /**
@@ -90,12 +90,12 @@ public class GlobalExceptionHandler {
      * 본문과 마찬가지로 클라이언트 입력 문제라 400 으로 돌려준다.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+    public ResponseEntity<BaseResponse<Map<String, String>>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         Map<String, String> errors = new HashMap<>();
         errors.put(e.getName(), describeInvalidValue(e.getRequiredType(), e.getValue()));
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
-          .body(ApiResponse.error("입력값 검증에 실패했습니다.", errors));
+          .body(BaseResponse.error("입력값 검증에 실패했습니다.", errors));
     }
 
     /**
@@ -117,8 +117,8 @@ public class GlobalExceptionHandler {
      *
      * <p>
      * 이 핸들러가 없으면 아래 catch-all 로 떨어지는데, SSE 요청은 응답 Content-Type 이
-     * text/event-stream 으로 이미 굳어 있어 ApiResponse(JSON) 를 쓸 컨버터가 없다
-     * ("No converter for [ApiResponse] with preset Content-Type 'text/event-stream'").
+     * text/event-stream 으로 이미 굳어 있어 BaseResponse(JSON) 를 쓸 컨버터가 없다
+     * ("No converter for [BaseResponse] with preset Content-Type 'text/event-stream'").
      * 반환 타입이 void 라 스프링은 '처리 완료, 본문 없음' 으로 간주한다.
      */
     @ExceptionHandler(AsyncRequestNotUsableException.class)
@@ -135,7 +135,7 @@ public class GlobalExceptionHandler {
      * <p>
      * 이 핸들러가 없으면 catch-all 이 가로채 두 줄짜리 오류가 접속자 수만큼 쌓인다.
      * 스프링 기본 처리(503, 본문 없음)로 갔을 예외를 catch-all 이 먼저 잡아 ERROR 로 찍고,
-     * 이어서 ApiResponse(JSON) 를 쓰려다 응답 Content-Type 이 text/event-stream 으로 굳어 있어
+     * 이어서 BaseResponse(JSON) 를 쓰려다 응답 Content-Type 이 text/event-stream 으로 굳어 있어
      * 컨버터를 못 찾고 HttpMessageNotWritableException 까지 WARN 으로 남는다. 이건 예외 핸들러의
      * 반환값을 쓰다 터진 거라 아래 handleNotWritable 로 다시 오지도 않는다.
      *
@@ -162,7 +162,7 @@ public class GlobalExceptionHandler {
      * 기존대로 ERROR 로그와 500 을 유지한다.
      */
     @ExceptionHandler(HttpMessageNotWritableException.class)
-    public ResponseEntity<ApiResponse<Object>> handleNotWritable(HttpMessageNotWritableException e) {
+    public ResponseEntity<BaseResponse<Object>> handleNotWritable(HttpMessageNotWritableException e) {
         for (Throwable cause = e.getCause(); cause != null; cause = cause.getCause()) {
             if (cause instanceof AsyncRequestNotUsableException || cause instanceof ClientAbortException) {
                 log.debug("클라이언트 연결 종료로 응답 전송 중단: {}", cause.getMessage());
@@ -172,7 +172,7 @@ public class GlobalExceptionHandler {
         log.error("응답 직렬화 실패", e);
         return ResponseEntity
           .status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+          .body(BaseResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 
     /**
@@ -187,11 +187,11 @@ public class GlobalExceptionHandler {
      * 도메인별 한도 안내는 각 서비스가 하는 2차 검사(IMAGE_TOO_LARGE / PDF_TOO_LARGE)의 몫이다.
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+    public ResponseEntity<BaseResponse<Object>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
         log.warn("업로드 크기 제한 초과: {}", e.getMessage());
         return ResponseEntity
           .status(ErrorCode.FILE_TOO_LARGE.getStatus())
-          .body(ApiResponse.error(ErrorCode.FILE_TOO_LARGE.getMessage()));
+          .body(BaseResponse.error(ErrorCode.FILE_TOO_LARGE.getMessage()));
     }
 
     /**
@@ -199,18 +199,18 @@ public class GlobalExceptionHandler {
      * ServletException 계열이라 핸들러가 없으면 catch-all 500 이 되는데, 명백한 요청 오류다.
      */
     @ExceptionHandler(MissingServletRequestPartException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMissingPart(MissingServletRequestPartException e) {
+    public ResponseEntity<BaseResponse<Object>> handleMissingPart(MissingServletRequestPartException e) {
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
-          .body(ApiResponse.error("'%s' 파일이 필요합니다.".formatted(e.getRequestPartName())));
+          .body(BaseResponse.error("'%s' 파일이 필요합니다.".formatted(e.getRequestPartName())));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
+    public ResponseEntity<BaseResponse<Object>> handleException(Exception e) {
         // printStackTrace 는 System.err 로 직접 찍혀 타임스탬프·로그레벨 없이 logback 출력과 섞인다.
         log.error("처리되지 않은 예외", e);
         return ResponseEntity
           .status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+          .body(BaseResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 }

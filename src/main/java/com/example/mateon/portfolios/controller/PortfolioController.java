@@ -1,9 +1,10 @@
 package com.example.mateon.portfolios.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.portfolios.dto.PortfolioSummaryResponseDTO;
 import com.example.mateon.portfolios.service.PortfolioSummaryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -45,24 +46,24 @@ public class PortfolioController {
                     200 이다 — 그 저장은 캐시일 뿐 조회용 자원이 아니다.
 
                     확장자가 .pdf 가 아니거나 내용이 PDF 가 아니면 둘 다 INVALID_PDF_FILE 이다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
       description = "INVALID_PDF_FILE — pdf 형식의 파일만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "413",
+    @ApiResponse(responseCode = "413",
       description = "PDF_TOO_LARGE — 포트폴리오 PDF는 20MB 이하만 업로드할 수 있습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
       description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
       description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다. 잠시 후 재시도하면 된다.")
     @PostMapping(value = "/summarize", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<PortfolioSummaryResponseDTO> summarize(
+    public BaseResponse<PortfolioSummaryResponseDTO> summarize(
       Authentication authentication,
       @RequestPart("pdf_file") MultipartFile pdfFile
     ) {
         // JWT 의 subject 가 userId 다(JwtAuthenticationFilter). 이 경로는 비인증 접근이 차단되므로
         // EventController.currentUserId 처럼 익명 토큰을 걸러 낼 필요가 없다.
         Long userId = Long.valueOf(authentication.getName());
-        return ApiResponse.success(portfolioSummaryService.summarize(userId, pdfFile));
+        return BaseResponse.success(portfolioSummaryService.summarize(userId, pdfFile));
     }
 }

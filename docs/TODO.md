@@ -22,8 +22,8 @@
       맞출 것. `RecommendationControllerTest.missingTeamIdFallsToCatchAll` 이 지금 동작을 고정하고 있으므로
       함께 뒤집기
 
-- `ApiResponse.success(...)` 오버로드 때문에 응답 봉투가 두 모양으로 갈려 있음
-    - 데이터가 없는 엔드포인트가 `ApiResponse.success("삭제되었습니다.")` 를 호출하는데, 인자가 하나라
+- `BaseResponse.success(...)` 오버로드 때문에 응답 봉투가 두 모양으로 갈려 있음
+    - 데이터가 없는 엔드포인트가 `BaseResponse.success("삭제되었습니다.")` 를 호출하는데, 인자가 하나라
       `success(T data)` 에 묶여 **사람이 읽을 문구가 `data` 로 가고 `message` 는 `"성공"`** 이 됨
     - 대상: `TeamController` 의 `DELETE /api/teams/{id}`, `/apply`, `/applications/{id}` (PATCH/PUT/DELETE),
       `TeamOfferController` 의 `DELETE /api/teams/offers/{id}`,

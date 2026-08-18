@@ -1,6 +1,6 @@
 package com.example.mateon.matching.controller;
 
-import com.example.mateon.common.dto.ApiResponse;
+import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.matching.dto.request.RecommendationReasonRequestDTO;
 import com.example.mateon.matching.dto.request.UserReasonRequestDTO;
 import com.example.mateon.matching.dto.response.RecommendationReasonResponseDTO;
@@ -11,6 +11,7 @@ import com.example.mateon.matching.service.RecommendationService;
 import com.example.mateon.matching.service.TeamToUserRecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -61,24 +62,24 @@ public class RecommendationController {
 
                           각 항목의 label 은 짧은 한 줄 요약이다. 긴 설명이 필요하면 카드를 고른
                           시점에 `POST /reason/user-to-team` 을 부른다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+    @ApiResponse(responseCode = "400",
             description = "MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다. 잠시 후 재시도하면 된다.")
     @Parameter(name = "eventId", description = "지정하면 그 활동에 연결된 팀만 추천한다. 생략하면 모집 중인 팀 전체가 후보다.")
     @Parameter(name = "limit",
             description = "내려받을 상위 건수. 다만 AI 서버가 상위 10건까지만 점수를 매기므로 "
                     + "10 을 넘겨도 실제로는 최대 10건이다.")
     @GetMapping("/user-to-team")
-    public ResponseEntity<ApiResponse<List<TeamRecommendationResponseDTO>>> recommendTeams(
+    public ResponseEntity<BaseResponse<List<TeamRecommendationResponseDTO>>> recommendTeams(
             @RequestParam(required = false) Long eventId,
             @RequestParam(defaultValue = "10") int limit,
             Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 recommendationService.recommendTeams(userId, eventId, limit)));
     }
 
@@ -106,25 +107,25 @@ public class RecommendationController {
 
                           팀 임베딩은 팀 생성·수정 후 비동기로 계산된다. 아직 안 끝났으면
                           400 TEAM_EMBEDDING_NOT_READY 이므로 잠시 후 다시 부르면 된다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             TEAM_EMBEDDING_NOT_READY — 팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 재시도.
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
             FORBIDDEN_ACCESS — 이 팀의 팀장만 호출할 수 있습니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @Parameter(name = "teamId", description = "추천을 받을 팀. 요청자가 이 팀의 팀장이 아니면 400 FORBIDDEN_ACCESS.")
     @Parameter(name = "limit", description = "내려받을 상위 건수. user-to-team 과 마찬가지로 AI 가 점수를 매겨 준 건수를 넘을 수 없다.")
     @GetMapping("/team-to-user")
-    public ResponseEntity<ApiResponse<List<UserRecommendationResponseDTO>>> recommendUsers(
+    public ResponseEntity<BaseResponse<List<UserRecommendationResponseDTO>>> recommendUsers(
             @RequestParam Long teamId,
             @RequestParam(defaultValue = "10") int limit,
             Authentication authentication
     ) {
         Long leaderUserId = Long.valueOf(authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 teamToUserRecommendationService.recommendUsers(teamId, leaderUserId, limit)));
     }
 
@@ -158,23 +159,23 @@ public class RecommendationController {
 
                           **선행 호출:** `GET /user-to-team`. 추천에 뜬 적 없는 팀이면
                           404 RECOMMENDATION_NOT_FOUND 다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "RECOMMENDATION_NOT_FOUND — 추천 이력을 찾을 수 없습니다. 먼저 GET /user-to-team 을 부른다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/reason/user-to-team")
-    public ResponseEntity<ApiResponse<RecommendationReasonResponseDTO>> explainTeam(
+    public ResponseEntity<BaseResponse<RecommendationReasonResponseDTO>> explainTeam(
             @Valid @RequestBody RecommendationReasonRequestDTO request,
             Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
         String reason = recommendationReasonService.explainTeam(userId, request.getTeamId());
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 new RecommendationReasonResponseDTO(reason)));
     }
 
@@ -191,25 +192,25 @@ public class RecommendationController {
                           404 조건은 유저→팀 방향과 같다.
 
                           **선행 호출:** `GET /team-to-user`.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = """
+    @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 호출할 수 있습니다.
             MATCHING_INTENT_REQUIRED — 상대 유저의 매칭 의도 정보가 없습니다.
             RESOURCE_NOT_FOUND — 팀 또는 유저를 찾을 수 없습니다.""")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+    @ApiResponse(responseCode = "404",
             description = "RECOMMENDATION_NOT_FOUND — 추천 이력을 찾을 수 없습니다. 먼저 GET /team-to-user 를 부른다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502",
+    @ApiResponse(responseCode = "502",
             description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+    @ApiResponse(responseCode = "503",
             description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/reason/team-to-user")
-    public ResponseEntity<ApiResponse<RecommendationReasonResponseDTO>> explainUser(
+    public ResponseEntity<BaseResponse<RecommendationReasonResponseDTO>> explainUser(
             @Valid @RequestBody UserReasonRequestDTO request,
             Authentication authentication
     ) {
         Long leaderUserId = Long.valueOf(authentication.getName());
         String reason = recommendationReasonService.explainUser(
                 request.getTeamId(), request.getUserId(), leaderUserId);
-        return ResponseEntity.ok(ApiResponse.success(
+        return ResponseEntity.ok(BaseResponse.success(
                 new RecommendationReasonResponseDTO(reason)));
     }
 }

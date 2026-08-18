@@ -116,7 +116,7 @@ com.example.mateon
 │   ├── controller · service · domain(Notification)
 │   ├── dto · repository(NotificationRepository, EmitterRepository)
 ├── mail          Gmail SMTP 발송 (MailService)
-├── common        공통 응답(ApiResponse)·예외(MateonException, ErrorCode)·헬스체크
+├── common        공통 응답(BaseResponse)·예외(MateonException, ErrorCode)·헬스체크
 └── config        SecurityConfig · JwtProperties · RestTemplateConfig
 ```
 
@@ -148,7 +148,7 @@ sequenceDiagram
     alt 인가 통과
         SC->>Ctrl: 요청 전달
         Ctrl->>Svc: userId = Long.valueOf(auth.getName())
-        Svc-->>C: ApiResponse<T>
+        Svc-->>C: BaseResponse<T>
     else 인가 실패
         SC-->>C: 401 / 403
     end
@@ -263,7 +263,7 @@ graph TB
 
 ## 5. 공통 규약
 
-- **응답 포맷**: 모든 API 는 `ApiResponse<T>` 로 감싸 반환 (`success`, `message`, `data`).
+- **응답 포맷**: 모든 API 는 `BaseResponse<T>` 로 감싸 반환 (`success`, `message`, `data`).
 - **예외 처리**: `MateonException` + `ErrorCode` 를 `GlobalExceptionHandler` 에서 일괄 변환.
 - **감사 필드**: `@CreatedDate` / `@LastModifiedDate` (JPA Auditing) 또는 `@PrePersist`/`@PreUpdate` 로 타임스탬프 관리.
 - **스키마 관리**: `ddl-auto=update` — 엔티티 변경이 곧 스키마 변경. 상세는 [schema-db.md](schema-db.md).
