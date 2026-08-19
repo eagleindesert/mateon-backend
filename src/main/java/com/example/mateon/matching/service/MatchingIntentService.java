@@ -1,7 +1,8 @@
 package com.example.mateon.matching.service;
 
+import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.dto.AiChatTurn;
-import com.example.mateon.aichat.service.AiConversationService;
+import com.example.mateon.aichat.service.AiChatService;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
@@ -29,7 +30,7 @@ import java.util.Optional;
 public class MatchingIntentService {
 
     private final MatchingIntentSessionService sessionService;
-    private final AiConversationService conversationService;
+    private final AiChatService chatService;
     private final IntentExtractionClient client;
 
     /**
@@ -38,9 +39,13 @@ public class MatchingIntentService {
      *
      * <p>게이트웨이를 거치지 않고 들어온 발화도 통합 로그에 남는다 — 대화 이력이 유입 경로에
      * 따라 갈리면 로그를 한 곳에 모은 의미가 없다.
+     *
+     * <p>이 경로는 스레드를 지정하지 않는다(프론트가 스레드를 모르던 시절의 API 다). 그래서
+     * 가장 최근 스레드에 이어 붙이고, 하나도 없으면 만든다.
      */
     public MatchingIntentResponseDTO submitMessage(Long userId, String message) {
-        return submitTurn(userId, conversationService.appendUserMessage(userId, message));
+        AiChatSession session = chatService.findOrCreateLatestSession(userId);
+        return submitTurn(userId, chatService.appendUserMessage(userId, session.getId(), message));
     }
 
     /**
@@ -64,11 +69,6 @@ public class MatchingIntentService {
 
         // ③ [TX2] ASSISTANT 메시지 + 진행상황 갱신 + (완료 시) 슬롯/임베딩 upsert → 커밋
         return sessionService.applyResult(snapshot.getSessionId(), userId, ai);
-    }
-
-    /** 게이트웨이가 "이미 매칭 대화 중인가"를 물을 때. 그렇다면 라우터를 건너뛴다. */
-    public boolean hasInProgressSession(Long userId) {
-        return sessionService.hasInProgressSession(userId);
     }
 
     public Optional<IntentSessionResponseDTO> getCurrentSession(Long userId) {

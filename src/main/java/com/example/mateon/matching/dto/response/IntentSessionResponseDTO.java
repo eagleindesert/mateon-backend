@@ -1,6 +1,6 @@
 package com.example.mateon.matching.dto.response;
 
-import com.example.mateon.aichat.domain.AiConversationMessage;
+import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.matching.domain.IntentSessionStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -47,10 +47,10 @@ public class IntentSessionResponseDTO {
         private final LocalDateTime createdAt;
 
         /**
-         * 대화 이력은 이제 AI 대화 통합 로그에서 온다. 바깥으로 나가는 필드 이름(message)은
+         * 대화 이력은 이제 AI 채팅 통합 로그에서 온다. 바깥으로 나가는 필드 이름(message)은
          * 그대로다 — 저장 위치가 바뀐 것뿐이라 프론트 계약을 건드릴 이유가 없다.
          */
-        public MessageDTO(AiConversationMessage entity) {
+        public MessageDTO(AiChatMessage entity) {
             this.role = entity.getRole().name();
             this.message = entity.getContent();
             this.createdAt = entity.getCreatedAt();

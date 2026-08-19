@@ -4,7 +4,7 @@ import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.GlobalExceptionHandler;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.aichat.domain.AiChatRole;
-import com.example.mateon.aichat.domain.AiConversationMessage;
+import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.matching.domain.IntentSessionStatus;
 import com.example.mateon.matching.dto.response.ExtractedDTO;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
@@ -310,8 +310,8 @@ class MatchingIntentControllerTest {
     }
 
     /** createdAt 은 {@code @CreatedDate} 라 감사 없이는 null 이다 — 직접 채워야 키가 나간다. */
-    private AiConversationMessage message(int seq, AiChatRole role, String text) {
-        AiConversationMessage message = new AiConversationMessage(null, seq, role, text);
+    private AiChatMessage message(int seq, AiChatRole role, String text) {
+        AiChatMessage message = new AiChatMessage(null, seq, role, text);
         return TestEntities.withField(message, "createdAt", LocalDateTime.now());
     }
 

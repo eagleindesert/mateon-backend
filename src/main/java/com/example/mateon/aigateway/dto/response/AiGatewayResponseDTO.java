@@ -18,8 +18,8 @@ import lombok.Getter;
 @Getter
 public class AiGatewayResponseDTO {
 
-    @Schema(description = "이 발화가 속한 AI 대화 스레드의 id.")
-    private final Long conversationId;
+    @Schema(description = "이 발화가 속한 채팅 스레드의 id. 다음 턴에 그대로 다시 보내면 된다.")
+    private final Long sessionId;
 
     @Schema(description = "라우팅된 도메인. **프론트는 이 값으로 분기한다.** "
             + "위임된 경우 해당 도메인의 응답이 함께 실려 온다.")
@@ -37,9 +37,9 @@ public class AiGatewayResponseDTO {
     @Schema(description = "매칭 의도 추출로 위임됐을 때의 도메인 응답. 그 외에는 null.")
     private final MatchingIntentResponseDTO matching;
 
-    private AiGatewayResponseDTO(Long conversationId, RoutableDomain domain, String assistantMessage,
+    private AiGatewayResponseDTO(Long sessionId, RoutableDomain domain, String assistantMessage,
                                  MatchingIntentResponseDTO matching) {
-        this.conversationId = conversationId;
+        this.sessionId = sessionId;
         this.domain = domain;
         this.endpoint = domain.getEndpoint();
         this.assistantMessage = assistantMessage;
@@ -47,14 +47,14 @@ public class AiGatewayResponseDTO {
     }
 
     /** 도메인 서비스로 위임된 턴. 도메인의 답변을 assistantMessage 로도 올려 준다. */
-    public static AiGatewayResponseDTO delegated(Long conversationId, RoutableDomain domain,
+    public static AiGatewayResponseDTO delegated(Long sessionId, RoutableDomain domain,
                                                  MatchingIntentResponseDTO matching) {
-        return new AiGatewayResponseDTO(conversationId, domain, matching.getAssistantMessage(), matching);
+        return new AiGatewayResponseDTO(sessionId, domain, matching.getAssistantMessage(), matching);
     }
 
     /** 게이트웨이가 직접 답한 턴 (되묻기·범위 밖 안내). */
-    public static AiGatewayResponseDTO handledByGateway(Long conversationId, RoutableDomain domain,
+    public static AiGatewayResponseDTO handledByGateway(Long sessionId, RoutableDomain domain,
                                                         String assistantMessage) {
-        return new AiGatewayResponseDTO(conversationId, domain, assistantMessage, null);
+        return new AiGatewayResponseDTO(sessionId, domain, assistantMessage, null);
     }
 }

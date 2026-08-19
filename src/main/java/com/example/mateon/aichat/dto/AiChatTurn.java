@@ -10,8 +10,8 @@ package com.example.mateon.aichat.dto;
  * <p>엔티티가 아니라 id 만 담은 값이어야 한다 — TX1 이 커밋된 뒤 TX 밖에서 들고 다니므로
  * 엔티티를 넘기면 지연 로딩에서 터진다 (ConversationSnapshot 과 같은 이유).
  *
- * @param conversationId 이 발화가 속한 대화
- * @param messageId      이미 저장된 USER 메시지 행의 id. 라우팅 확정 시 여기에 도메인을 찍는다.
+ * @param chatSessionId 이 발화가 속한 스레드
+ * @param messageId     이미 저장된 USER 메시지 행의 id. 라우팅 확정 시 여기에 작업을 찍는다.
  */
-public record AiChatTurn(Long conversationId, Long messageId) {
+public record AiChatTurn(Long chatSessionId, Long messageId) {
 }

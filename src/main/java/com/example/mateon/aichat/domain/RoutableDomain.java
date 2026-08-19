@@ -7,16 +7,17 @@ import java.util.stream.Collectors;
  * AI 게이트웨이가 고를 수 있는 도메인 카탈로그. 라우터의 판정 결과이자, 메시지 한 줄이 어느
  * 도메인 소관인지 표시하는 값이다.
  *
- * <p><b>왜 aigateway 가 아니라 여기 있나</b> — 이 값이 ai_conversation_messages.domain 컬럼에
- * 저장되고, 도메인 서비스(matching)가 자기 발화를 골라 읽을 때도 쓴다. aichat 이 aigateway 를
- * 의존하면 순환이 되므로 통합 로그 쪽이 소유한다. aigateway 는 여기를 가져다 쓴다.
+ * <p><b>왜 aigateway 가 아니라 여기 있나</b> — 이 값이 ai_domain_tasks.domain 컬럼에 저장되고,
+ * 도메인 서비스(matching)가 자기 작업을 찾을 때도 쓴다. aichat 이 aigateway 를 의존하면 순환이
+ * 되므로 통합 로그 쪽이 소유한다. aigateway 는 여기를 가져다 쓴다.
  *
  * <p><b>도메인을 추가할 때는 여기 한 줄만 늘리면 된다.</b> 라우터의 시스템 프롬프트도
  * ({@link #catalogForPrompt()}), 응답 스키마도 이 enum 에서 나온다. 프롬프트를 따로 고칠 필요가
  * 없다는 게 이 구조의 요점이다 — 카탈로그와 프롬프트가 어긋나는 사고를 원천에서 막는다.
  *
  * <p>{@link #endpoint} 가 null 인 상수는 위임할 곳이 없는 판정이다(되묻기/범위 밖). 이들은
- * 메시지 컬럼에 저장되지 않고 domain 이 null 로 남는다 — 게이트웨이가 혼자 답한 턴이라는 뜻이다.
+ * 작업 행을 만들지 않고 그 메시지의 task 가 null 로 남는다 — 게이트웨이가 혼자 답한 턴이라는
+ * 뜻이다. 그래서 도메인 AI 로 보낼 배열에 끼지 않는다.
  */
 public enum RoutableDomain {
 

@@ -1,13 +1,16 @@
 package com.example.mateon.matching.service;
 
 import com.example.mateon.aichat.dto.AiChatTurn;
-import com.example.mateon.aichat.service.AiConversationService;
+import com.example.mateon.aichat.domain.AiChatSession;
+import com.example.mateon.aichat.service.AiChatService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
+import com.example.mateon.support.TestEntities;
+import com.example.mateon.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,16 +55,16 @@ class MatchingIntentServiceTest {
     private static final AiChatTurn TURN = new AiChatTurn(100L, 200L);
 
     private MatchingIntentSessionService sessionService;
-    private AiConversationService conversationService;
+    private AiChatService chatService;
     private IntentExtractionClient client;
     private MatchingIntentService service;
 
     @BeforeEach
     void setUp() {
         sessionService = mock(MatchingIntentSessionService.class);
-        conversationService = mock(AiConversationService.class);
+        chatService = mock(AiChatService.class);
         client = mock(IntentExtractionClient.class);
-        service = new MatchingIntentService(sessionService, conversationService, client);
+        service = new MatchingIntentService(sessionService, chatService, client);
     }
 
     @Test
@@ -85,15 +88,18 @@ class MatchingIntentServiceTest {
     @Test
     @DisplayName("직접 진입점은 발화를 통합 로그에 기록한 뒤 처리한다 (게이트웨이를 안 거쳐도 로그에 남는다)")
     void directEntryPointRecordsTheMessageItself() {
-        when(conversationService.appendUserMessage(USER_ID, "디자인 팀 찾아요")).thenReturn(TURN);
+        AiChatSession session = TestEntities.withId(
+                new AiChatSession(User.builder().id(USER_ID).name("김학생").build()), 100L);
+        when(chatService.findOrCreateLatestSession(USER_ID)).thenReturn(session);
+        when(chatService.appendUserMessage(USER_ID, 100L, "디자인 팀 찾아요")).thenReturn(TURN);
         when(sessionService.bindTurn(USER_ID, TURN))
                 .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("디자인 팀 찾아요")));
         when(client.extract(any())).thenReturn(aiResponse());
 
         service.submitMessage(USER_ID, "디자인 팀 찾아요");
 
-        InOrder order = inOrder(conversationService, sessionService);
-        order.verify(conversationService).appendUserMessage(USER_ID, "디자인 팀 찾아요");
+        InOrder order = inOrder(chatService, sessionService);
+        order.verify(chatService).appendUserMessage(USER_ID, 100L, "디자인 팀 찾아요");
         order.verify(sessionService).bindTurn(USER_ID, TURN);
     }
 
@@ -106,7 +112,7 @@ class MatchingIntentServiceTest {
 
         service.submitTurn(USER_ID, TURN);
 
-        verify(conversationService, never()).appendUserMessage(anyLong(), any());
+        verify(chatService, never()).appendUserMessage(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -138,16 +144,13 @@ class MatchingIntentServiceTest {
     }
 
     @Test
-    @DisplayName("세션 조회·재시작·진행 여부는 그대로 위임한다")
+    @DisplayName("세션 조회·재시작은 그대로 위임한다")
     void delegatesSessionQueries() {
         service.getCurrentSession(USER_ID);
         verify(sessionService).getCurrentSession(USER_ID);
 
         service.restart(USER_ID);
         verify(sessionService).restart(USER_ID);
-
-        service.hasInProgressSession(USER_ID);
-        verify(sessionService).hasInProgressSession(USER_ID);
     }
 
     @Test
