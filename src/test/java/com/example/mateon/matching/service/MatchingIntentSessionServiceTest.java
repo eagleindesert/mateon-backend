@@ -1,18 +1,21 @@
 package com.example.mateon.matching.service;
 
+import com.example.mateon.aichat.domain.AiChatRole;
+import com.example.mateon.aichat.domain.AiConversation;
+import com.example.mateon.aichat.domain.AiConversationMessage;
+import com.example.mateon.aichat.domain.RoutableDomain;
+import com.example.mateon.aichat.dto.AiChatTurn;
+import com.example.mateon.aichat.service.AiConversationService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.common.ai.AiServerProperties;
-import com.example.mateon.matching.domain.IntentMessageRole;
 import com.example.mateon.matching.domain.IntentSessionStatus;
-import com.example.mateon.matching.domain.MatchingIntentMessage;
 import com.example.mateon.matching.domain.MatchingIntentSession;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ConversationSnapshot;
-import com.example.mateon.matching.repository.MatchingIntentMessageRepository;
 import com.example.mateon.matching.repository.MatchingIntentSessionRepository;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.support.TestEntities;
@@ -59,6 +62,10 @@ import static org.mockito.Mockito.when;
  * <p>세 번째는 <b>깨진 JSON 에 예외를 던지지 않는 것</b>. 대화 복원은 부가 기능이라, 저장해 둔
  * JSON 이 깨졌다고 세션 조회 자체가 실패하면 사용자가 대화를 이어갈 수 없게 된다.
  *
+ * <p>네 번째는 <b>대화 이력이 이 도메인 것이 아니라는 점</b>이다. 발화는 AI 대화 통합 로그가
+ * 갖고, 이 서비스는 "이 턴은 내 세션 소관"이라고 표시만 한다. 게이트웨이가 위임 전에 이미
+ * 기록해 두기 때문에, 여기서 또 저장하면 같은 문장이 두 벌 남는다.
+ *
  * <p>임베딩 차원은 픽스처에서 3 으로 낮춘다 — 1536 개짜리 배열을 만들 이유가 없고, 검증하려는
  * 건 "설정값과 일치하는가" 뿐이다.
  */
@@ -66,10 +73,13 @@ class MatchingIntentSessionServiceTest {
 
     private static final long USER_ID = 1L;
     private static final long SESSION_ID = 10L;
+    private static final long CONVERSATION_ID = 100L;
+    private static final long MESSAGE_ID = 200L;
+    private static final AiChatTurn TURN = new AiChatTurn(CONVERSATION_ID, MESSAGE_ID);
     private static final int DIMENSION = 3;
 
     private MatchingIntentSessionRepository sessionRepository;
-    private MatchingIntentMessageRepository messageRepository;
+    private AiConversationService conversationService;
     private MatchingIntentSlotRepository slotRepository;
     private UserRepository userRepository;
     private UserEmbeddingRepository userEmbeddingRepository;
@@ -77,11 +87,12 @@ class MatchingIntentSessionServiceTest {
     private MatchingIntentSessionService service;
 
     private User user;
+    private AiConversation conversation;
 
     @BeforeEach
     void setUp() {
         sessionRepository = mock(MatchingIntentSessionRepository.class);
-        messageRepository = mock(MatchingIntentMessageRepository.class);
+        conversationService = mock(AiConversationService.class);
         slotRepository = mock(MatchingIntentSlotRepository.class);
         userRepository = mock(UserRepository.class);
         userEmbeddingRepository = mock(UserEmbeddingRepository.class);
@@ -94,10 +105,12 @@ class MatchingIntentSessionServiceTest {
 
         // MatchingIntentSessionService 는 Jackson 2 의 ObjectMapper 를 주입받는다
         // (이 프로젝트는 Jackson 2/3 이 함께 있다). 진짜 매퍼를 써야 직렬화 왕복을 검증할 수 있다.
-        service = new MatchingIntentSessionService(sessionRepository, messageRepository, slotRepository,
+        service = new MatchingIntentSessionService(sessionRepository, conversationService, slotRepository,
                 userRepository, userEmbeddingRepository, properties, new ObjectMapper());
 
         user = User.builder().id(USER_ID).name("김학생").build();
+        conversation = TestEntities.withId(new AiConversation(user), CONVERSATION_ID);
+        when(conversationService.requireConversation(CONVERSATION_ID)).thenReturn(conversation);
     }
 
     @Nested
@@ -110,11 +123,10 @@ class MatchingIntentSessionServiceTest {
             MatchingIntentSession active = session(LocalDateTime.now().minusMinutes(5));
             when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                     .thenReturn(Optional.of(active));
-            when(messageRepository.countBySessionId(SESSION_ID)).thenReturn(2);
-            when(messageRepository.findMessagesBySessionIdAndRole(SESSION_ID, IntentMessageRole.USER))
+            when(conversationService.findUserContents(RoutableDomain.MATCHING_INTENT, SESSION_ID))
                     .thenReturn(List.of("첫 발화", "둘째 발화"));
 
-            ConversationSnapshot snapshot = service.appendUserMessage(USER_ID, "셋째 발화");
+            ConversationSnapshot snapshot = service.bindTurn(USER_ID, TURN);
 
             assertThat(snapshot.getSessionId()).isEqualTo(SESSION_ID);
             verify(sessionRepository, never()).save(any());
@@ -131,7 +143,7 @@ class MatchingIntentSessionServiceTest {
             when(sessionRepository.save(any())).thenAnswer(i ->
                     TestEntities.withId(i.getArgument(0), 11L));
 
-            service.appendUserMessage(USER_ID, "새 발화");
+            service.bindTurn(USER_ID, TURN);
 
             assertThat(stale.getStatus()).isEqualTo(IntentSessionStatus.EXPIRED);
 
@@ -146,10 +158,9 @@ class MatchingIntentSessionServiceTest {
             MatchingIntentSession active = session(null);
             when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                     .thenReturn(Optional.of(active));
-            when(messageRepository.findMessagesBySessionIdAndRole(anyLong(), any()))
-                    .thenReturn(List.of("발화"));
+            when(conversationService.findUserContents(any(), anyLong())).thenReturn(List.of("발화"));
 
-            service.appendUserMessage(USER_ID, "발화");
+            service.bindTurn(USER_ID, TURN);
 
             assertThat(active.getStatus()).isEqualTo(IntentSessionStatus.IN_PROGRESS);
             verify(sessionRepository, never()).flush();
@@ -162,59 +173,94 @@ class MatchingIntentSessionServiceTest {
                     .thenReturn(Optional.empty());
             when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.appendUserMessage(USER_ID, "발화"))
+            assertThatThrownBy(() -> service.bindTurn(USER_ID, TURN))
                     .isInstanceOf(MateonException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("새 세션은 이 턴이 속한 대화에 묶인다 (안 묶이면 다음 턴에 이력을 못 읽는다)")
+        void newSessionIsBoundToTheConversation() {
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.empty());
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(sessionRepository.save(any())).thenAnswer(i -> TestEntities.withId(i.getArgument(0), 11L));
+
+            service.bindTurn(USER_ID, TURN);
+
+            ArgumentCaptor<MatchingIntentSession> captor =
+                    ArgumentCaptor.forClass(MatchingIntentSession.class);
+            verify(sessionRepository).save(captor.capture());
+            assertThat(captor.getValue().getConversation()).isSameAs(conversation);
         }
     }
 
     @Nested
-    @DisplayName("메시지 채번 — USER 와 ASSISTANT 가 한 줄로 번갈아 쌓인다")
-    class Sequencing {
+    @DisplayName("턴 표시 — 발화를 저장하는 게 아니라 '내 소관'이라고 도장만 찍는다")
+    class BindTurn {
 
         @Test
-        @DisplayName("seq 는 역할과 무관하게 전체 개수 + 1 이다")
-        void seqCountsBothRoles() {
+        @DisplayName("발화를 다시 저장하지 않는다 — 게이트웨이가 이미 기록했다 (이중 기록 방지)")
+        void doesNotStoreTheMessageAgain() {
             MatchingIntentSession active = session(LocalDateTime.now());
             when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                     .thenReturn(Optional.of(active));
-            when(messageRepository.countBySessionId(SESSION_ID)).thenReturn(3);
-            when(messageRepository.findMessagesBySessionIdAndRole(anyLong(), any()))
-                    .thenReturn(List.of("a", "b"));
 
-            service.appendUserMessage(USER_ID, "새 발화");
+            service.bindTurn(USER_ID, TURN);
 
-            MatchingIntentMessage saved = captureSavedMessage();
-            assertThat(saved.getSeq()).isEqualTo(4);
-            assertThat(saved.getRole()).isEqualTo(IntentMessageRole.USER);
-            assertThat(saved.getMessage()).isEqualTo("새 발화");
+            verify(conversationService, never()).appendUserMessage(anyLong(), any());
         }
 
         @Test
-        @DisplayName("AI 응답도 같은 줄에 ASSISTANT 로 쌓인다")
-        void assistantMessageIsStored() {
+        @DisplayName("이 턴에 도메인과 세션 id 를 찍는다 — 이 도장이 없으면 AI 로 보낼 배열에서 빠진다")
+        void stampsDomainOnTheTurn() {
+            MatchingIntentSession active = session(LocalDateTime.now());
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.of(active));
+
+            service.bindTurn(USER_ID, TURN);
+
+            verify(conversationService)
+                    .assignDomain(MESSAGE_ID, RoutableDomain.MATCHING_INTENT, SESSION_ID);
+        }
+
+        @Test
+        @DisplayName("도장을 찍은 뒤에 읽는다 — 순서가 뒤집히면 방금 한 발화가 AI 에 안 간다")
+        void stampsBeforeReading() {
+            MatchingIntentSession active = session(LocalDateTime.now());
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.of(active));
+
+            service.bindTurn(USER_ID, TURN);
+
+            InOrder order = inOrder(conversationService);
+            order.verify(conversationService).assignDomain(anyLong(), any(), anyLong());
+            order.verify(conversationService).findUserContents(RoutableDomain.MATCHING_INTENT, SESSION_ID);
+        }
+
+        @Test
+        @DisplayName("AI 로 보낼 발화는 이 세션 소관만 고른다 (완료된 옛 세션 발화가 섞이면 추출이 오염된다)")
+        void readsOnlyThisSessionsMessages() {
+            MatchingIntentSession active = session(LocalDateTime.now());
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.of(active));
+            // 같은 대화의 옛 세션(SESSION_ID 아님) 발화는 이 스텁에 걸리지 않는다.
+            when(conversationService.findUserContents(RoutableDomain.MATCHING_INTENT, SESSION_ID))
+                    .thenReturn(List.of("첫 발화", "둘째 발화"));
+
+            assertThat(service.bindTurn(USER_ID, TURN).getUserMessages())
+                    .containsExactly("첫 발화", "둘째 발화");
+        }
+
+        @Test
+        @DisplayName("AI 응답은 이 세션 소관으로 통합 로그에 기록된다")
+        void assistantReplyGoesToTheUnifiedLog() {
             givenSessionExists();
-            when(messageRepository.countBySessionId(SESSION_ID)).thenReturn(1);
 
             service.applyResult(SESSION_ID, USER_ID, incomplete("어떤 기술을 쓰시나요?"));
 
-            MatchingIntentMessage saved = captureSavedMessage();
-            assertThat(saved.getSeq()).isEqualTo(2);
-            assertThat(saved.getRole()).isEqualTo(IntentMessageRole.ASSISTANT);
-            assertThat(saved.getMessage()).isEqualTo("어떤 기술을 쓰시나요?");
-        }
-
-        @Test
-        @DisplayName("AI 로 보내는 것은 USER 발화만이다 (명세상 messages 는 사용자가 한 말만 담는다)")
-        void snapshotCarriesOnlyUserMessages() {
-            MatchingIntentSession active = session(LocalDateTime.now());
-            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
-                    .thenReturn(Optional.of(active));
-            when(messageRepository.findMessagesBySessionIdAndRole(SESSION_ID, IntentMessageRole.USER))
-                    .thenReturn(List.of("첫 발화", "둘째 발화"));
-
-            assertThat(service.appendUserMessage(USER_ID, "둘째 발화").getUserMessages())
-                    .containsExactly("첫 발화", "둘째 발화");
+            verify(conversationService).appendDomainReply(
+                    CONVERSATION_ID, "어떤 기술을 쓰시나요?", RoutableDomain.MATCHING_INTENT, SESSION_ID);
         }
     }
 
@@ -434,13 +480,26 @@ class MatchingIntentSessionServiceTest {
             MatchingIntentSession session = session(LocalDateTime.now());
             when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                     .thenReturn(Optional.of(session));
-            when(messageRepository.findBySessionIdOrderBySeqAsc(SESSION_ID)).thenReturn(List.of(
-                    new MatchingIntentMessage(session, 1, IntentMessageRole.USER, "디자인 팀 찾아요"),
-                    new MatchingIntentMessage(session, 2, IntentMessageRole.ASSISTANT, "어떤 기술을?")));
+            when(conversationService.findDomainMessages(RoutableDomain.MATCHING_INTENT, SESSION_ID))
+                    .thenReturn(List.of(
+                            new AiConversationMessage(conversation, 1, AiChatRole.USER, "디자인 팀 찾아요"),
+                            new AiConversationMessage(conversation, 2, AiChatRole.ASSISTANT, "어떤 기술을?")));
 
             assertThat(service.getCurrentSession(USER_ID).orElseThrow().getMessages())
-                    .extracting(IntentSessionResponseDTO.MessageDTO::getRole)
-                    .containsExactly("USER", "ASSISTANT");
+                    .extracting(IntentSessionResponseDTO.MessageDTO::getMessage)
+                    .containsExactly("디자인 팀 찾아요", "어떤 기술을?");
+        }
+
+        @Test
+        @DisplayName("이 세션 소관만 복원한다 — 게이트웨이 되묻기 턴이 끼면 기존 API 의 계약이 달라진다")
+        void restoresOnlyThisDomainsMessages() {
+            MatchingIntentSession session = session(LocalDateTime.now());
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.of(session));
+
+            service.getCurrentSession(USER_ID);
+
+            verify(conversationService).findDomainMessages(RoutableDomain.MATCHING_INTENT, SESSION_ID);
         }
     }
 
@@ -462,7 +521,18 @@ class MatchingIntentSessionServiceTest {
         }
 
         @Test
-        @DisplayName("진행 중인 세션이 없으면 조용히 아무것도 하지 않는다")
+        @DisplayName("대화 스레드도 함께 닫는다 — 안 닫으면 처음부터 다시 시작했는데 지난 대화가 화면에 남는다")
+        void closesTheConversationToo() {
+            when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(Optional.of(session(LocalDateTime.now())));
+
+            service.restart(USER_ID);
+
+            verify(conversationService).closeActive(USER_ID);
+        }
+
+        @Test
+        @DisplayName("진행 중인 세션이 없어도 성공한다 (재시작은 멱등이다)")
         void noOpWhenNothingInProgress() {
             when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                     .thenReturn(Optional.empty());
@@ -470,13 +540,30 @@ class MatchingIntentSessionServiceTest {
             service.restart(USER_ID);
 
             verify(sessionRepository, never()).save(any());
+            verify(conversationService).closeActive(USER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("진행 여부 조회 — 게이트웨이가 라우터를 건너뛸지 정하는 근거다")
+    class HasInProgressSession {
+
+        @Test
+        @DisplayName("대화 이력까지 읽지 않고 EXISTS 한 방으로 답한다")
+        void answersWithoutLoadingMessages() {
+            when(sessionRepository.existsByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
+                    .thenReturn(true);
+
+            assertThat(service.hasInProgressSession(USER_ID)).isTrue();
+            verify(conversationService, never()).findDomainMessages(any(), anyLong());
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
 
     private MatchingIntentSession session(LocalDateTime updatedAt) {
-        MatchingIntentSession session = TestEntities.withId(new MatchingIntentSession(user), SESSION_ID);
+        MatchingIntentSession session =
+                TestEntities.withId(new MatchingIntentSession(user, conversation), SESSION_ID);
         return TestEntities.withField(session, "updatedAt", updatedAt);
     }
 
@@ -489,13 +576,8 @@ class MatchingIntentSessionServiceTest {
     private void givenRestorable(MatchingIntentSession session) {
         when(sessionRepository.findByUserIdAndStatus(USER_ID, IntentSessionStatus.IN_PROGRESS))
                 .thenReturn(Optional.of(session));
-        when(messageRepository.findBySessionIdOrderBySeqAsc(SESSION_ID)).thenReturn(List.of());
-    }
-
-    private MatchingIntentMessage captureSavedMessage() {
-        ArgumentCaptor<MatchingIntentMessage> captor = ArgumentCaptor.forClass(MatchingIntentMessage.class);
-        verify(messageRepository).save(captor.capture());
-        return captor.getValue();
+        when(conversationService.findDomainMessages(RoutableDomain.MATCHING_INTENT, SESSION_ID))
+                .thenReturn(List.of());
     }
 
     private IntentExtractResponse incomplete(String assistantMessage) {

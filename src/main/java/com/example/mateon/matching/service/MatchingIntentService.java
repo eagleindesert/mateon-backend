@@ -1,5 +1,7 @@
 package com.example.mateon.matching.service;
 
+import com.example.mateon.aichat.dto.AiChatTurn;
+import com.example.mateon.aichat.service.AiConversationService;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
@@ -27,20 +29,46 @@ import java.util.Optional;
 public class MatchingIntentService {
 
     private final MatchingIntentSessionService sessionService;
+    private final AiConversationService conversationService;
     private final IntentExtractionClient client;
 
+    /**
+     * 직접 진입점 — 기존 {@code POST /api/matching/intents/messages} 가 쓴다.
+     * 발화를 통합 로그에 기록한 뒤 아래 오버로드로 넘긴다.
+     *
+     * <p>게이트웨이를 거치지 않고 들어온 발화도 통합 로그에 남는다 — 대화 이력이 유입 경로에
+     * 따라 갈리면 로그를 한 곳에 모은 의미가 없다.
+     */
     public MatchingIntentResponseDTO submitMessage(Long userId, String message) {
-        // ① [TX1] 세션 확보(없거나 만료/완료면 새로) + USER 메시지 저장 → 커밋
-        ConversationSnapshot snapshot = sessionService.appendUserMessage(userId, message);
+        return submitTurn(userId, conversationService.appendUserMessage(userId, message));
+    }
+
+    /**
+     * 게이트웨이 진입점 — 이미 통합 로그에 적힌 턴을 받는다.
+     *
+     * <p>문자열이 아니라 턴을 받는 이유는 이중 기록 방지다. 게이트웨이는 라우팅을 판단하려고
+     * 위임 전에 이미 발화를 기록했으므로, 여기서 또 쓰면 같은 문장이 두 벌 남는다.
+     *
+     * <p>{@code submitMessage} 의 오버로드로 두지 않은 건 의도적이다 — {@code (Long, ?)} 두 개가
+     * 되면 호출부와 목 스텁에서 어느 쪽인지 모호해진다.
+     */
+    public MatchingIntentResponseDTO submitTurn(Long userId, AiChatTurn turn) {
+        // ① [TX1] 세션 확보(없거나 만료/완료면 새로) + 이 턴을 세션 소관으로 표시 → 커밋
+        ConversationSnapshot snapshot = sessionService.bindTurn(userId, turn);
 
         // ② [TX 밖] FastAPI 호출. 수십 초가 걸려도 DB 커넥션을 잡고 있지 않다.
-        //    실패하면 여기서 예외가 나가고 ①에서 저장한 사용자 메시지는 남는다 — 의도된 동작이다.
+        //    실패하면 여기서 예외가 나가고 ①에서 표시한 사용자 메시지는 남는다 — 의도된 동작이다.
         //    채팅 로그로서 옳고, AI 가 stateless 라 다음 호출에 전체 배열을 다시 보내므로
         //    재시도가 자연히 이어진다.
         IntentExtractResponse ai = client.extract(snapshot.getUserMessages());
 
         // ③ [TX2] ASSISTANT 메시지 + 진행상황 갱신 + (완료 시) 슬롯/임베딩 upsert → 커밋
         return sessionService.applyResult(snapshot.getSessionId(), userId, ai);
+    }
+
+    /** 게이트웨이가 "이미 매칭 대화 중인가"를 물을 때. 그렇다면 라우터를 건너뛴다. */
+    public boolean hasInProgressSession(Long userId) {
+        return sessionService.hasInProgressSession(userId);
     }
 
     public Optional<IntentSessionResponseDTO> getCurrentSession(Long userId) {

@@ -3,9 +3,9 @@ package com.example.mateon.matching.controller;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.GlobalExceptionHandler;
 import com.example.mateon.common.exception.MateonException;
-import com.example.mateon.matching.domain.IntentMessageRole;
+import com.example.mateon.aichat.domain.AiChatRole;
+import com.example.mateon.aichat.domain.AiConversationMessage;
 import com.example.mateon.matching.domain.IntentSessionStatus;
-import com.example.mateon.matching.domain.MatchingIntentMessage;
 import com.example.mateon.matching.dto.response.ExtractedDTO;
 import com.example.mateon.matching.dto.response.IntentSessionResponseDTO;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
@@ -304,14 +304,14 @@ class MatchingIntentControllerTest {
         return new IntentSessionResponseDTO(SESSION_ID, IntentSessionStatus.IN_PROGRESS, false,
                 List.of("skills"), new ExtractedDTO(),
                 List.of(new IntentSessionResponseDTO.MessageDTO(
-                                message(1, IntentMessageRole.USER, "백엔드 팀 찾아요")),
+                                message(1, AiChatRole.USER, "백엔드 팀 찾아요")),
                         new IntentSessionResponseDTO.MessageDTO(
-                                message(2, IntentMessageRole.ASSISTANT, "어떤 기술을 쓰시나요?"))));
+                                message(2, AiChatRole.ASSISTANT, "어떤 기술을 쓰시나요?"))));
     }
 
     /** createdAt 은 {@code @CreatedDate} 라 감사 없이는 null 이다 — 직접 채워야 키가 나간다. */
-    private MatchingIntentMessage message(int seq, IntentMessageRole role, String text) {
-        MatchingIntentMessage message = new MatchingIntentMessage(null, seq, role, text);
+    private AiConversationMessage message(int seq, AiChatRole role, String text) {
+        AiConversationMessage message = new AiConversationMessage(null, seq, role, text);
         return TestEntities.withField(message, "createdAt", LocalDateTime.now());
     }
 

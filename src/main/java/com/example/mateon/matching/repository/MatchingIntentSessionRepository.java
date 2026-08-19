@@ -13,4 +13,10 @@ public interface MatchingIntentSessionRepository extends JpaRepository<MatchingI
      * (V7 의 uk_matching_intent_sessions_active) Optional 로 받는다.
      */
     Optional<MatchingIntentSession> findByUserIdAndStatus(Long userId, IntentSessionStatus status);
+
+    /**
+     * 진행 중인 세션이 있는지만 본다. 게이트웨이가 매 턴 "이미 라우팅된 대화인가"를 묻는데,
+     * 그 판단에 대화 이력까지 읽어 올 이유가 없어 EXISTS 한 방으로 끝낸다.
+     */
+    boolean existsByUserIdAndStatus(Long userId, IntentSessionStatus status);
 }
