@@ -1,11 +1,11 @@
--- V31: 멀티 대화 세션 AI 채팅 + 도메인 작업 층.
+-- V31: 멀티 스레드 AI 채팅 + 도메인 작업 층.
 --
 -- 배경: V30 의 모델은 "사용자당 살아 있는 대화 1개"였고, 메시지는 (domain, domain_ref_id) 라는
 -- 다형 포인터로 도메인 세션을 가리켰다. 화면이 하나고 도메인이 하나일 때는 충분했다.
 --
 -- 이번에 두 가지가 정해졌다:
---   1) 프론트에 대화 목록(사이드바)이 생긴다. 사용자가 대화 세션을 여러 개 갖고 골라 들어간다.
---   2) 한 대화 세션 안에서 도메인 작업이 두 번 이상 일어날 수 있다.
+--   1) 프론트에 대화 목록(사이드바)이 생긴다. 사용자가 스레드를 여러 개 갖고 골라 들어간다.
+--   2) 한 스레드 안에서 도메인 작업이 두 번 이상 일어날 수 있다.
 --
 -- 그래서 층을 둘로 가른다.
 --
@@ -38,8 +38,8 @@ ALTER TABLE ai_chat_messages
     RENAME CONSTRAINT uk_ai_conversation_messages_seq TO uk_ai_chat_messages_seq;
 ALTER INDEX idx_ai_conv_msg_conversation RENAME TO idx_ai_chat_msg_session;
 
--- ── 2. 대화 세션에서 status 를 걷어낸다 ─────────────────────────────────────────
--- "사용자당 ACTIVE 1건"은 화면이 하나일 때의 개념이다. 대화 세션을 골라 들어갈 수 있게 되면
+-- ── 2. 스레드에서 status 를 걷어낸다 ─────────────────────────────────────────
+-- "사용자당 ACTIVE 1건"은 화면이 하나일 때의 개념이다. 스레드를 골라 들어갈 수 있게 되면
 -- 어디에 쓸지는 사용자가 정하므로 이 상태 자체가 의미를 잃는다.
 DROP INDEX uk_ai_conversations_active;
 DROP INDEX idx_ai_conversations_user;
@@ -49,7 +49,7 @@ ALTER TABLE ai_chat_sessions DROP COLUMN status;
 -- 사이드바에 보여 줄 제목. 첫 사용자 발화 앞부분을 잘라 쓴다 (LLM 호출은 하지 않는다).
 ALTER TABLE ai_chat_sessions ADD COLUMN title varchar(100);
 
--- seq 채번을 카운터로. 지금은 메시지를 붙일 때마다 COUNT(*) 를 도는데, 대화 세션이 길어질수록
+-- seq 채번을 카운터로. 지금은 메시지를 붙일 때마다 COUNT(*) 를 도는데, 스레드가 길어질수록
 -- 비용이 늘고 무엇보다 ai_chat_sessions 행을 건드리지 않아 updated_at 이 생성 시각에 멈춘다.
 -- 사이드바 정렬 키가 그 컬럼이므로 정직해야 한다.
 ALTER TABLE ai_chat_sessions ADD COLUMN last_seq integer NOT NULL DEFAULT 0;
@@ -178,7 +178,7 @@ ALTER TABLE matching_intent_sessions
     DROP CONSTRAINT matching_intent_sessions_status_check;
 ALTER TABLE matching_intent_sessions DROP COLUMN status;
 
--- conversation_id 도 필요 없다 — 작업을 거쳐 대화 세션에 도달한다. 경로가 둘이면 어긋날 수 있다.
+-- conversation_id 도 필요 없다 — 작업을 거쳐 스레드에 도달한다. 경로가 둘이면 어긋날 수 있다.
 ALTER TABLE matching_intent_sessions
     DROP CONSTRAINT fk_matching_intent_sessions_conversation;
 ALTER TABLE matching_intent_sessions DROP COLUMN conversation_id;
@@ -192,8 +192,8 @@ CREATE INDEX idx_ai_domain_tasks_session ON ai_domain_tasks (chat_session_id, id
 CREATE INDEX idx_ai_chat_msg_task ON ai_chat_messages (task_id, seq);
 
 -- 진행 중인 작업은 사용자당 도메인당 1개. V7 의 uk_matching_intent_sessions_active 가 주던
--- 보장을 그대로 이어받는다. 대화 세션당이 아니라 사용자당인 이유는 매칭 슬롯이 사용자당 1건이라,
--- 두 대화 세션에서 동시에 매칭하면 같은 슬롯을 두고 싸우기 때문이다.
+-- 보장을 그대로 이어받는다. 스레드당이 아니라 사용자당인 이유는 매칭 슬롯이 사용자당 1건이라,
+-- 두 스레드에서 동시에 매칭하면 같은 슬롯을 두고 싸우기 때문이다.
 -- (Hibernate validate 는 부분 인덱스를 검사하지 않으므로 엔티티에는 선언하지 않는다)
 CREATE UNIQUE INDEX uk_ai_domain_tasks_active
     ON ai_domain_tasks (user_id, domain) WHERE status = 'ACTIVE';
