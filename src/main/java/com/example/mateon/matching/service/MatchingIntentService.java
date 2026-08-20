@@ -44,8 +44,8 @@ public class MatchingIntentService {
      * 따라 갈리면 로그를 한 곳에 모은 의미가 없다.
      *
      * <p>
-     * 이 경로는 스레드를 지정하지 않는다(프론트가 스레드를 모르던 시절의 API 다). 그래서
-     * 가장 최근 스레드에 이어 붙이고, 하나도 없으면 만든다.
+     * 이 경로는 대화 세션을 지정하지 않는다(프론트가 대화 세션을 모르던 시절의 API 다). 그래서
+     * 가장 최근 대화 세션에 이어 붙이고, 하나도 없으면 만든다.
      */
     public MatchingIntentResponseDTO submitMessage(Long userId, String message) {
         AiChatSession session = chatService.findOrCreateLatestSession(userId);

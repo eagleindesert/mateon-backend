@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * AI 채팅의 단일 입구. 스레드를 관리하고, 도메인을 정해 해당 도메인 대화로 위임한다.
+ * AI 채팅의 단일 입구. 대화 세션을 관리하고, 도메인을 정해 해당 도메인 대화로 위임한다.
  */
 @Tag(name = "AI 게이트웨이", description = "사용자 발화를 알맞은 AI 기능으로 보내는 입구. 챗봇은 여기로 시작한다")
 @RestController
@@ -35,7 +35,7 @@ public class AiGatewayController {
 
     @Operation(summary = "새 대화 시작",
       description = """
-                          빈 스레드를 만들고 그 id 를 돌려준다. 이후 발화는 이 `sessionId` 를 실어
+                          빈 대화 세션을 만들고 그 id 를 돌려준다. 이후 발화는 이 `sessionId` 를 실어
                           `POST /api/ai/chat/messages` 로 보낸다.
 
                           제목(`title`)은 첫 발화가 들어올 때 서버가 채우므로 여기서는 null 이다.""")
@@ -50,9 +50,9 @@ public class AiGatewayController {
 
     @Operation(summary = "내 대화 목록 (사이드바)",
       description = """
-                          최근에 쓴 순으로 스레드를 돌려준다. 최대 50건이며 페이지네이션은 아직 없다.
+                          최근에 쓴 순으로 대화 세션을 돌려준다. 최대 50건이며 페이지네이션은 아직 없다.
 
-                          `lastMessage` 는 미리보기용 마지막 한 줄이고, 아직 발화가 없는 스레드는
+                          `lastMessage` 는 미리보기용 마지막 한 줄이고, 아직 발화가 없는 대화 세션은
                           `title` 과 함께 null 이다.""")
     @GetMapping("/sessions")
     public ResponseEntity<BaseResponse<List<AiChatSessionSummaryDTO>>> listSessions(
@@ -64,7 +64,7 @@ public class AiGatewayController {
 
     @Operation(summary = "대화 하나 복원",
       description = """
-                          그 스레드의 대화를 시간순으로 전부 돌려준다. 그대로 채팅 화면에 그리면 된다.
+                          그 대화 세션의 대화를 시간순으로 전부 돌려준다. 그대로 채팅 화면에 그리면 된다.
 
                           도메인이 정해지기 전의 되묻기 턴도 함께 온다(그런 줄은 `domain` 이 null 이다)
                           — 사용자 눈에는 그것도 자기가 나눈 대화다.""")
@@ -85,7 +85,7 @@ public class AiGatewayController {
                           여기로 보내면 서버가 어느 기능인지 판단해서 처리한다.
 
                           `sessionId` 는 필수다. 새 대화라면 먼저 `POST /api/ai/chat/sessions` 로
-                          스레드를 만들고, 이어지는 턴은 직전 응답의 `sessionId` 를 그대로 보낸다.
+                          대화 세션을 만들고, 이어지는 턴은 직전 응답의 `sessionId` 를 그대로 보낸다.
 
                           응답의 `domain` 으로 분기하면 된다:
                           * `MATCHING_INTENT` — 매칭 의도 추출로 처리됐다. `matching` 에 해당 도메인의
@@ -102,7 +102,7 @@ public class AiGatewayController {
                           `domain` 으로 분기할 것 — 경로는 바뀔 수 있다.
 
                           기존 `POST /api/matching/intents/messages` 도 그대로 동작하지만, 도메인
-                          판정 없이 무조건 매칭으로 처리되고 스레드도 지정할 수 없으므로 신규 화면은
+                          판정 없이 무조건 매칭으로 처리되고 대화 세션도 지정할 수 없으므로 신규 화면은
                           이쪽을 쓴다.""")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다. / "

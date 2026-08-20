@@ -61,7 +61,7 @@ public class AiGatewayService {
     private final AiRouterProperties properties;
 
     /**
-     * 새 스레드를 연다. 프론트의 "새 대화" 버튼이 여기로 온다.
+     * 새 대화 세션을 연다. 프론트의 "새 대화" 버튼이 여기로 온다.
      */
     public AiChatSessionSummaryDTO createSession(Long userId) {
         AiChatSession session = chatService.createSession(userId);
@@ -78,7 +78,7 @@ public class AiGatewayService {
     }
 
     /**
-     * 스레드 하나를 통째로 복원한다. 게이트웨이 턴도 포함된다 — 사용자 눈에는 다 대화다.
+     * 대화 세션 하나를 통째로 복원한다. 게이트웨이 턴도 포함된다 — 사용자 눈에는 다 대화다.
      */
     public AiChatSessionDetailDTO getSession(Long userId, Long sessionId) {
         List<AiChatMessage> messages = chatService.findSessionMessages(userId, sessionId);
@@ -87,7 +87,7 @@ public class AiGatewayService {
 
     public AiGatewayResponseDTO submitMessage(Long userId, Long sessionId, String message) {
         // ① [TX1] 사용자 발화 기록. 여기가 유일한 쓰기 지점이다 — 위임받는 쪽은 이 턴을
-        //    넘겨받아 처리하므로 같은 발화를 다시 쓰지 않는다. 스레드 소유권도 여기서 검증된다.
+        //    넘겨받아 처리하므로 같은 발화를 다시 쓰지 않는다. 대화 세션 소유권도 여기서 검증된다.
         AiChatTurn turn = chatService.appendUserMessage(userId, sessionId, message);
 
         // ② [TX 밖] 도메인 판정. 실패해도 예외가 나오지 않는다 (매칭으로 폴백).
@@ -110,7 +110,7 @@ public class AiGatewayService {
      * 라우터를 부를지 말지부터 정한다.
      *
      * <p>
-     * 이 스레드에서 진행 중인 작업이 <b>정확히 하나</b>면 분류를 건너뛰고 그리로 통과시킨다.
+     * 이 대화 세션에서 진행 중인 작업이 <b>정확히 하나</b>면 분류를 건너뛰고 그리로 통과시킨다.
      * 사용자는 지금 그 AI 의 질문에 답하는 중이라 "백엔드요" 같은 짧은 발화가 이어지는데, 그걸
      * 매 턴 LLM 에 다시 물으면 왕복만 늘고 오분류 위험만 생긴다.
      *

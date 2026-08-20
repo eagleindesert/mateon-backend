@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 한 스레드 안에서 도는 도메인 작업 한 판. 매칭 의도 추출 한 사이클이 여기 하나에 해당한다.
+ * 한 대화 세션 안에서 도는 도메인 작업 한 판. 매칭 의도 추출 한 사이클이 여기 하나에 해당한다.
  *
  * <p>
  * <b>수명 상태는 이 테이블만 갖는다.</b> 도메인 테이블이 자기 status 를 따로 들면 "이 작업이
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * 도메인 테이블에는 그 도메인만 쓰는 값(매칭이면 추출 결과)만 남는다.
  *
  * <p>
- * 덕분에 게이트웨이가 도메인을 몰라도 된다 — "이 스레드에 살아 있는 작업이 있나"를 도메인
+ * 덕분에 게이트웨이가 도메인을 몰라도 된다 — "이 대화 세션에 살아 있는 작업이 있나"를 도메인
  * 서비스를 N 번 부르지 않고 여기 한 번의 조회로 답할 수 있다. 그게 이 층을 만든 이유다.
  *
  * <p>
@@ -124,7 +124,7 @@ public class AiDomainTask {
     }
 
     /**
-     * 이 작업이 주어진 스레드 소속인가. 스레드를 옮겨 다니며 이어지면 안 된다.
+     * 이 작업이 주어진 대화 세션 소속인가. 대화 세션을 옮겨 다니며 이어지면 안 된다.
      */
     public boolean belongsTo(Long chatSessionId) {
         return this.chatSession != null && this.chatSession.getId().equals(chatSessionId);

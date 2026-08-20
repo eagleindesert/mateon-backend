@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * AI 채팅 스레드와 메시지의 DB 작업. 어떤 도메인에도 의존하지 않는다 — 게이트웨이도, matching 도
+ * AI 대화 세션과 메시지의 DB 작업. 어떤 도메인에도 의존하지 않는다 — 게이트웨이도, matching 도
  * 여기를 통해서만 대화를 읽고 쓴다.
  *
  * <p>
@@ -48,7 +48,7 @@ public class AiChatService {
     private final UserRepository userRepository;
 
     /**
-     * 빈 스레드를 연다. 프론트가 "새 대화"를 누르면 여기로 온다.
+     * 빈 대화 세션을 연다. 프론트가 "새 대화"를 누르면 여기로 온다.
      */
     public AiChatSession createSession(Long userId) {
         User user = userRepository.findById(userId)
@@ -57,12 +57,12 @@ public class AiChatService {
     }
 
     /**
-     * 사용자 발화를 지정된 스레드에 기록한다.
+     * 사용자 발화를 지정된 대화 세션에 기록한다.
      *
      * <p>
-     * <b>스레드 소유권을 검증하는 유일한 지점이다.</b> sessionId 를 프론트가 보내므로, 남의
-     * 스레드에 글을 쓰는 걸 여기서 막아야 한다. 없는 스레드와 남의 스레드를 같은 404 로 처리하는
-     * 건 의도적이다 — 403 을 주면 남의 스레드가 존재한다는 사실이 새어 나간다.
+     * <b>대화 세션 소유권을 검증하는 유일한 지점이다.</b> sessionId 를 프론트가 보내므로, 남의
+     * 대화 세션에 글을 쓰는 걸 여기서 막아야 한다. 없는 대화 세션과 남의 대화 세션을 같은 404 로 처리하는
+     * 건 의도적이다 — 403 을 주면 남의 대화 세션이 존재한다는 사실이 새어 나간다.
      *
      * <p>
      * 도메인 작업은 일부러 비워 둔다 — 이 시점엔 어느 도메인인지 아직 모른다. 라우팅이
@@ -104,7 +104,7 @@ public class AiChatService {
      * 도메인 AI 가 답한 턴. 그 작업 소관으로 기록한다.
      *
      * <p>
-     * 스레드 id 를 따로 받지 않는다 — 작업이 이미 자기 스레드를 알고 있고, 둘을 따로 받으면
+     * 대화 세션 id 를 따로 받지 않는다 — 작업이 이미 자기 대화 세션을 알고 있고, 둘을 따로 받으면
      * 어긋난 조합을 넘길 수 있다.
      */
     public void appendDomainReply(Long taskId, String content) {
@@ -137,7 +137,7 @@ public class AiChatService {
     }
 
     /**
-     * 스레드 하나를 통째로 복원한다. 게이트웨이 턴도 포함된다.
+     * 대화 세션 하나를 통째로 복원한다. 게이트웨이 턴도 포함된다.
      */
     @Transactional(readOnly = true)
     public List<AiChatMessage> findSessionMessages(Long userId, Long chatSessionId) {
@@ -154,11 +154,11 @@ public class AiChatService {
     }
 
     /**
-     * 가장 최근 스레드를 쓰되 없으면 만든다.
+     * 가장 최근 대화 세션을 쓰되 없으면 만든다.
      *
      * <p>
-     * 스레드를 지정하지 않는 레거시 경로({@code POST /api/matching/intents/messages}) 전용이다.
-     * 게이트웨이를 거쳐 들어오는 발화는 항상 스레드가 지정돼 있으므로 이 길로 오지 않는다.
+     * 대화 세션을 지정하지 않는 레거시 경로({@code POST /api/matching/intents/messages}) 전용이다.
+     * 게이트웨이를 거쳐 들어오는 발화는 항상 대화 세션이 지정돼 있으므로 이 길로 오지 않는다.
      */
     public AiChatSession findOrCreateLatestSession(Long userId) {
         return sessionRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)
@@ -184,7 +184,7 @@ public class AiChatService {
     }
 
     /**
-     * 없는 스레드와 남의 스레드를 같은 예외로 처리한다 — 갈라 주면 스레드 id 를 훑어 남이 대화를
+     * 없는 대화 세션과 남의 대화 세션을 같은 예외로 처리한다 — 갈라 주면 대화 세션 id 를 훑어 남이 대화를
      * 몇 개 갖고 있는지 알아낼 수 있다.
      */
     private AiChatSession requireOwnership(Long userId, Optional<AiChatSession> found) {

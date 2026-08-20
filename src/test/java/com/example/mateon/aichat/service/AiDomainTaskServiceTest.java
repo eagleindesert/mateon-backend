@@ -37,12 +37,12 @@ import static org.mockito.Mockito.when;
  *
  * <p>
  * 이 로직이 도메인이 아니라 aichat 에 있는 이유가 곧 이 클래스가 지키는 것이다 — 게이트웨이는
- * 도메인을 몰라도 "이 스레드에 살아 있는 작업이 있나"를 답할 수 있어야 하고, 만료 규칙은 도메인이
+ * 도메인을 몰라도 "이 대화 세션에 살아 있는 작업이 있나"를 답할 수 있어야 하고, 만료 규칙은 도메인이
  * 늘어도 한 곳에만 있어야 한다.
  *
  * <p>
- * 가장 조용히 깨지는 건 <b>스레드 경계</b>다. 사용자당 도메인당 작업이 1건이라, 다른 스레드에
- * 진행 중인 작업을 그대로 돌려주면 이 스레드의 발화가 저쪽에 쌓여 두 대화가 뒤섞인다. 화면에는
+ * 가장 조용히 깨지는 건 <b>대화 세션 경계</b>다. 사용자당 도메인당 작업이 1건이라, 다른 대화 세션에
+ * 진행 중인 작업을 그대로 돌려주면 이 대화 세션의 발화가 저쪽에 쌓여 두 대화가 뒤섞인다. 화면에는
  * 아무 이상이 없어 보인다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -80,7 +80,7 @@ class AiDomainTaskServiceTest {
     class OpenOrResume {
 
         @Test
-        @DisplayName("이 스레드에서 진행 중이면 그대로 이어간다 (새로 만들지 않는다)")
+        @DisplayName("이 대화 세션에서 진행 중이면 그대로 이어간다 (새로 만들지 않는다)")
         void resumesActiveTask() {
             AiDomainTask active = taskIn(session);
             givenActiveTask(active);
@@ -132,7 +132,7 @@ class AiDomainTaskServiceTest {
         }
 
         @Test
-        @DisplayName("다른 스레드에 진행 중이면 ABANDONED 로 닫고 여기서 새로 연다")
+        @DisplayName("다른 대화 세션에 진행 중이면 ABANDONED 로 닫고 여기서 새로 연다")
         void doesNotDragATaskAcrossThreads() {
             AiChatSession other = TestEntities.withId(new AiChatSession(user), OTHER_SESSION_ID);
             AiDomainTask elsewhere = taskIn(other);

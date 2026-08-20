@@ -53,7 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>
  * 실패 코드는 재시도 정책을 가른다 — 503 은 잠시 후 다시, 502 는 다시 해도 소용없다.
  * 라우터 자체의 실패는 여기 오지 않는다(매칭으로 폴백하므로). 여기 오는 502/503 은 위임된
- * 도메인 AI 의 실패다. 404 는 두 갈래인데(없는 사용자 / 남의 스레드) 프론트 입장에서는 같다.
+ * 도메인 AI 의 실패다. 404 는 두 갈래인데(없는 사용자 / 남의 대화 세션) 프론트 입장에서는 같다.
  */
 class AiGatewayControllerTest {
 
@@ -138,7 +138,7 @@ class AiGatewayControllerTest {
         }
 
         @Test
-        @DisplayName("sessionId 를 빠뜨리면 400 이다 — 조용히 새 스레드를 만들지 않는다")
+        @DisplayName("sessionId 를 빠뜨리면 400 이다 — 조용히 새 대화 세션을 만들지 않는다")
         void missingSessionIdIs400() throws Exception {
             mockMvc.perform(post("/api/ai/chat/messages")
               .contentType(MediaType.APPLICATION_JSON)
@@ -149,11 +149,11 @@ class AiGatewayControllerTest {
     }
 
     @Nested
-    @DisplayName("스레드 관리 — 사이드바가 쓰는 것들")
+    @DisplayName("대화 세션 관리 — 사이드바가 쓰는 것들")
     class Sessions {
 
         @Test
-        @DisplayName("새 스레드는 제목도 마지막 메시지도 비어 있다")
+        @DisplayName("새 대화 세션은 제목도 마지막 메시지도 비어 있다")
         void createReturnsAnEmptySession() throws Exception {
             when(aiGatewayService.createSession(USER_ID))
               .thenReturn(AiChatSessionSummaryDTO.of(emptySession()));
@@ -196,7 +196,7 @@ class AiGatewayControllerTest {
         }
 
         @Test
-        @DisplayName("남의 스레드를 열면 404 다 (403 이면 존재 여부가 새어 나간다)")
+        @DisplayName("남의 대화 세션을 열면 404 다 (403 이면 존재 여부가 새어 나간다)")
         void otherUsersSessionIs404() throws Exception {
             when(aiGatewayService.getSession(anyLong(), anyLong()))
               .thenThrow(new MateonException(ErrorCode.AI_CHAT_SESSION_NOT_FOUND));

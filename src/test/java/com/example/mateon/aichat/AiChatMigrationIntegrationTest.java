@@ -183,7 +183,7 @@ class AiChatMigrationIntegrationTest {
         }
 
         @Test
-        @DisplayName("메시지가 작업과 같은 스레드에 있다 (스레드가 어긋나면 복원이 뒤섞인다)")
+        @DisplayName("메시지가 작업과 같은 대화 세션에 있다 (대화 세션이 어긋나면 복원이 뒤섞인다)")
         void messageAndTaskShareTheThread() throws SQLException {
             assertThat(count("""
                     SELECT count(*) FROM ai_chat_messages m
@@ -194,7 +194,7 @@ class AiChatMigrationIntegrationTest {
     }
 
     @Nested
-    @DisplayName("스레드 — 사이드바가 쓸 값들")
+    @DisplayName("대화 세션 — 사이드바가 쓸 값들")
     class ChatSessions {
 
         @Test
@@ -220,7 +220,7 @@ class AiChatMigrationIntegrationTest {
         }
 
         @Test
-        @DisplayName("스레드에서 status 가 사라진다 — 여러 개를 골라 쓰는 모델에는 의미가 없다")
+        @DisplayName("대화 세션에서 status 가 사라진다 — 여러 개를 골라 쓰는 모델에는 의미가 없다")
         void threadHasNoStatus() throws SQLException {
             assertThat(hasColumn("ai_chat_sessions", "status")).isFalse();
         }

@@ -25,7 +25,7 @@ import java.util.List;
  * 테스트도 안 깨지는 종류라 V31 에서 위로 올렸다.
  *
  * <p>
- * ※ 이름 주의 — 여기서 "session" 은 <b>도메인 작업 한 판</b>이지 채팅 스레드가 아니다.
+ * ※ 이름 주의 — 여기서 "session" 은 <b>도메인 작업 한 판</b>이지 대화 세션이 아니다.
  * 사용자가 사이드바에서 고르는 그것은 {@code AiChatSession} 이다. 이름을 못 바꾸는 건
  * {@code GET /api/matching/intents/session} 과 응답의 {@code sessionId} 가 프론트 계약이라서다.
  *

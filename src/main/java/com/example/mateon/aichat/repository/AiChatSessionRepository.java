@@ -15,10 +15,10 @@ import java.util.Optional;
 public interface AiChatSessionRepository extends JpaRepository<AiChatSession, Long> {
 
     /**
-     * 메시지를 붙이기 전에 스레드를 잠그고 가져온다.
+     * 메시지를 붙이기 전에 대화 세션을 잠그고 가져온다.
      *
      * <p>
-     * seq 채번이 {@code lastSeq} 카운터라, 같은 스레드에 동시 요청이 들어오면 둘 다 같은 값을
+     * seq 채번이 {@code lastSeq} 카운터라, 같은 대화 세션에 동시 요청이 들어오면 둘 다 같은 값을
      * 읽어 uk_ai_chat_messages_seq 를 위반할 수 있다. 이 잠금이 그 구간을 직렬화한다. 잡고 있는
      * 트랜잭션은 LLM 호출을 포함하지 않는 짧은 구간이라(TX1) 풀을 마르게 하지 않는다.
      */
@@ -31,7 +31,7 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, Lo
      * 조회하면 N+1 이 된다.
      *
      * <p>
-     * {@code m.seq = s.lastSeq} 로 마지막 한 줄을 집는다. 발화가 없는 새 스레드는
+     * {@code m.seq = s.lastSeq} 로 마지막 한 줄을 집는다. 발화가 없는 새 대화 세션은
      * lastSeq 가 0 이라 매칭되는 행이 없고 null 이 나온다.
      */
     @Query("""
@@ -47,7 +47,7 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, Lo
     List<AiChatSessionSummary> findSummariesByUserId(@Param("userId") Long userId, Pageable pageable);
 
     /**
-     * 가장 최근에 쓴 스레드. 스레드를 지정하지 않는 레거시 경로
+     * 가장 최근에 쓴 대화 세션. 대화 세션을 지정하지 않는 레거시 경로
      * ({@code POST /api/matching/intents/messages}) 전용이다.
      */
     Optional<AiChatSession> findFirstByUserIdOrderByUpdatedAtDesc(Long userId);

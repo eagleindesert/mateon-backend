@@ -178,7 +178,7 @@ class AiGatewayServiceTest {
     class RouterSkipping {
 
         @Test
-        @DisplayName("이 스레드에 진행 중인 작업이 하나면 분류하지 않는다 (턴마다 LLM 왕복이 늘지 않게)")
+        @DisplayName("이 대화 세션에 진행 중인 작업이 하나면 분류하지 않는다 (턴마다 LLM 왕복이 늘지 않게)")
         void skipsWhenExactlyOneLiveDomain() {
             givenTurnRecorded();
             when(taskService.findLiveDomains(SESSION_ID))
@@ -260,7 +260,7 @@ class AiGatewayServiceTest {
         }
 
         @Test
-        @DisplayName("응답에 스레드 id 를 실어 준다 (프론트가 다음 턴에 그대로 보낸다)")
+        @DisplayName("응답에 대화 세션 id 를 실어 준다 (프론트가 다음 턴에 그대로 보낸다)")
         void exposesSessionId() {
             givenTurnRecorded();
             givenRouterSays(RoutableDomain.OUT_OF_SCOPE, "안내");

@@ -26,7 +26,7 @@ import java.util.Optional;
  *
  * <p>
  * 이 로직이 도메인이 아니라 여기 있는 이유는 <b>게이트웨이가 도메인을 몰라야 하기 때문</b>
- * 이다. "이 스레드에 살아 있는 작업이 있나"는 라우팅 판단에 필요한 정보인데, 도메인마다 물으면
+ * 이다. "이 대화 세션에 살아 있는 작업이 있나"는 라우팅 판단에 필요한 정보인데, 도메인마다 물으면
  * 도메인이 늘 때마다 게이트웨이에 호출이 하나씩 붙는다. 만료 규칙도 도메인마다 복제된다.
  *
  * <p>
@@ -46,17 +46,17 @@ public class AiDomainTaskService {
     private final AiServerProperties properties;
 
     /**
-     * 이 스레드에서 그 도메인 작업을 이어가거나 새로 연다.
+     * 이 대화 세션에서 그 도메인 작업을 이어가거나 새로 연다.
      *
      * <p>
      * 세 갈래다:
      * <ul>
-     * <li>이 스레드에 살아 있고 방치되지 않은 작업 → 그대로 이어간다 (touch).</li>
+     * <li>이 대화 세션에 살아 있고 방치되지 않은 작업 → 그대로 이어간다 (touch).</li>
      * <li>방치된 작업 → EXPIRED 로 닫고 새로 연다. 배치 잡 없이, 사용자가 메시지를 보낸 이
      * 순간에 판정한다 — 만료 여부에 관심 있는 건 본인의 다음 요청뿐이다.</li>
-     * <li><b>다른 스레드에 살아 있는 작업</b> → ABANDONED 로 닫고 여기서 새로 연다. 사용자당
-     * 도메인당 1건이라 둘을 동시에 살릴 수 없고, 그냥 반환하면 이 스레드의 발화가 다른
-     * 스레드의 작업에 쌓여 대화가 뒤섞인다.</li>
+     * <li><b>다른 대화 세션에 살아 있는 작업</b> → ABANDONED 로 닫고 여기서 새로 연다. 사용자당
+     * 도메인당 1건이라 둘을 동시에 살릴 수 없고, 그냥 반환하면 이 대화 세션의 발화가 다른
+     * 대화 세션의 작업에 쌓여 대화가 뒤섞인다.</li>
      * </ul>
      */
     public AiDomainTask openOrResume(Long chatSessionId, Long userId, RoutableDomain domain) {
@@ -69,7 +69,7 @@ public class AiDomainTaskService {
             AiDomainTask task = active.get();
 
             if (!task.belongsTo(chatSessionId)) {
-                log.info("다른 스레드의 진행 중인 작업을 정리하고 새로 연다: taskId={}, from={}, to={}",
+                log.info("다른 대화 세션의 진행 중인 작업을 정리하고 새로 연다: taskId={}, from={}, to={}",
                   task.getId(), task.getChatSession().getId(), chatSessionId);
                 task.close(TaskCloseReason.ABANDONED);
                 taskRepository.flush();
@@ -102,7 +102,7 @@ public class AiDomainTaskService {
     }
 
     /**
-     * 이 스레드에서 지금 살아 있는 도메인들. 게이트웨이가 라우터를 부를지 정할 때 쓴다.
+     * 이 대화 세션에서 지금 살아 있는 도메인들. 게이트웨이가 라우터를 부를지 정할 때 쓴다.
      *
      * <p>
      * 방치된 작업은 빠진다 — 만료가 지연 처리라 아직 ACTIVE 로 남아 있어도, 라우팅 판단에서는

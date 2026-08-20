@@ -18,7 +18,7 @@ import lombok.Getter;
 @Getter
 public class AiGatewayResponseDTO {
 
-    @Schema(description = "이 발화가 속한 채팅 스레드의 id. 다음 턴에 그대로 다시 보내면 된다.")
+    @Schema(description = "이 발화가 속한 대화 세션의 id. 다음 턴에 그대로 다시 보내면 된다.")
     private final Long sessionId;
 
     @Schema(description = "라우팅된 도메인. **프론트는 이 값으로 분기한다.** "

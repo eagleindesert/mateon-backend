@@ -133,8 +133,8 @@ public class MatchingIntentSessionService {
      * 진행 중인 세션을 버린다. 새 세션은 만들지 않는다 — 다음 메시지 때 자동 생성된다.
      *
      * <p>
-     * 채팅 스레드는 건드리지 않는다. 스레드를 여러 개 갖고 골라 들어가게 되면서 "이 대화를
-     * 닫는다"는 프론트가 새 스레드를 여는 것으로 표현되기 때문이다 — 여기서 스레드까지 닫으면
+     * 대화 세션은 건드리지 않는다. 대화 세션을 여러 개 갖고 골라 들어가게 되면서 "이 대화를
+     * 닫는다"는 프론트가 새 대화 세션을 여는 것으로 표현되기 때문이다 — 여기서 대화 세션까지 닫으면
      * 사이드바에서 그 대화를 다시 열었을 때 이어 쓸 수 없게 된다.
      */
     public void restart(Long userId) {
@@ -194,7 +194,7 @@ public class MatchingIntentSessionService {
     }
 
     private IntentSessionResponseDTO toSessionResponse(MatchingIntentSession session) {
-        // 스레드 전체가 아니라 이 작업 소관만 돌려준다 — 게이트웨이의 되묻기 턴이나 다른 도메인
+        // 대화 세션 전체가 아니라 이 작업 소관만 돌려준다 — 게이트웨이의 되묻기 턴이나 다른 도메인
         // 발화까지 끼면 이 API 가 "의도 추출 대화"를 돌려준다는 기존 계약이 달라진다.
         List<IntentSessionResponseDTO.MessageDTO> messages
           = chatService.findTaskMessages(session.getTask().getId()).stream()

@@ -21,7 +21,7 @@ public interface AiDomainTaskRepository extends JpaRepository<AiDomainTask, Long
       AiDomainTaskStatus status);
 
     /**
-     * 이 스레드에서 지금 살아 있는 도메인들. 게이트웨이가 라우터를 부를지 정할 때 쓴다.
+     * 이 대화 세션에서 지금 살아 있는 도메인들. 게이트웨이가 라우터를 부를지 정할 때 쓴다.
      *
      * <p>
      * <b>도메인을 모르고도 답할 수 있다는 게 이 조회의 요점이다.</b> 예전에는 매칭 서비스에

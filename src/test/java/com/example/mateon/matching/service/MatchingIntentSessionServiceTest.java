@@ -179,7 +179,7 @@ class MatchingIntentSessionServiceTest {
         void readsOnlyThisTasksMessages() {
             givenTaskOpened();
             givenMatchingRowExists();
-            // 같은 스레드의 옛 작업(TASK_ID 아님) 발화는 이 스텁에 걸리지 않는다.
+            // 같은 대화 세션의 옛 작업(TASK_ID 아님) 발화는 이 스텁에 걸리지 않는다.
             when(chatService.findUserContents(TASK_ID)).thenReturn(List.of("첫 발화", "둘째 발화"));
 
             ConversationSnapshot snapshot = service.bindTurn(USER_ID, TURN);
@@ -493,7 +493,7 @@ class MatchingIntentSessionServiceTest {
         }
 
         @Test
-        @DisplayName("채팅 스레드는 건드리지 않는다 — 사이드바에서 그 대화를 다시 열 수 있어야 한다")
+        @DisplayName("대화 세션은 건드리지 않는다 — 사이드바에서 그 대화를 다시 열 수 있어야 한다")
         void leavesTheChatThreadAlone() {
             givenActiveTask();
 

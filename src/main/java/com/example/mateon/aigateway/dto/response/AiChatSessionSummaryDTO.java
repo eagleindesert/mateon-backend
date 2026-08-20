@@ -8,14 +8,14 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 
 /**
- * 사이드바 한 줄. 목록 조회와 스레드 생성이 같은 형태로 내려간다 — 프론트 입장에서는 방금 만든
- * 스레드도 목록에 끼워 넣을 한 줄이라, 모양이 다르면 두 번 다뤄야 한다.
+ * 사이드바 한 줄. 목록 조회와 대화 세션 생성이 같은 형태로 내려간다 — 프론트 입장에서는 방금 만든
+ * 대화 세션도 목록에 끼워 넣을 한 줄이라, 모양이 다르면 두 번 다뤄야 한다.
  */
-@Schema(name = "AiChatSessionSummary", description = "채팅 스레드 한 줄 (사이드바용).")
+@Schema(name = "AiChatSessionSummary", description = "대화 세션 한 줄 (사이드바용).")
 @Getter
 public class AiChatSessionSummaryDTO {
 
-    @Schema(description = "스레드 id. 발화를 보낼 때 이 값을 실어 보낸다.")
+    @Schema(description = "대화 세션 id. 발화를 보낼 때 이 값을 실어 보낸다.")
     private final Long sessionId;
 
     @Schema(description = "첫 사용자 발화에서 만든 제목. 아직 발화가 없으면 null.",
@@ -41,7 +41,7 @@ public class AiChatSessionSummaryDTO {
                 summary.sessionId(), summary.title(), summary.lastMessage(), summary.updatedAt());
     }
 
-    /** 방금 만든 빈 스레드. 제목도 마지막 메시지도 아직 없다. */
+    /** 방금 만든 빈 대화 세션. 제목도 마지막 메시지도 아직 없다. */
     public static AiChatSessionSummaryDTO of(AiChatSession session) {
         return new AiChatSessionSummaryDTO(
                 session.getId(), session.getTitle(), null, session.getUpdatedAt());

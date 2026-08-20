@@ -11,11 +11,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 /**
- * AI 채팅 스레드 하나. 사용자가 사이드바에서 골라 들어가는 그 단위다.
+ * AI 대화 세션 하나. 사용자가 사이드바에서 골라 들어가는 그 단위다.
  *
  * <p>
  * <b>상태가 없다.</b> V30 까지는 ACTIVE/CLOSED 와 "사용자당 ACTIVE 1건" 부분 유니크 인덱스로
- * "지금 이어갈 대화"를 하나로 고정했는데, 스레드를 여러 개 갖고 골라 들어가게 되면서 그 개념이
+ * "지금 이어갈 대화"를 하나로 고정했는데, 대화 세션을 여러 개 갖고 골라 들어가게 되면서 그 개념이
  * 사라졌다 — 어디에 쓸지는 사용자가 요청마다 지정한다.
  *
  * <p>

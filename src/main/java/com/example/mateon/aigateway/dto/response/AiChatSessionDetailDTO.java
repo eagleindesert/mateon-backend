@@ -8,13 +8,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 스레드 하나를 통째로 복원한 결과. 사이드바에서 옛 대화를 열 때 쓴다.
+ * 대화 세션 하나를 통째로 복원한 결과. 사이드바에서 옛 대화를 열 때 쓴다.
  *
  * <p><b>게이트웨이 턴도 함께 내려간다.</b> 도메인 작업에 속하지 않은 되묻기·범위 밖 안내도
  * 사용자 눈에는 자기가 나눈 대화라서, 빼고 그리면 했던 말이 사라진 것처럼 보인다.
  * (도메인 소관만 필요한 곳은 {@code GET /api/matching/intents/session} 이 따로 있다.)
  */
-@Schema(name = "AiChatSessionDetail", description = "채팅 스레드 하나의 전체 대화.")
+@Schema(name = "AiChatSessionDetail", description = "대화 세션 하나의 전체 대화.")
 @Getter
 public class AiChatSessionDetailDTO {
 

@@ -43,8 +43,8 @@ import static org.mockito.Mockito.when;
  * 제자리를 맴돈다. 둘 다 조용히 일어난다.
  *
  * <p>
- * 두 번째는 <b>스레드 소유권</b>이다. sessionId 를 프론트가 보내게 됐으므로(V31), 남의
- * 스레드에 글을 쓰거나 읽는 걸 막는 게 이 클래스의 책임이 됐다.
+ * 두 번째는 <b>대화 세션 소유권</b>이다. sessionId 를 프론트가 보내게 됐으므로(V31), 남의
+ * 대화 세션에 글을 쓰거나 읽는 걸 막는 게 이 클래스의 책임이 됐다.
  */
 @ExtendWith(MockitoExtension.class)
 class AiChatServiceTest {
@@ -75,11 +75,11 @@ class AiChatServiceTest {
     }
 
     @Nested
-    @DisplayName("스레드 소유권 — sessionId 를 프론트가 보내므로 여기서 막아야 한다")
+    @DisplayName("대화 세션 소유권 — sessionId 를 프론트가 보내므로 여기서 막아야 한다")
     class Ownership {
 
         @Test
-        @DisplayName("남의 스레드에 쓰면 404 다 (403 이면 남의 스레드 존재가 새어 나간다)")
+        @DisplayName("남의 대화 세션에 쓰면 404 다 (403 이면 남의 대화 세션 존재가 새어 나간다)")
         void cannotWriteToAnotherUsersSession() {
             givenSessionLocked();
 
@@ -91,7 +91,7 @@ class AiChatServiceTest {
         }
 
         @Test
-        @DisplayName("남의 스레드를 읽어도 같은 404 다 — 없는 것과 구분되지 않아야 한다")
+        @DisplayName("남의 대화 세션을 읽어도 같은 404 다 — 없는 것과 구분되지 않아야 한다")
         void cannotReadAnotherUsersSession() {
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
 
@@ -113,7 +113,7 @@ class AiChatServiceTest {
         }
 
         @Test
-        @DisplayName("없는 스레드도 같은 코드다")
+        @DisplayName("없는 대화 세션도 같은 코드다")
         void unknownSession() {
             when(sessionRepository.findWithLockById(SESSION_ID)).thenReturn(Optional.empty());
 
@@ -128,7 +128,7 @@ class AiChatServiceTest {
     class Messages {
 
         @Test
-        @DisplayName("seq 는 스레드의 카운터에서 나온다 — COUNT(*) 를 돌지 않는다")
+        @DisplayName("seq 는 대화 세션의 카운터에서 나온다 — COUNT(*) 를 돌지 않는다")
         void seqComesFromTheCounter() {
             givenSessionLocked();
             givenMessageSaved();
@@ -197,7 +197,7 @@ class AiChatServiceTest {
         }
 
         @Test
-        @DisplayName("도메인 답변은 스레드 id 를 따로 받지 않는다 — 작업이 아는 스레드에 붙는다")
+        @DisplayName("도메인 답변은 대화 세션 id 를 따로 받지 않는다 — 작업이 아는 대화 세션에 붙는다")
         void domainReplyUsesTheTaskOwnSession() {
             when(taskRepository.findById(TASK_ID)).thenReturn(Optional.of(task()));
             givenSessionLocked();
@@ -262,11 +262,11 @@ class AiChatServiceTest {
     }
 
     @Nested
-    @DisplayName("스레드 생성")
+    @DisplayName("대화 세션 생성")
     class CreateSession {
 
         @Test
-        @DisplayName("빈 스레드로 시작한다 (제목도 seq 도 아직 없다)")
+        @DisplayName("빈 대화 세션으로 시작한다 (제목도 seq 도 아직 없다)")
         void startsEmpty() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
             when(sessionRepository.save(any()))
@@ -289,7 +289,7 @@ class AiChatServiceTest {
         }
 
         @Test
-        @DisplayName("레거시 경로는 가장 최근 스레드를 쓰고, 하나도 없으면 만든다")
+        @DisplayName("레거시 경로는 가장 최근 대화 세션을 쓰고, 하나도 없으면 만든다")
         void legacyPathReusesLatest() {
             when(sessionRepository.findFirstByUserIdOrderByUpdatedAtDesc(USER_ID))
               .thenReturn(Optional.of(session));
