@@ -41,15 +41,18 @@ import static org.mockito.Mockito.when;
 /**
  * 팀 흐름에서 <b>상대방에게 알림이 나가는지</b>를 고정한다.
  *
- * <p>여기 모인 세 이벤트(지원서 제출·지원 철회·팀 삭제)의 공통점은 <b>영향받는 사람이 스스로
+ * <p>
+ * 여기 모인 세 이벤트(지원서 제출·지원 철회·팀 삭제)의 공통점은 <b>영향받는 사람이 스스로
  * 알아낼 방법이 없다</b>는 것이다. 지원 철회와 팀 삭제는 행을 하드 삭제하므로 목록에서 그냥
  * 사라지고, 취소 상태 같은 흔적조차 남지 않는다. 그래서 알림이 유일한 신호다.
  *
- * <p>알림은 본래 흐름의 부수효과라 리팩터링 중 조용히 빠져도 API 응답은 그대로 200 이다.
+ * <p>
+ * 알림은 본래 흐름의 부수효과라 리팩터링 중 조용히 빠져도 API 응답은 그대로 200 이다.
  * 실제로 이 세 지점은 오랫동안 알림 없이 동작했고 아무 테스트도 그것을 잡지 못했다. 그래서
  * 여기서 단정하는 것은 "호출이 성공했는가"가 아니라 <b>누구에게 무엇이 갔는가</b>다.
  *
- * <p>발송 실패나 SSE 전송은 보지 않는다. NotificationService.send 는 저장 + 이벤트 발행까지만
+ * <p>
+ * 발송 실패나 SSE 전송은 보지 않는다. NotificationService.send 는 저장 + 이벤트 발행까지만
  * 하고 실제 전송은 AFTER_COMMIT 리스너의 몫이라, 이 서비스가 책임지는 경계는 send 호출까지다.
  */
 class TeamServiceNotificationTest {
@@ -81,9 +84,9 @@ class TeamServiceNotificationTest {
         notificationService = mock(NotificationService.class);
 
         service = new TeamService(teamRepository, applicationRepository, offerRepository,
-                teamMemberRepository, mock(EventRepository.class), userRepository,
-                mock(UserCollaborationScoreRepository.class), notificationService,
-                mock(ApplicationEventPublisher.class));
+          teamMemberRepository, mock(EventRepository.class), userRepository,
+          mock(UserCollaborationScoreRepository.class), notificationService,
+          mock(ApplicationEventPublisher.class));
 
         leader = givenUser(LEADER_ID, "팀장");
         applicant = givenUser(APPLICANT_ID, "지원자");
@@ -104,7 +107,7 @@ class TeamServiceNotificationTest {
 
             ArgumentCaptor<User> receiver = ArgumentCaptor.forClass(User.class);
             verify(notificationService).send(receiver.capture(), eq("지원서 도착"),
-                    contains("지원자 님이 지원했습니다"), eq(Notification.NotificationType.INFO));
+              contains("지원자 님이 지원했습니다"), eq(Notification.NotificationType.INFO));
             assertThat(receiver.getValue().getId()).isEqualTo(LEADER_ID);
         }
 
@@ -116,7 +119,7 @@ class TeamServiceNotificationTest {
 
             // getUserById 를 썼다면 여기서 USER_NOT_FOUND 가 터져 정상 지원까지 막혔을 것이다.
             assertThatCode(() -> service.applyToTeam(TEAM_ID, request(), APPLICANT_ID))
-                    .doesNotThrowAnyException();
+              .doesNotThrowAnyException();
 
             verify(applicationRepository).save(any());
             verify(notificationService, never()).send(any(), anyString(), anyString(), any());
@@ -128,10 +131,10 @@ class TeamServiceNotificationTest {
             givenExistingUsers(leader, applicant);
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
             when(applicationRepository.findByTeamIdAndApplicantId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.of(pendingApplication(applicant)));
+              .thenReturn(Optional.of(pendingApplication(applicant)));
 
             assertThatThrownBy(() -> service.applyToTeam(TEAM_ID, request(), APPLICANT_ID))
-                    .isInstanceOf(IllegalArgumentException.class);
+              .isInstanceOf(IllegalArgumentException.class);
 
             verify(notificationService, never()).send(any(), anyString(), anyString(), any());
         }
@@ -151,7 +154,7 @@ class TeamServiceNotificationTest {
 
             ArgumentCaptor<User> receiver = ArgumentCaptor.forClass(User.class);
             verify(notificationService).send(receiver.capture(), eq("지원 취소"),
-                    contains("지원자 님의 지원이 취소되었습니다"), eq(Notification.NotificationType.INFO));
+              contains("지원자 님의 지원이 취소되었습니다"), eq(Notification.NotificationType.INFO));
             assertThat(receiver.getValue().getId()).isEqualTo(LEADER_ID);
         }
 
@@ -164,7 +167,7 @@ class TeamServiceNotificationTest {
             when(applicationRepository.findById(30L)).thenReturn(Optional.of(approved));
 
             assertThatThrownBy(() -> service.cancelApplication(30L, APPLICANT_ID))
-                    .isInstanceOf(IllegalArgumentException.class);
+              .isInstanceOf(IllegalArgumentException.class);
 
             verify(applicationRepository, never()).delete(any());
             verify(notificationService, never()).send(any(), anyString(), anyString(), any());
@@ -186,7 +189,7 @@ class TeamServiceNotificationTest {
             service.deleteTeam(TEAM_ID, LEADER_ID);
 
             assertThat(capturedReceiverIds(3))
-                    .containsExactlyInAnyOrder(3L, APPLICANT_ID, 4L);
+              .containsExactlyInAnyOrder(3L, APPLICANT_ID, 4L);
         }
 
         @Test
@@ -255,7 +258,6 @@ class TeamServiceNotificationTest {
     }
 
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────
-
     private Team givenTeam() {
         Team created = new Team();
         created.setId(TEAM_ID);
@@ -269,7 +271,9 @@ class TeamServiceNotificationTest {
         return User.builder().id(id).name(name).schoolVerified(true).build();
     }
 
-    /** 존재하는 계정만 등록한다. 등록하지 않은 id 는 빈 Optional 이 나와 '탈퇴한 계정'이 된다. */
+    /**
+     * 존재하는 계정만 등록한다. 등록하지 않은 id 는 빈 Optional 이 나와 '탈퇴한 계정'이 된다.
+     */
     private void givenExistingUsers(User... users) {
         for (User user : users) {
             when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
@@ -279,31 +283,32 @@ class TeamServiceNotificationTest {
     private void givenApplyable() {
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
         when(applicationRepository.findByTeamIdAndApplicantId(TEAM_ID, APPLICANT_ID))
-                .thenReturn(Optional.empty());
+          .thenReturn(Optional.empty());
     }
 
     /**
      * 삭제 대상 팀에 걸려 있는 사람들. 세 축 모두 <b>User 만</b> 돌려주는 쿼리라는 점이 중요하다 —
      * 소유 엔티티를 올리면 팀 삭제 후 flush 에서 터진다 (notifyTeamDeleted 주석 참고).
      *
-     * <p>거절·취소된 상대는 애초에 쿼리(status = PENDING)에서 걸러지므로 여기서도 넣지 않는다.
+     * <p>
+     * 거절·취소된 상대는 애초에 쿼리(status = PENDING)에서 걸러지므로 여기서도 넣지 않는다.
      */
     private void givenAttached(List<User> members, List<User> pendingApplicants,
-                               List<User> pendingOfferTargets) {
+      List<User> pendingOfferTargets) {
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
         when(teamMemberRepository.findActiveMemberUsers(TEAM_ID)).thenReturn(members);
         when(applicationRepository.findApplicantsByTeamIdAndStatus(TEAM_ID, ApplicationStatus.PENDING))
-                .thenReturn(pendingApplicants);
+          .thenReturn(pendingApplicants);
         when(offerRepository.findTargetUsersByTeamIdAndStatus(TEAM_ID, OfferStatus.PENDING))
-                .thenReturn(pendingOfferTargets);
+          .thenReturn(pendingOfferTargets);
     }
 
     private TeamApplication pendingApplication(User user) {
         return TeamApplication.builder()
-                .team(team)
-                .applicant(user)
-                .status(ApplicationStatus.PENDING)
-                .build();
+          .team(team)
+          .applicant(user)
+          .status(ApplicationStatus.PENDING)
+          .build();
     }
 
     private TeamApplicationRequestDTO request() {
@@ -317,7 +322,7 @@ class TeamServiceNotificationTest {
     private List<Long> capturedReceiverIds(int expectedCount) {
         ArgumentCaptor<User> receivers = ArgumentCaptor.forClass(User.class);
         verify(notificationService, times(expectedCount)).send(receivers.capture(), eq("팀 삭제"),
-                contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
+          contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
         return receivers.getAllValues().stream().map(User::getId).toList();
     }
 }

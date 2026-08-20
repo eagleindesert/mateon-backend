@@ -4,6 +4,7 @@ import lombok.Getter;
 
 @Getter
 public class MateonException extends RuntimeException {
+
     private final ErrorCode errorCode;
 
     public MateonException(ErrorCode errorCode) {
@@ -16,4 +17,3 @@ public class MateonException extends RuntimeException {
         this.errorCode = errorCode;
     }
 }
-

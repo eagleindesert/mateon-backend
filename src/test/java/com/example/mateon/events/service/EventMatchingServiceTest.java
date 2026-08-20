@@ -100,7 +100,7 @@ class EventMatchingServiceTest {
         @DisplayName("여러 학교가 콤마로 들어와도 그중 하나면 가산점을 준다")
         void matchesOneOfSeveralSchools() {
             assertThat(score(user("고려대학교", null), schoolEvent("단국대학교,고려대학교")))
-                    .isEqualTo(SCORE_SCHOOL);
+              .isEqualTo(SCORE_SCHOOL);
         }
 
         @Test
@@ -135,9 +135,9 @@ class EventMatchingServiceTest {
     // 캠퍼스 외 항목(희망직무/전공/단과대)은 모두 null 로 두어 점수가 캠퍼스 가산점만 반영되게 한다.
     private User user(String school, String campus) {
         return User.builder()
-                .school(school)
-                .campus(campus)
-                .build();
+          .school(school)
+          .campus(campus)
+          .build();
     }
 
     @SuppressWarnings("deprecation") // campusScope 는 targetSchool 로 대체 중이지만 동작은 유지한다.

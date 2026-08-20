@@ -19,11 +19,11 @@ import java.util.List;
  * 1개다. 슬롯 1 : 벡터 1 로 맞춰야 "어느 슬롯이 이 벡터를 만들었나"가 명확하다.
  *
  * ※ embedding_vector 는 여기가 아니라 user_embeddings (V6) 에 저장된다.
- *   여기 있는 embeddingText 는 벡터가 아니라 "무엇을 임베딩했는지"의 원문이다.
+ * 여기 있는 embeddingText 는 벡터가 아니라 "무엇을 임베딩했는지"의 원문이다.
  *
  * ※ desiredRoles("BE") / experienceLevel("beginner") 은 AI 의 정규화 코드지만 enum 으로
- *   만들지 않는다. 외부 서버는 신뢰할 수 없는 입력원이라, enum 이면 스펙 밖 값 하나에 500 이
- *   난다. 기존 Team.role(한글 자유문자열)과의 매핑은 추천 단계에서 결정한다.
+ * 만들지 않는다. 외부 서버는 신뢰할 수 없는 입력원이라, enum 이면 스펙 밖 값 하나에 500 이
+ * 난다. 기존 Team.role(한글 자유문자열)과의 매핑은 추천 단계에서 결정한다.
  */
 @Entity
 @Table(name = "matching_intent_slots")
@@ -40,7 +40,9 @@ public class MatchingIntentSlot {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    /** 이 슬롯을 만들어낸 세션. */
+    /**
+     * 이 슬롯을 만들어낸 세션.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id", nullable = false)
     private MatchingIntentSession session;
@@ -66,7 +68,9 @@ public class MatchingIntentSlot {
     @Column(name = "experience_level", length = 50)
     private String experienceLevel;
 
-    /** 임베딩의 원문 (벡터 아님). */
+    /**
+     * 임베딩의 원문 (벡터 아님).
+     */
     @Column(name = "embedding_text", columnDefinition = "TEXT")
     private String embeddingText;
 
@@ -82,11 +86,13 @@ public class MatchingIntentSlot {
         this.user = user;
     }
 
-    /** AI 추출 결과로 내용을 덮어쓴다 (사용자당 1건 upsert). */
+    /**
+     * AI 추출 결과로 내용을 덮어쓴다 (사용자당 1건 upsert).
+     */
     public void update(MatchingIntentSession session,
-                       List<String> desiredRoles, List<String> skills, List<String> interests,
-                       String activityGoal, String activityStyle, String experienceLevel,
-                       String embeddingText) {
+      List<String> desiredRoles, List<String> skills, List<String> interests,
+      String activityGoal, String activityStyle, String experienceLevel,
+      String embeddingText) {
         this.session = session;
         this.desiredRoles = desiredRoles;
         this.skills = skills;

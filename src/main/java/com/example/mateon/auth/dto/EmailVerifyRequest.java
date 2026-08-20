@@ -11,6 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class EmailVerifyRequest {
+
     @NotBlank(message = "이메일을 입력해주세요.")
     @Email(message = "올바른 이메일 형식이 아닙니다.")
     private String email;
@@ -19,4 +20,3 @@ public class EmailVerifyRequest {
     @Pattern(regexp = "^\\d{6}$", message = "인증코드는 6자리 숫자여야 합니다.")
     private String code;
 }
-

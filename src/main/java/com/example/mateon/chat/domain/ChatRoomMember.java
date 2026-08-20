@@ -12,14 +12,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chat_room_members", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_chat_room_member", columnNames = {"room_id", "user_id"})
+    @UniqueConstraint(name = "uk_chat_room_member", columnNames = {"room_id", "user_id"})
 })
 @Getter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class ChatRoomMember {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

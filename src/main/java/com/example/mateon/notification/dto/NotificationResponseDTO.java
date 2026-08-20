@@ -8,11 +8,12 @@ import java.time.LocalDateTime;
 @Schema(description = "알림 한 건. 목록 조회와 SSE 실시간 수신이 같은 형태를 쓴다.")
 @Getter
 public class NotificationResponseDTO {
+
     private Long id;
     private String title;
     private String content;
     @Schema(description = "알림 종류. 아이콘을 가르는 데 쓴다 — APPROVE 는 파란 체크, REJECT 는 빨간 X, INFO 는 일반.",
-            allowableValues = {"APPROVE", "REJECT", "INFO"})
+      allowableValues = {"APPROVE", "REJECT", "INFO"})
     private String type;      // "APPROVE", "REJECT" 등
     @Schema(description = "읽음 여부. **JSON 키는 `read`** 다 — 필드명이 is- 로 시작해 Jackson 이 접두어를 뗀 결과다.")
     private boolean isRead;

@@ -27,11 +27,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 북마크 API 의 응답 계약을 고정한다.
  *
- * <p>여기서 지켜야 할 핵심은 <b>중복 요청이 에러가 아니라는 것</b>이다. 별 아이콘을 두 번 누르거나
+ * <p>
+ * 여기서 지켜야 할 핵심은 <b>중복 요청이 에러가 아니라는 것</b>이다. 별 아이콘을 두 번 누르거나
  * 네트워크 재시도로 같은 요청이 두 번 오는 건 정상이고, 그때도 프론트는 같은 상태를 받아야 한다.
  * 나중에 누군가 "중복은 DUPLICATE_RESOURCE 로 막는 게 이 레포 관례 아니냐"며 되돌리면 여기서 걸린다.
  *
- * <p>JSON 키가 {@code bookmarked} 인지도 함께 못박는다 — boolean 필드는 게터 이름에 따라 키가
+ * <p>
+ * JSON 키가 {@code bookmarked} 인지도 함께 못박는다 — boolean 필드는 게터 이름에 따라 키가
  * 달라질 수 있어(UserProfileResponse 의 isMe 가 겪은 문제) 눈으로 확인해 둘 값이 아니다.
  */
 class BookmarkControllerTest {
@@ -46,9 +48,9 @@ class BookmarkControllerTest {
     void setUp() {
         bookmarkService = mock(BookmarkService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new BookmarkController(bookmarkService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+          .standaloneSetup(new BookmarkController(bookmarkService))
+          .setControllerAdvice(new GlobalExceptionHandler())
+          .build();
     }
 
     @Nested
@@ -61,10 +63,10 @@ class BookmarkControllerTest {
             when(bookmarkService.addBookmark(USER_ID, EVENT_ID)).thenReturn(true);
 
             mockMvc.perform(post("/api/bookmarks/events/42").principal(auth()))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.eventId").value(42))
-                    .andExpect(jsonPath("$.data.bookmarked").value(true));
+              .andExpect(status().isCreated())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.eventId").value(42))
+              .andExpect(jsonPath("$.data.bookmarked").value(true));
         }
 
         @Test
@@ -73,20 +75,20 @@ class BookmarkControllerTest {
             when(bookmarkService.addBookmark(USER_ID, EVENT_ID)).thenReturn(false);
 
             mockMvc.perform(post("/api/bookmarks/events/42").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.bookmarked").value(true));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.bookmarked").value(true));
         }
 
         @Test
         @DisplayName("없는 활동을 찜하면 404 (400 이면 '요청이 잘못됐다'로 읽혀 오해를 부른다)")
         void rejectsUnknownEvent() throws Exception {
             when(bookmarkService.addBookmark(anyLong(), anyLong()))
-                    .thenThrow(new MateonException(ErrorCode.EVENT_NOT_FOUND));
+              .thenThrow(new MateonException(ErrorCode.EVENT_NOT_FOUND));
 
             mockMvc.perform(post("/api/bookmarks/events/999999").principal(auth()))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.success").value(false));
+              .andExpect(status().isNotFound())
+              .andExpect(jsonPath("$.success").value(false));
         }
     }
 
@@ -100,8 +102,8 @@ class BookmarkControllerTest {
             when(bookmarkService.removeBookmark(USER_ID, EVENT_ID)).thenReturn(true);
 
             mockMvc.perform(delete("/api/bookmarks/events/42").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.bookmarked").value(false));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.bookmarked").value(false));
         }
 
         @Test
@@ -110,9 +112,9 @@ class BookmarkControllerTest {
             when(bookmarkService.removeBookmark(USER_ID, EVENT_ID)).thenReturn(false);
 
             mockMvc.perform(delete("/api/bookmarks/events/42").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.bookmarked").value(false));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.bookmarked").value(false));
         }
     }
 
@@ -126,9 +128,9 @@ class BookmarkControllerTest {
             when(bookmarkService.getMyBookmarkedEventIds(USER_ID)).thenReturn(List.of(12L, 45L));
 
             mockMvc.perform(get("/api/bookmarks/events/ids").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0]").value(12))
-                    .andExpect(jsonPath("$.data[1]").value(45));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data[0]").value(12))
+              .andExpect(jsonPath("$.data[1]").value(45));
         }
 
         @Test
@@ -137,11 +139,11 @@ class BookmarkControllerTest {
             when(bookmarkService.getMyBookmarks(USER_ID, 2, 5)).thenReturn(List.of());
 
             mockMvc.perform(get("/api/bookmarks/events")
-                            .param("page", "2")
-                            .param("size", "5")
-                            .principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.length()").value(0));
+              .param("page", "2")
+              .param("size", "5")
+              .principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.length()").value(0));
         }
     }
 

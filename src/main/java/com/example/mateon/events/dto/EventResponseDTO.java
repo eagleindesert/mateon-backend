@@ -19,7 +19,7 @@ public class EventResponseDTO {
     // 분야의 한글 표기. 클라이언트가 enum→한글 매핑을 따로 들고 있지 않아도 되도록 함께 내려준다
     // (UserService 가 category 를 화면용 한글로 바꾸려고 switch 를 두고 있는데, 그런 중복을 만들지 않는다).
     @Schema(description = "field 의 한글 표기. enum→한글 매핑을 클라이언트가 따로 들고 있지 않아도 되도록 함께 내려준다.",
-            example = "과학/공학/기술/IT")
+      example = "과학/공학/기술/IT")
     private String fieldLabel;
     private String title;
     private String description;
@@ -37,7 +37,7 @@ public class EventResponseDTO {
      * 대상 학교/캠퍼스.
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 이미 이 필드를 읽고 있는
-     *             프론트가 있어 응답에서 빼지 않는다 — 빼면 기존 화면이 깨진다.
+     * 프론트가 있어 응답에서 빼지 않는다 — 빼면 기존 화면이 깨진다.
      */
     @Schema(deprecated = true, description = "[폐기 예정] 대상 범위는 targetSchool 로 일원화한다. 새 화면에서는 읽지 말 것.")
     @Deprecated
@@ -47,7 +47,7 @@ public class EventResponseDTO {
      * 대상 단과대학 (target_colleges, JSON 문자열).
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 이미 이 필드를 읽고 있는
-     *             프론트가 있어 응답에서 빼지 않는다 — 빼면 기존 화면이 깨진다.
+     * 프론트가 있어 응답에서 빼지 않는다 — 빼면 기존 화면이 깨진다.
      */
     @Schema(deprecated = true, description = "[폐기 예정] 대상 범위는 targetSchool 로 일원화한다. 새 화면에서는 읽지 말 것.")
     @Deprecated
@@ -60,7 +60,8 @@ public class EventResponseDTO {
     /**
      * 조회한 사용자가 이 활동을 북마크했는지. 비로그인 조회는 항상 false 다.
      *
-     * <p>필드명을 {@code isBookmarked} 가 아니라 {@code bookmarked} 로 둔다 — 그래야 Lombok 게터가
+     * <p>
+     * 필드명을 {@code isBookmarked} 가 아니라 {@code bookmarked} 로 둔다 — 그래야 Lombok 게터가
      * {@code isBookmarked()} 가 되어 JSON 키가 {@code bookmarked} 로 안정적으로 나온다.
      */
     @Schema(description = "조회한 사용자가 이 활동을 북마크했는지. **비로그인 조회는 항상 false** 다.")

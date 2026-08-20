@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-
 /**
  * [로컬 테스트 전용] 카카오 인가코드 수신용 디버그 컨트롤러.
  *
@@ -32,7 +31,7 @@ public class OAuthDebugController {
     private final OAuthDebugCodeRepository repository;
 
     @Operation(summary = "[디버그] 카카오 인가코드 수신",
-            description = """
+      description = """
                           **로컬 테스트 전용이며 프론트가 부를 일이 없다.**
                           `debug.oauth.enabled=true` 일 때만 빈으로 등록되므로, 그 밖에서는 이
                           경로 자체가 404 다.
@@ -49,12 +48,12 @@ public class OAuthDebugController {
         repository.save(OAuthDebugCode.builder().code(code).build());
 
         String html = "<html><head><meta charset=\"utf-8\"></head><body style=\"font-family:sans-serif\">"
-                + "<h2>✅ 인가코드 저장 완료</h2>"
-                + "<p>이제 터미널에서 <code>get-kakao-token.ps1</code> 을 실행하세요.</p>"
-                + "<p style=\"color:#888\">code: " + code + "</p>"
-                + "</body></html>";
+          + "<h2>✅ 인가코드 저장 완료</h2>"
+          + "<p>이제 터미널에서 <code>get-kakao-token.ps1</code> 을 실행하세요.</p>"
+          + "<p style=\"color:#888\">code: " + code + "</p>"
+          + "</body></html>";
         return ResponseEntity.ok()
-                .contentType(MediaType.TEXT_HTML)
-                .body(html);
+          .contentType(MediaType.TEXT_HTML)
+          .body(html);
     }
 }

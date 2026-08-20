@@ -35,13 +35,15 @@ import static org.mockito.Mockito.when;
 /**
  * 팀 임베딩 갱신의 경합 규약을 고정한다.
  *
- * <p>이 테스트가 생긴 계기: 팀 생성과 수정이 각각 비동기 갱신을 띄우는데, 둘이 동시에 돌면서
+ * <p>
+ * 이 테스트가 생긴 계기: 팀 생성과 수정이 각각 비동기 갱신을 띄우는데, 둘이 동시에 돌면서
  * <b>AI 응답이 늦게 온 쪽이 무조건 이겼다</b>. 실제로 짧은 수정 텍스트의 결과가 먼저 저장되고
  * 0.3초 뒤 도착한 긴 생성 텍스트의 결과가 그 위를 덮어, 수정한 지 한참 지난 팀의 임베딩이
  * 생성 시점 내용으로 남았다. 로그에는 "저장 완료"가 두 번 찍혀 성공처럼 보였기 때문에
  * DB 를 직접 들여다보기 전까지 드러나지 않았다.
  *
- * <p>그래서 여기서 단정하는 것은 "저장에 성공했는가"가 아니라 <b>어느 결과가 남는가</b>다.
+ * <p>
+ * 그래서 여기서 단정하는 것은 "저장에 성공했는가"가 아니라 <b>어느 결과가 남는가</b>다.
  * 순서를 보장하는 대신, 결과마다 그것이 반영하는 팀의 시점(source_updated_at)을 들고 다니게 해
  * 낡은 결과를 버린다. 시간 의존적 경합은 스레드로 재현하면 불안정해지므로, 도착 순서를
  * "행에 이미 저장된 시점"으로 표현해 결정적으로 검증한다.
@@ -50,16 +52,24 @@ class TeamEmbeddingServiceTest {
 
     private static final long TEAM_ID = 21L;
 
-    /** 팀에 연결된 공모전(활동). 자율 프로젝트면 팀의 eventId 가 null 이다. */
+    /**
+     * 팀에 연결된 공모전(활동). 자율 프로젝트면 팀의 eventId 가 null 이다.
+     */
     private static final long EVENT_ID = 7L;
 
-    /** 실제 컬럼은 vector(1536)지만, 여기서 검증하는 건 차원 값 자체가 아니라 판정 로직이다. */
+    /**
+     * 실제 컬럼은 vector(1536)지만, 여기서 검증하는 건 차원 값 자체가 아니라 판정 로직이다.
+     */
     private static final int DIMENSION = 4;
 
-    /** 팀 생성 시점. 이 시점을 반영하는 결과가 "낡은 결과"다. */
+    /**
+     * 팀 생성 시점. 이 시점을 반영하는 결과가 "낡은 결과"다.
+     */
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 7, 30, 2, 3, 50);
 
-    /** 팀 수정 시점. 이 시점을 반영하는 결과가 남아야 한다. */
+    /**
+     * 팀 수정 시점. 이 시점을 반영하는 결과가 남아야 한다.
+     */
     private static final LocalDateTime UPDATED_AT = LocalDateTime.of(2026, 7, 30, 2, 3, 51);
 
     private TeamRepository teamRepository;
@@ -79,7 +89,7 @@ class TeamEmbeddingServiceTest {
         when(properties.getEmbeddingDimension()).thenReturn(DIMENSION);
 
         service = new TeamEmbeddingService(teamRepository, eventRepository,
-                teamEmbeddingRepository, client, properties);
+          teamEmbeddingRepository, client, properties);
     }
 
     @Nested
@@ -197,10 +207,10 @@ class TeamEmbeddingServiceTest {
             givenTeam(CREATED_AT);
             // 첫 읽기 때는 통과 가능한 행이었지만, 저장 직전에 수정 갱신이 끼어들어 버전이 밀렸다.
             when(teamEmbeddingRepository.findById(TEAM_ID))
-                    .thenReturn(Optional.of(row(CREATED_AT.minusSeconds(1), List.of("Spring Boot"))))
-                    .thenReturn(Optional.of(row(UPDATED_AT, List.of("Java", "Redis"))));
+              .thenReturn(Optional.of(row(CREATED_AT.minusSeconds(1), List.of("Spring Boot"))))
+              .thenReturn(Optional.of(row(UPDATED_AT, List.of("Java", "Redis"))));
             when(teamEmbeddingRepository.save(any()))
-                    .thenThrow(new OptimisticLockingFailureException("버전 충돌"));
+              .thenThrow(new OptimisticLockingFailureException("버전 충돌"));
             givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
 
             service.refresh(TEAM_ID);
@@ -269,7 +279,6 @@ class TeamEmbeddingServiceTest {
     }
 
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────
-
     private void givenTeam(LocalDateTime updatedAt) {
         givenTeam(updatedAt, null);
     }
@@ -286,7 +295,9 @@ class TeamEmbeddingServiceTest {
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
     }
 
-    /** category/field 는 NOT NULL 컬럼이라 채우지만, contest_field 로 나가는 값은 title 뿐이다. */
+    /**
+     * category/field 는 NOT NULL 컬럼이라 채우지만, contest_field 로 나가는 값은 title 뿐이다.
+     */
     private void givenEvent(String title) {
         Event event = new Event();
         event.setId(EVENT_ID);
@@ -298,7 +309,7 @@ class TeamEmbeddingServiceTest {
 
     private void givenStoredRow(LocalDateTime sourceUpdatedAt, List<String> requiredSkills) {
         when(teamEmbeddingRepository.findById(TEAM_ID))
-                .thenReturn(Optional.of(row(sourceUpdatedAt, requiredSkills)));
+          .thenReturn(Optional.of(row(sourceUpdatedAt, requiredSkills)));
     }
 
     private TeamEmbedding row(LocalDateTime sourceUpdatedAt, List<String> requiredSkills) {
@@ -324,8 +335,8 @@ class TeamEmbeddingServiceTest {
     }
 
     private TeamEmbeddingRefreshRequest captureRequest() {
-        ArgumentCaptor<TeamEmbeddingRefreshRequest> captor =
-                ArgumentCaptor.forClass(TeamEmbeddingRefreshRequest.class);
+        ArgumentCaptor<TeamEmbeddingRefreshRequest> captor
+          = ArgumentCaptor.forClass(TeamEmbeddingRefreshRequest.class);
         verify(client).refresh(captor.capture());
         return captor.getValue();
     }

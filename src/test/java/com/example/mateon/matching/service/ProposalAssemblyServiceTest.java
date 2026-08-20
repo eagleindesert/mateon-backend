@@ -22,15 +22,18 @@ import static org.mockito.Mockito.when;
 /**
  * 제안 문구 조립. 방향에 따라 <b>sender/receiver 자리가 뒤바뀐다</b>는 것이 전부이자 함정이다.
  *
- * <p>{@code userId} 와 {@code teamId} 는 방향과 무관하게 고정 자리에 들어가지만,
+ * <p>
+ * {@code userId} 와 {@code teamId} 는 방향과 무관하게 고정 자리에 들어가지만,
  * {@code sender_id}/{@code receiver_id} 는 서로 자리를 바꾼다. 잘못 넣으면 AI 는 아무 불평 없이
  * "팀이 유저에게 쓰는 말투"로 유저의 지원서를 써 준다 — 화면에 문장이 뜨긴 하므로 에러는 없고,
  * 사용자가 읽고 이상하다고 느낄 뿐이다.
  *
- * <p>또 하나는 <b>synergyScore 의 출처</b>다. AI 응답에도 같은 이름의 필드가 있지만 우리는
+ * <p>
+ * 또 하나는 <b>synergyScore 의 출처</b>다. AI 응답에도 같은 이름의 필드가 있지만 우리는
  * 추천 이력에서 읽은 값을 쓴다. 출처가 둘이면 화면과 DB 의 숫자가 달라진다.
  *
- * <p>이 서비스에는 저장 단계가 없다 — 초안은 사용자가 고쳐서 기존 발송 API 로 보낸다.
+ * <p>
+ * 이 서비스에는 저장 단계가 없다 — 초안은 사용자가 고쳐서 기존 발송 API 로 보낸다.
  * 그래서 부수효과가 없다는 것도 함께 확인한다.
  */
 class ProposalAssemblyServiceTest {
@@ -94,8 +97,8 @@ class ProposalAssemblyServiceTest {
 
             assertThat(draft.getDirection()).isEqualTo("TEAM_TO_USER");
 
-            ArgumentCaptor<ProposalAssemblyRequest> captor =
-                    ArgumentCaptor.forClass(ProposalAssemblyRequest.class);
+            ArgumentCaptor<ProposalAssemblyRequest> captor
+              = ArgumentCaptor.forClass(ProposalAssemblyRequest.class);
             verify(client).teamToUser(captor.capture());
             assertThat(captor.getValue().getSenderId()).isEqualTo(TEAM_ID);
             assertThat(captor.getValue().getReceiverId()).isEqualTo(USER_ID);
@@ -171,10 +174,9 @@ class ProposalAssemblyServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private ProposalAssemblyRequest captureUserToTeamRequest() {
-        ArgumentCaptor<ProposalAssemblyRequest> captor =
-                ArgumentCaptor.forClass(ProposalAssemblyRequest.class);
+        ArgumentCaptor<ProposalAssemblyRequest> captor
+          = ArgumentCaptor.forClass(ProposalAssemblyRequest.class);
         verify(client).userToTeam(captor.capture());
         return captor.getValue();
     }

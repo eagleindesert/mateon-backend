@@ -36,11 +36,13 @@ import static org.mockito.Mockito.when;
 /**
  * 역제안(팀→유저) 추천 오케스트레이션 — {@link RecommendationServiceTest} 의 거울상이다.
  *
- * <p>거울상이라는 게 정확히 위험 지점이다. 두 클래스는 구조가 같아서 한쪽을 고칠 때 다른 쪽을
+ * <p>
+ * 거울상이라는 게 정확히 위험 지점이다. 두 클래스는 구조가 같아서 한쪽을 고칠 때 다른 쪽을
  * 빠뜨리기 쉽고, 빠뜨려도 컴파일은 통과한다. 그래서 같은 규칙(정렬·필터·자르기 순서·기록 실패
  * 무시)을 양쪽에 각각 적어 둔다.
  *
- * <p>이쪽만의 것도 있다: 응답에 <b>협업 온도</b>가 붙는다. 평가를 한 번도 안 받은 유저는 집계
+ * <p>
+ * 이쪽만의 것도 있다: 응답에 <b>협업 온도</b>가 붙는다. 평가를 한 번도 안 받은 유저는 집계
  * 행이 없는데, 그때 null 이 아니라 기준점 36.5 가 나가야 프론트가 온도 배지를 항상 그릴 수 있다.
  */
 class TeamToUserRecommendationServiceTest {
@@ -83,8 +85,8 @@ class TeamToUserRecommendationServiceTest {
             givenDisplayInfo(2L, 3L, 4L);
 
             assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10))
-                    .extracting(UserRecommendationResponseDTO::getScore)
-                    .containsExactly(0.95, 0.7, 0.4);
+              .extracting(UserRecommendationResponseDTO::getScore)
+              .containsExactly(0.95, 0.7, 0.4);
         }
 
         @Test
@@ -110,8 +112,8 @@ class TeamToUserRecommendationServiceTest {
             givenDisplayInfo(3L, 4L);
 
             assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 2))
-                    .extracting(UserRecommendationResponseDTO::getScore)
-                    .containsExactly(0.9, 0.5);
+              .extracting(UserRecommendationResponseDTO::getScore)
+              .containsExactly(0.9, 0.5);
         }
 
         @Test
@@ -148,8 +150,8 @@ class TeamToUserRecommendationServiceTest {
             when(queryService.loadUserDisplayInfo(anyList(), any())).thenReturn(info);
 
             assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10).get(0)
-                    .getCollaborationTemperature())
-                    .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
+              .getCollaborationTemperature())
+              .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
         }
     }
 
@@ -166,13 +168,13 @@ class TeamToUserRecommendationServiceTest {
 
             service.recommendUsers(TEAM_ID, LEADER_ID, 10);
 
-            ArgumentCaptor<TeamToUserRecommendationRequest> request =
-                    ArgumentCaptor.forClass(TeamToUserRecommendationRequest.class);
+            ArgumentCaptor<TeamToUserRecommendationRequest> request
+              = ArgumentCaptor.forClass(TeamToUserRecommendationRequest.class);
             verify(client).teamToUser(request.capture());
 
             assertThat(request.getValue().getQueryEmbeddingVector()).containsExactly(0.3f, 0.4f);
             assertThat(request.getValue().getQueryMetadata().getRecruitingRoles())
-                    .containsExactly("백엔드");
+              .containsExactly("백엔드");
             assertThat(request.getValue().getQueryMetadata().getBeginnerFriendly()).isTrue();
 
             var candidate = request.getValue().getCandidates().get(0);
@@ -205,18 +207,17 @@ class TeamToUserRecommendationServiceTest {
             givenAiResponse(item(2L, 0.9));
             givenDisplayInfo(2L);
             doThrow(new RuntimeException("DB 다운"))
-                    .when(logService).saveTeamToUser(anyLong(), anyLong(), anyInt(), anyList());
+              .when(logService).saveTeamToUser(anyLong(), anyLong(), anyInt(), anyList());
 
             assertThatCode(() -> assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10)).hasSize(1))
-                    .doesNotThrowAnyException();
+              .doesNotThrowAnyException();
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenCandidates(Long... userIds) {
-        List<UserRecommendationSnapshot.Candidate> candidates =
-                List.of(userIds).stream().map(this::candidate).toList();
+        List<UserRecommendationSnapshot.Candidate> candidates
+          = List.of(userIds).stream().map(this::candidate).toList();
         when(queryService.gatherForTeam(anyLong(), anyLong())).thenReturn(snapshot(candidates));
     }
 
@@ -236,14 +237,14 @@ class TeamToUserRecommendationServiceTest {
 
     private UserRecommendationSnapshot snapshot(List<UserRecommendationSnapshot.Candidate> candidates) {
         return new UserRecommendationSnapshot(new float[]{0.3f, 0.4f},
-                List.of("백엔드"), List.of("Spring"), "오프라인", true, candidates);
+          List.of("백엔드"), List.of("Spring"), "오프라인", true, candidates);
     }
 
     private UserRecommendationSnapshot.Candidate candidate(Long userId) {
         User user = user(userId);
         MatchingIntentSlot slot = new MatchingIntentSlot(user);
         slot.update(null, List.of("디자이너"), List.of("Figma"), List.of("UX"),
-                "포트폴리오", "온라인", "입문", "임베딩 원문");
+          "포트폴리오", "온라인", "입문", "임베딩 원문");
         TestEntities.withId(slot, userId * 10);
 
         return new UserRecommendationSnapshot.Candidate(user, slot, new float[]{0.7f, 0.8f});

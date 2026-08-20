@@ -26,9 +26,9 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
             return null;
         }
         return attribute.stream()
-                .filter(s -> s != null && !s.trim().isEmpty())
-                .map(String::trim)
-                .collect(Collectors.joining(","));
+          .filter(s -> s != null && !s.trim().isEmpty())
+          .map(String::trim)
+          .collect(Collectors.joining(","));
     }
 
     @Override
@@ -37,8 +37,8 @@ public class StringListConverter implements AttributeConverter<List<String>, Str
             return Collections.emptyList();
         }
         return Arrays.stream(dbData.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .collect(Collectors.toList());
     }
 }

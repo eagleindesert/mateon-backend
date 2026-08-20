@@ -41,7 +41,7 @@ public class ChatRestController {
       description = "USER_NOT_FOUND — 상대 사용자를 찾을 수 없습니다.")
     @PostMapping("/rooms/dm")
     public BaseResponse<Map<String, Long>> createOrGetDmRoom(@Valid @RequestBody CreateDmRequest request,
-                                                             Authentication authentication) {
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         ChatRoom room = chatService.getOrCreateDmRoom(userId, request.getTargetUserId());
         return BaseResponse.success(Map.of("roomId", room.getId()));
@@ -79,9 +79,9 @@ public class ChatRestController {
     @Parameter(name = "size", description = "한 번에 가져올 건수.")
     @GetMapping("/rooms/{roomId}/messages")
     public BaseResponse<List<ChatMessageResponse>> getMessages(@PathVariable Long roomId,
-                                                               @RequestParam(required = false) Long before,
-                                                               @RequestParam(defaultValue = "30") int size,
-                                                               Authentication authentication) {
+      @RequestParam(required = false) Long before,
+      @RequestParam(defaultValue = "30") int size,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         return BaseResponse.success(chatService.getMessages(userId, roomId, before, size));
     }
@@ -98,8 +98,8 @@ public class ChatRestController {
     @Parameter(name = "roomId", description = "읽음을 표시할 방.")
     @PostMapping("/rooms/{roomId}/read")
     public BaseResponse<Void> markAsRead(@PathVariable Long roomId,
-                                         @Valid @RequestBody ReadRequest request,
-                                         Authentication authentication) {
+      @Valid @RequestBody ReadRequest request,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         chatService.markAsRead(userId, roomId, request.getLastReadMessageId());
         return BaseResponse.success(null);

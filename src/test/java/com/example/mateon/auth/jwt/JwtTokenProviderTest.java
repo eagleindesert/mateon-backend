@@ -13,13 +13,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 토큰 발급·검증의 계약을 고정한다.
  *
- * <p>가장 중요한 건 <b>같은 밀리초에 두 번 발급해도 토큰 문자열이 달라야 한다</b>는 것이다.
+ * <p>
+ * 가장 중요한 건 <b>같은 밀리초에 두 번 발급해도 토큰 문자열이 달라야 한다</b>는 것이다.
  * {@code refresh_tokens.token} 에 UNIQUE 제약이 걸려 있어서, sub/iat/exp 만으로 서명하면
  * 1초 안에 두 번 로그인한 유저가 똑같은 문자열을 받고 저장 시점에 제약 위반으로 터진다.
  * 지금은 {@code jti} 로 랜덤 UUID 를 넣어 막고 있는데, 이 한 줄이 "쓸모없어 보인다"는 이유로
  * 지워지기 딱 좋은 코드라 테스트로 붙잡아 둔다.
  *
- * <p>두 번째는 <b>{@code validateToken} 이 예외를 던지지 않는다</b>는 것이다. 이 메서드는
+ * <p>
+ * 두 번째는 <b>{@code validateToken} 이 예외를 던지지 않는다</b>는 것이다. 이 메서드는
  * 모든 요청을 통과하는 필터에서 불린다 — 여기서 예외가 새면 잘못된 토큰 하나가 500 이 된다.
  */
 class JwtTokenProviderTest {

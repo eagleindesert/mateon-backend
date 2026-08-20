@@ -67,10 +67,9 @@ public class EmailVerification {
     //   - 발급 후 ttl 이내여야 한다. (오래 방치된 인증 상태의 영구 선점 방지)
     public boolean isTicketValid(String token, java.time.Duration ttl) {
         return verified
-                && verificationToken != null
-                && verificationToken.equals(token)
-                && verifiedAt != null
-                && verifiedAt.isAfter(LocalDateTime.now().minus(ttl));
+          && verificationToken != null
+          && verificationToken.equals(token)
+          && verifiedAt != null
+          && verifiedAt.isAfter(LocalDateTime.now().minus(ttl));
     }
 }
-

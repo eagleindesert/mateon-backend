@@ -36,12 +36,14 @@ import static org.mockito.Mockito.when;
 /**
  * AI 채팅 통합 로그의 규칙을 고정한다.
  *
- * <p>이 클래스가 지키는 핵심은 <b>도메인 작업 도장</b>이다. 게이트웨이가 혼자 답한 턴은 작업이
+ * <p>
+ * 이 클래스가 지키는 핵심은 <b>도메인 작업 도장</b>이다. 게이트웨이가 혼자 답한 턴은 작업이
  * 없어야 하고, 도메인으로 위임된 턴은 있어야 한다. 잘못 찍히면 라우팅 전 잡담이 FastAPI 로
  * 새어 나가거나(=게이트웨이를 만든 이유가 사라진다), 반대로 방금 한 발화가 AI 로 안 가서 대화가
  * 제자리를 맴돈다. 둘 다 조용히 일어난다.
  *
- * <p>두 번째는 <b>스레드 소유권</b>이다. sessionId 를 프론트가 보내게 됐으므로(V31), 남의
+ * <p>
+ * 두 번째는 <b>스레드 소유권</b>이다. sessionId 를 프론트가 보내게 됐으므로(V31), 남의
  * 스레드에 글을 쓰거나 읽는 걸 막는 게 이 클래스의 책임이 됐다.
  */
 @ExtendWith(MockitoExtension.class)
@@ -82,8 +84,8 @@ class AiChatServiceTest {
             givenSessionLocked();
 
             assertThatThrownBy(() -> service.appendUserMessage(OTHER_USER_ID, SESSION_ID, "안녕하세요"))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
 
             verify(messageRepository, never()).save(any());
         }
@@ -94,8 +96,8 @@ class AiChatServiceTest {
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
 
             assertThatThrownBy(() -> service.findSessionMessages(OTHER_USER_ID, SESSION_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
         }
 
         @Test
@@ -116,8 +118,8 @@ class AiChatServiceTest {
             when(sessionRepository.findWithLockById(SESSION_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.appendUserMessage(USER_ID, SESSION_ID, "안녕하세요"))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
         }
     }
 
@@ -268,7 +270,7 @@ class AiChatServiceTest {
         void startsEmpty() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
             when(sessionRepository.save(any()))
-                    .thenAnswer(i -> TestEntities.withId(i.getArgument(0), SESSION_ID));
+              .thenAnswer(i -> TestEntities.withId(i.getArgument(0), SESSION_ID));
 
             AiChatSession created = service.createSession(USER_ID);
 
@@ -282,15 +284,15 @@ class AiChatServiceTest {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.createSession(USER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
 
         @Test
         @DisplayName("레거시 경로는 가장 최근 스레드를 쓰고, 하나도 없으면 만든다")
         void legacyPathReusesLatest() {
             when(sessionRepository.findFirstByUserIdOrderByUpdatedAtDesc(USER_ID))
-                    .thenReturn(Optional.of(session));
+              .thenReturn(Optional.of(session));
 
             assertThat(service.findOrCreateLatestSession(USER_ID)).isSameAs(session);
             verify(sessionRepository, never()).save(any());
@@ -299,20 +301,21 @@ class AiChatServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenSessionLocked() {
         when(sessionRepository.findWithLockById(SESSION_ID)).thenReturn(Optional.of(session));
     }
 
-    /** save 가 id 를 채워 돌려주는 실제 동작을 흉내 낸다 (AiChatTurn 이 그 id 를 담는다). */
+    /**
+     * save 가 id 를 채워 돌려주는 실제 동작을 흉내 낸다 (AiChatTurn 이 그 id 를 담는다).
+     */
     private void givenMessageSaved() {
         when(messageRepository.save(any()))
-                .thenAnswer(i -> TestEntities.withId(i.getArgument(0), 200L));
+          .thenAnswer(i -> TestEntities.withId(i.getArgument(0), 200L));
     }
 
     private AiDomainTask task() {
         return TestEntities.withId(
-                new AiDomainTask(session, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
+          new AiDomainTask(session, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
     }
 
     private AiChatMessage captureSaved() {

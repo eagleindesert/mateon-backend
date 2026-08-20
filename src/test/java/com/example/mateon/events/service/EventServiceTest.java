@@ -32,15 +32,18 @@ import static org.mockito.Mockito.when;
 /**
  * 활동 서비스에서 {@code EventQueryBehaviorTest} 가 못 보는 두 축만 다룬다.
  *
- * <p>정렬·페이지 상한·추천 선정은 그 컨트롤러 테스트가 이미 전선까지 고정했으므로 되풀이하지 않는다.
+ * <p>
+ * 정렬·페이지 상한·추천 선정은 그 컨트롤러 테스트가 이미 전선까지 고정했으므로 되풀이하지 않는다.
  *
- * <p><b>하나, 등록 시 매핑의 조용한 규칙들.</b> {@code campusScope} 는 비면 {@code "ALL"} 로
+ * <p>
+ * <b>하나, 등록 시 매핑의 조용한 규칙들.</b> {@code campusScope} 는 비면 {@code "ALL"} 로
  * 채워지는데(제한 없음), 여기가 {@code null} 로 남으면 대상 필터가 {@code NULL} 비교로 빠져
  * 그 활동이 <b>어떤 필터에도 안 걸리는</b> 유령이 된다. 반대로 {@code targetSchool} 과
  * {@code externalId} 는 공백을 {@code null} 로 눕혀야 한다 — 빈 문자열이 남으면 "대상 학교가
  * ''인 활동" 이 되어 역시 조회에서 빠진다. 셋 다 등록은 성공하고 목록에서만 사라진다.
  *
- * <p><b>둘, 북마크 여부의 벌크 조회.</b> 활동마다 exists 를 부르면 페이지 크기만큼 쿼리가 나간다.
+ * <p>
+ * <b>둘, 북마크 여부의 벌크 조회.</b> 활동마다 exists 를 부르면 페이지 크기만큼 쿼리가 나간다.
  * 목록·검색·추천·무작위 네 경로가 이 한 메서드를 공유하므로 되돌아오면 전부 같이 느려진다.
  * 비로그인일 때 조회 자체를 건너뛰는 것도 함께 확인한다 — {@code userId} 가 null 인 채로
  * 쿼리에 들어가면 결과가 비는 정도가 아니라 조건이 통째로 무의미해진다.
@@ -64,7 +67,7 @@ class EventServiceTest {
         userRepository = mock(UserRepository.class);
         bookmarkRepository = mock(EventBookmarkRepository.class);
         service = new EventService(eventRepository, eventMatchingService, userRepository,
-                bookmarkRepository);
+          bookmarkRepository);
     }
 
     @Nested
@@ -199,7 +202,7 @@ class EventServiceTest {
 
             ArgumentCaptor<List<Long>> ids = ArgumentCaptor.forClass(List.class);
             verify(bookmarkRepository, times(1)).findBookmarkedEventIds(org.mockito.ArgumentMatchers.eq(USER_ID),
-                    ids.capture());
+              ids.capture());
             assertThat(ids.getValue()).containsExactly(10L, 11L, 12L);
         }
 
@@ -212,9 +215,9 @@ class EventServiceTest {
             List<EventResponseDTO> events = service.search(null, null, null, null, null, 0, 10, USER_ID);
 
             assertThat(events).extracting(EventResponseDTO::getId, EventResponseDTO::isBookmarked)
-                    .containsExactly(
-                            org.assertj.core.groups.Tuple.tuple(10L, false),
-                            org.assertj.core.groups.Tuple.tuple(11L, true));
+              .containsExactly(
+                org.assertj.core.groups.Tuple.tuple(10L, false),
+                org.assertj.core.groups.Tuple.tuple(11L, true));
         }
 
         @Test
@@ -225,7 +228,7 @@ class EventServiceTest {
             List<EventResponseDTO> events = service.search(null, null, null, null, null, 0, 10, null);
 
             assertThat(events).singleElement()
-                    .extracting(EventResponseDTO::isBookmarked).isEqualTo(false);
+              .extracting(EventResponseDTO::isBookmarked).isEqualTo(false);
             verifyNoInteractions(bookmarkRepository);
         }
 
@@ -246,16 +249,15 @@ class EventServiceTest {
             when(bookmarkRepository.findBookmarkedEventIds(anyLong(), any())).thenReturn(List.of(10L));
 
             assertThat(service.findAllRandomly(5, USER_ID)).singleElement()
-                    .extracting(EventResponseDTO::isBookmarked).isEqualTo(true);
+              .extracting(EventResponseDTO::isBookmarked).isEqualTo(true);
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     @SuppressWarnings("unchecked")
     private void givenSearchResult(Event... events) {
         when(eventRepository.findAll(any(Specification.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(events)));
+          .thenReturn(new PageImpl<>(List.of(events)));
     }
 
     private Event event(long id) {

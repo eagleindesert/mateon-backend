@@ -38,7 +38,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-
 @Slf4j
 @Tag(name = "활동/공모전", description = "활동 등록·검색·추천. 포스터 이미지에서 AI 로 정보를 추출한다")
 @RestController
@@ -77,7 +76,8 @@ public class EventController {
      * 공모전 포스터 이미지에서 활동 등록 초안을 추출한다 [인증 필수].
      * 요청은 multipart/form-data 이며 파트 이름은 {@code image} (jpg/jpeg/png, 10MB 이하).
      *
-     * <p>저장은 하지 않는다 — 프론트가 이 초안을 사용자에게 보여주고 수정을 받은 뒤
+     * <p>
+     * 저장은 하지 않는다 — 프론트가 이 초안을 사용자에게 보여주고 수정을 받은 뒤
      * POST /api/events 로 등록한다. 그래서 201 이 아니라 200 이다.
      * 인증 여부는 SecurityConfig 의 매처가 강제한다.
      */
@@ -120,7 +120,8 @@ public class EventController {
      * @param school 대상 대학교. 부분일치이며 "전체"는 필터 미적용으로 취급한다.
      * @param keyword 제목·설명·주최를 아우르는 자유 검색어. 부분일치이며 "전체"/빈값은 필터 미적용으로 취급한다.
      *
-     * <p>비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
+     * <p>
+     * 비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
      * {@code bookmarked} 로 실릴 뿐, 필터도 순서도 달라지지 않는다.
      */
     @Operation(summary = "활동 검색",
@@ -221,7 +222,8 @@ public class EventController {
      * 기본 조회 (무작위 정렬). 카테고리가 섞인 표본을 size 건까지 내려준다.
      * RANDOM 정렬이라 페이지 간 순서를 보장할 수 없어 page 는 받지 않고 size 로만 응답 크기를 묶는다.
      *
-     * <p>/search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
+     * <p>
+     * /search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
      */
     @Operation(summary = "활동 목록 (무작위 표본)",
       description = """
@@ -245,7 +247,8 @@ public class EventController {
     /**
      * JWT 의 subject 는 userId 다(JwtAuthenticationFilter). 비로그인이면 null 을 돌려준다.
      *
-     * <p>null 검사만으로는 부족하다. 이 컨트롤러의 조회 경로들은 SecurityConfig 에서
+     * <p>
+     * null 검사만으로는 부족하다. 이 컨트롤러의 조회 경로들은 SecurityConfig 에서
      * {@code /api/events/**} permitAll 에 걸리는데, permitAll 이라고 authentication 이 비는 게
      * 아니라 Spring Security 가 AnonymousAuthenticationToken 을 채워 넣는다. 그 getName() 은
      * "anonymousUser" 라는 문자열이라, 걸러 내지 않으면 아래 Long.valueOf 에서

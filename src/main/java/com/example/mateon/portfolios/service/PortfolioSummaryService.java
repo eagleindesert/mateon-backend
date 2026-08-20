@@ -27,12 +27,14 @@ import java.util.Optional;
 /**
  * 포트폴리오 PDF → 마크다운 요약.
  *
- * <p>단순 중계가 아니라 <b>해시 기반 캐시</b>다. AI 서버가 돌려주는 pdf_id 는 채번값이 아니라
+ * <p>
+ * 단순 중계가 아니라 <b>해시 기반 캐시</b>다. AI 서버가 돌려주는 pdf_id 는 채번값이 아니라
  * PDF 원본 바이트의 SHA-256 이고, 그 값은 우리도 같은 바이트에서 계산할 수 있다. 그래서
  * <b>AI 를 부르기 전에</b> 캐시를 조회한다 — AI 응답의 pdf_id 를 받아 본 뒤에 조회하면
  * 이미 15페이지 Vision 호출을 태운 뒤라 절감이 0이 된다.
  *
- * <p>클래스에 {@code @Transactional} 을 걸지 않는 이유: 이 메서드 한가운데에 최대 수십 초짜리
+ * <p>
+ * 클래스에 {@code @Transactional} 을 걸지 않는 이유: 이 메서드 한가운데에 최대 수십 초짜리
  * AI 호출이 있다. 트랜잭션으로 감싸면 그동안 DB 커넥션이 풀로 돌아오지 않는데, 이 레포는
  * 이미 같은 이유로 커넥션 풀이 고갈된 적이 있다(application.properties 의 open-in-view 주석).
  * 조회와 저장은 각각 리포지토리 호출 자신의 트랜잭션으로 충분하고, 둘을 원자적으로 묶을
@@ -43,15 +45,21 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PortfolioSummaryService {
 
-    /** 멀티파트 설정(전역) 뒤의 2차 방어선. 이미지(10MB)와 달리 PDF 는 페이지가 많아 더 크다. */
+    /**
+     * 멀티파트 설정(전역) 뒤의 2차 방어선. 이미지(10MB)와 달리 PDF 는 페이지가 많아 더 크다.
+     */
     private static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
 
     private static final String ALLOWED_EXTENSION = "pdf";
 
-    /** 모든 PDF 는 "%PDF-1.x" 로 시작한다. 확장자만 바꾼 파일을 AI 까지 보내지 않으려고 본다. */
+    /**
+     * 모든 PDF 는 "%PDF-1.x" 로 시작한다. 확장자만 바꾼 파일을 AI 까지 보내지 않으려고 본다.
+     */
     private static final byte[] PDF_MAGIC = "%PDF".getBytes(StandardCharsets.US_ASCII);
 
-    /** user_portfolios.filename 의 길이. 넘치면 INSERT 가 실패해 캐시가 조용히 비게 된다. */
+    /**
+     * user_portfolios.filename 의 길이. 넘치면 INSERT 가 실패해 캐시가 조용히 비게 된다.
+     */
     private static final int MAX_FILENAME_LENGTH = 255;
 
     private final PortfolioSummaryClient summaryClient;
@@ -62,7 +70,7 @@ public class PortfolioSummaryService {
      * @return 마크다운 요약. 같은 사용자가 같은 PDF 를 다시 올리면 저장된 요약을 그대로 돌려주며
      * 이때 AI 호출은 일어나지 않는다.
      * @throws MateonException INVALID_PDF_FILE(400) / PDF_TOO_LARGE(413) — 업로드 파일 문제,
-     *                         AI_SERVER_UNAVAILABLE(503) / AI_SERVER_ERROR(502) — AI 서버 문제
+     * AI_SERVER_UNAVAILABLE(503) / AI_SERVER_ERROR(502) — AI 서버 문제
      */
     public PortfolioSummaryResponseDTO summarize(Long userId, MultipartFile pdfFile) {
         // 검증이 AI 호출보다 먼저다. 순서를 뒤집으면 잘못된 요청 하나하나가 LLM 비용이 된다
@@ -90,7 +98,9 @@ public class PortfolioSummaryService {
         return new PortfolioSummaryResponseDTO(ai.getResponse());
     }
 
-    /** 형식/크기 문제는 전부 여기서 걸러진다. */
+    /**
+     * 형식/크기 문제는 전부 여기서 걸러진다.
+     */
     private void validate(MultipartFile pdfFile) {
         if (pdfFile == null || pdfFile.isEmpty()) {
             throw new MateonException(ErrorCode.INVALID_PDF_FILE);
@@ -116,7 +126,8 @@ public class PortfolioSummaryService {
     /**
      * 확장자만 .pdf 로 바꾼 파일을 여기서 거른다.
      *
-     * <p>이미지 쪽에는 없는 검사인데, PDF 는 시그니처가 하나뿐이라 값싸게 확인되고 왕복 비용이
+     * <p>
+     * 이미지 쪽에는 없는 검사인데, PDF 는 시그니처가 하나뿐이라 값싸게 확인되고 왕복 비용이
      * 크기 때문이다. 구조 전체의 유효성은 AI 서버가 렌더링하며 판단한다 — 여기서 보는 건
      * "PDF 인 척하는 다른 파일"까지다.
      */
@@ -140,7 +151,9 @@ public class PortfolioSummaryService {
         }
     }
 
-    /** 소문자 hex 64자. AI 서버가 pdf_id 로 쓰는 것과 같은 규약이다. */
+    /**
+     * 소문자 hex 64자. AI 서버가 pdf_id 로 쓰는 것과 같은 규약이다.
+     */
     private String sha256Hex(byte[] bytes) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
@@ -158,15 +171,15 @@ public class PortfolioSummaryService {
      */
     private void warnIfHashMismatch(String ourPdfId, String aiPdfId) {
         if (StringUtils.hasText(aiPdfId) && !ourPdfId.equalsIgnoreCase(aiPdfId)) {
-            log.warn("AI 가 보낸 pdf_id 가 우리 SHA-256 과 다릅니다 (ours={}, ai={}). " +
-                    "AI 서버의 해시 대상이 바뀌었는지 확인이 필요합니다. 캐시 키로는 우리 값을 씁니다.",
-                    ourPdfId, aiPdfId);
+            log.warn("AI 가 보낸 pdf_id 가 우리 SHA-256 과 다릅니다 (ours={}, ai={}). "
+              + "AI 서버의 해시 대상이 바뀌었는지 확인이 필요합니다. 캐시 키로는 우리 값을 씁니다.",
+              ourPdfId, aiPdfId);
         }
     }
 
     private void save(Long userId, String pdfId, String summary, String filename) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
         try {
             portfolioRepository.saveAndFlush(new UserPortfolio(user, pdfId, summary, filename));
         } catch (DataIntegrityViolationException e) {
@@ -177,7 +190,9 @@ public class PortfolioSummaryService {
         }
     }
 
-    /** DB 컬럼 길이를 넘는 파일명 때문에 INSERT 가 실패해 캐시가 비는 일이 없도록 잘라 둔다. */
+    /**
+     * DB 컬럼 길이를 넘는 파일명 때문에 INSERT 가 실패해 캐시가 비는 일이 없도록 잘라 둔다.
+     */
     private String truncateFilename(String filename) {
         if (filename == null || filename.length() <= MAX_FILENAME_LENGTH) {
             return filename;

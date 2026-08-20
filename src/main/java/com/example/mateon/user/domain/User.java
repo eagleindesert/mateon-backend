@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_provider_provider_id", columnNames = {"provider", "provider_id"})
+    @UniqueConstraint(name = "uk_users_provider_provider_id", columnNames = {"provider", "provider_id"})
 })
 @Getter
 @Setter
@@ -104,19 +104,41 @@ public class User {
     private LocalDateTime updatedAt;
 
     public void update(String name, String school, String campus, String college, String major, String grade,
-                       String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
-                       String tagline, String portfolio) {
-        if (name != null) this.name = name;
-        if (school != null) this.school = school;
-        if (campus != null) this.campus = campus;
-        if (college != null) this.college = college;
-        if (major != null) this.major = major;
-        if (grade != null) this.grade = grade;
-        if (interestJobPrimary != null) this.interestJobPrimary = interestJobPrimary;
-        if (interestJobSecondary != null) this.interestJobSecondary = interestJobSecondary;
-        if (interestJobTertiary != null) this.interestJobTertiary = interestJobTertiary;
-        if (tagline != null) this.tagline = tagline;
-        if (portfolio != null) this.portfolio = portfolio;
+      String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
+      String tagline, String portfolio) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (school != null) {
+            this.school = school;
+        }
+        if (campus != null) {
+            this.campus = campus;
+        }
+        if (college != null) {
+            this.college = college;
+        }
+        if (major != null) {
+            this.major = major;
+        }
+        if (grade != null) {
+            this.grade = grade;
+        }
+        if (interestJobPrimary != null) {
+            this.interestJobPrimary = interestJobPrimary;
+        }
+        if (interestJobSecondary != null) {
+            this.interestJobSecondary = interestJobSecondary;
+        }
+        if (interestJobTertiary != null) {
+            this.interestJobTertiary = interestJobTertiary;
+        }
+        if (tagline != null) {
+            this.tagline = tagline;
+        }
+        if (portfolio != null) {
+            this.portfolio = portfolio;
+        }
     }
 
     public void updatePassword(String encodedPassword) {
@@ -136,4 +158,3 @@ public class User {
         this.providerId = providerId;
     }
 }
-

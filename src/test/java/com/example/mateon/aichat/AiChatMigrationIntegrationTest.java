@@ -21,28 +21,32 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * V30·V31 의 <b>이관 SQL</b>이 옳은지 실제 Postgres 로 확인한다.
  *
- * <p>이게 왜 테스트할 값어치가 있느냐면, 이관이 틀렸을 때의 증상이 "배포 실패"가 아니라
+ * <p>
+ * 이게 왜 테스트할 값어치가 있느냐면, 이관이 틀렸을 때의 증상이 "배포 실패"가 아니라
  * <b>조용한 고장</b>이기 때문이다. 메시지가 작업에 안 붙으면 스키마는 멀쩡하고 앱도 뜨는데,
  * 그 사용자가 대화를 이어가는 순간 이력을 못 읽는다. 운영 DB 에는 이미 실데이터가 있으므로
  * 배포 전에 여기서 잡아야 한다.
  *
- * <p>다른 통합 테스트처럼 {@code IntegrationTestBase} 를 쓸 수 없다 — 거기서는 Flyway 가 이미
+ * <p>
+ * 다른 통합 테스트처럼 {@code IntegrationTestBase} 를 쓸 수 없다 — 거기서는 Flyway 가 이미
  * 최신까지 올라간 뒤라 "이관 전" 상태를 만들 수 없다. 그래서 컨테이너를 직접 띄우고 Flyway 를
  * 두 단계로 돌린다: V29 까지 → 옛 형태의 데이터를 심고 → V31.
  *
- * <p>시드에 <b>네 가지 세션 상태를 전부</b> 넣는 게 중요하다. V31 은 한 컬럼짜리 status 를
+ * <p>
+ * 시드에 <b>네 가지 세션 상태를 전부</b> 넣는 게 중요하다. V31 은 한 컬럼짜리 status 를
  * (status, closed_reason, closed_at) 셋으로 푸는데, 개발 DB 에는 EXPIRED 가 한 건도 없어서
  * 그 갈래가 실데이터로는 검증되지 않는다. V7 의 부분 유니크 인덱스가 사용자당 IN_PROGRESS 를
  * 하나로 제한하므로 사용자를 넷 만든다.
  *
- * <p>이미지는 다른 통합 테스트와 같은 pgvector 빌드를 쓴다 (V6 임베딩·V23 트라이그램이 확장에
+ * <p>
+ * 이미지는 다른 통합 테스트와 같은 pgvector 빌드를 쓴다 (V6 임베딩·V23 트라이그램이 확장에
  * 의존해서, 순정 postgres 로는 V29 까지도 못 간다).
  */
 class AiChatMigrationIntegrationTest {
 
     @SuppressWarnings("resource")  // @AfterAll 에서 닫는다
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-            DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
+      DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
 
     @BeforeAll
     static void migrateThroughV31() throws SQLException {
@@ -96,7 +100,7 @@ class AiChatMigrationIntegrationTest {
         void oneTaskPerSession() throws SQLException {
             assertThat(count("SELECT count(*) FROM ai_domain_tasks")).isEqualTo(4);
             assertThat(count("SELECT count(*) FROM matching_intent_sessions WHERE task_id IS NULL"))
-                    .isZero();
+              .isZero();
         }
 
         @Test
@@ -258,16 +262,15 @@ class AiChatMigrationIntegrationTest {
     }
 
     // --- 도구 ---------------------------------------------------------------
-
     private static org.flywaydb.core.api.configuration.FluentConfiguration flyway() {
         return Flyway.configure()
-                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .locations("classpath:db/migration");
+          .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+          .locations("classpath:db/migration");
     }
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(
-                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+          POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
     }
 
     private static void execute(String sql) throws SQLException {
@@ -289,7 +292,7 @@ class AiChatMigrationIntegrationTest {
 
     private static boolean hasColumn(String table, String column) throws SQLException {
         return count("SELECT count(*) FROM information_schema.columns "
-                     + "WHERE table_name = '" + table + "' AND column_name = '" + column + "'") > 0;
+          + "WHERE table_name = '" + table + "' AND column_name = '" + column + "'") > 0;
     }
 
     private static String reasonOf(long matchingSessionId) throws SQLException {

@@ -20,6 +20,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
               and m2.user.id = :userId2
             """)
     Optional<ChatRoom> findDmRoom(@Param("type") RoomType type,
-                                  @Param("userId1") Long userId1,
-                                  @Param("userId2") Long userId2);
+      @Param("userId1") Long userId1,
+      @Param("userId2") Long userId2);
 }

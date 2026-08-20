@@ -22,14 +22,13 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
         User user = userRepository.findById(Long.valueOf(userId))
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         return org.springframework.security.core.userdetails.User.builder()
-                .username(String.valueOf(user.getId()))
-                // 소셜 유저는 비밀번호가 없으므로 빈 문자열로 대체 (폼 로그인 미사용).
-                .password(user.getPassword() != null ? user.getPassword() : "")
-                .authorities("ROLE_USER")
-                .build();
+          .username(String.valueOf(user.getId()))
+          // 소셜 유저는 비밀번호가 없으므로 빈 문자열로 대체 (폼 로그인 미사용).
+          .password(user.getPassword() != null ? user.getPassword() : "")
+          .authorities("ROLE_USER")
+          .build();
     }
 }
-

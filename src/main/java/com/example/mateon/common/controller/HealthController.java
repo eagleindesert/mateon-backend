@@ -16,7 +16,7 @@ import java.util.Map;
 public class HealthController {
 
     @Operation(summary = "루트 — 서버 생존 확인",
-            description = "서버가 떠 있으면 status·message·version 을 준다. 토큰이 필요 없다.")
+      description = "서버가 떠 있으면 status·message·version 을 준다. 토큰이 필요 없다.")
     @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping("/")
     public ResponseEntity<BaseResponse<Map<String, String>>> health() {
@@ -28,7 +28,7 @@ public class HealthController {
     }
 
     @Operation(summary = "헬스체크",
-            description = "로드밸런서·배포 스크립트가 쓰는 경로. status 만 준다. 토큰이 필요 없다.")
+      description = "로드밸런서·배포 스크립트가 쓰는 경로. status 만 준다. 토큰이 필요 없다.")
     @SecurityRequirement(name = "")  // 비로그인 허용
     @GetMapping("/health")
     public ResponseEntity<BaseResponse<Map<String, String>>> healthCheck() {

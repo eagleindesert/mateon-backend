@@ -19,7 +19,8 @@ import static org.mockito.Mockito.verify;
  * STOMP 메시지 핸들러는 한 줄 위임이라 검증할 게 많지 않다. 딱 하나 의미 있는 건
  * <b>{@code principal.getName()} 이 userId 라는 전제</b>다.
  *
- * <p>이 전제는 {@link com.example.mateon.chat.config.StompAuthChannelInterceptor} 가 세워 주는데,
+ * <p>
+ * 이 전제는 {@link com.example.mateon.chat.config.StompAuthChannelInterceptor} 가 세워 주는데,
  * 둘은 서로 다른 패키지에 있고 컴파일러가 이어 주지도 않는다. 인터셉터가 principal 을
  * UserDetails 나 이메일로 바꾸면 여기서 {@code NumberFormatException} 이 나고, 그건 STOMP
  * 핸들러 안이라 HTTP 응답도 없이 조용히 삼켜진다. 그래서 전제 자체를 테스트로 적어 둔다.
@@ -47,7 +48,7 @@ class ChatStompControllerTest {
     @DisplayName("principal 이름이 숫자가 아니면 여기서 터진다 — 인터셉터가 세운 전제가 깨졌다는 신호다")
     void nonNumericPrincipalFailsFast() {
         assertThatThrownBy(() -> controller.sendMessage(request(5L, "안녕"), principal("user@example.com")))
-                .isInstanceOf(NumberFormatException.class);
+          .isInstanceOf(NumberFormatException.class);
     }
 
     private ChatMessageRequest request(Long roomId, String content) {

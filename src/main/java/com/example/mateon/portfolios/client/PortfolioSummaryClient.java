@@ -17,7 +17,8 @@ import org.springframework.util.StringUtils;
 /**
  * 포트폴리오 PDF 를 AI 서버로 보내 요약을 받는다 (POST /portfolios/summarize).
  *
- * <p>AI 서버는 PDF 를 페이지별 이미지로 렌더링해 한 번의 Vision 호출로 읽는다(기본 15페이지까지).
+ * <p>
+ * AI 서버는 PDF 를 페이지별 이미지로 렌더링해 한 번의 Vision 호출로 읽는다(기본 15페이지까지).
  * 아무것도 저장하지 않으며 계산 결과만 돌려준다.
  */
 @Slf4j
@@ -27,14 +28,16 @@ public class PortfolioSummaryClient {
 
     private static final String PATH = "/portfolios/summarize";
 
-    /** AI 명세가 지정한 파트 이름. 다르면 FastAPI 가 422 를 낸다. */
+    /**
+     * AI 명세가 지정한 파트 이름. 다르면 FastAPI 가 422 를 낸다.
+     */
     private static final String FILE_PART_NAME = "pdf_file";
 
     private final AiCallTemplate aiCallTemplate;
 
     /**
      * @param filename 사용자가 올린 원본 파일명. 없으면 AI 가 파트를 UploadFile 로 인식하지 못하므로
-     *                 호출자가 비워 보내는 일이 없어야 한다.
+     * 호출자가 비워 보내는 일이 없어야 한다.
      * @throws MateonException AI_SERVER_UNAVAILABLE(503) / AI_SERVER_ERROR(502)
      */
     public PortfolioSummaryResponse summarize(byte[] pdfBytes, String filename) {
@@ -55,8 +58,8 @@ public class PortfolioSummaryClient {
         parts.add(FILE_PART_NAME, new HttpEntity<>(filePart, partHeaders));
 
         // 실패 매핑(503/502)은 AiCallTemplate 규약 그대로다.
-        PortfolioSummaryResponse response =
-                aiCallTemplate.postMultipart(PATH, parts, PortfolioSummaryResponse.class);
+        PortfolioSummaryResponse response
+          = aiCallTemplate.postMultipart(PATH, parts, PortfolioSummaryResponse.class);
 
         // 스키마별 필수 필드 검증은 각 클라이언트 몫이다 — AiCallTemplate 은 "본문이 왔는가"까지만 본다.
         // 요약이 비어 있으면 사용자에게 보여 줄 것도, 캐시에 넣을 것도 없다.

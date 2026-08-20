@@ -45,11 +45,15 @@ public class OpenApiConfig {
 
     private static final String BEARER_SCHEME = "bearerAuth";
 
-    /** 에러 응답 본문의 공통 스키마 이름. 아래 커스터마이저가 $ref 로 가리킨다. */
+    /**
+     * 에러 응답 본문의 공통 스키마 이름. 아래 커스터마이저가 $ref 로 가리킨다.
+     */
     private static final String ERROR_SCHEMA = "ErrorResponse";
     private static final String ERROR_SCHEMA_REF = "#/components/schemas/" + ERROR_SCHEMA;
 
-    /** 인증 실패(403) 본문의 스키마 이름. 공통 봉투를 쓰지 않는 유일한 응답이라 따로 둔다. */
+    /**
+     * 인증 실패(403) 본문의 스키마 이름. 공통 봉투를 쓰지 않는 유일한 응답이라 따로 둔다.
+     */
     private static final String AUTH_ERROR_SCHEMA = "AuthErrorResponse";
     private static final String AUTH_ERROR_SCHEMA_REF = "#/components/schemas/" + AUTH_ERROR_SCHEMA;
 
@@ -99,7 +103,8 @@ public class OpenApiConfig {
     /**
      * 인증 실패(403) 본문. 스프링 시큐리티가 직접 내는 응답이라 우리 봉투를 쓰지 않는다.
      *
-     * <p>여기만 형식이 다른 건 예외 처리 흐름이 달라서다 — GlobalExceptionHandler 는 핸들러까지
+     * <p>
+     * 여기만 형식이 다른 건 예외 처리 흐름이 달라서다 — GlobalExceptionHandler 는 핸들러까지
      * 도달한 요청만 다루는데, 인증 거부는 그 앞의 필터 체인에서 끝난다.
      */
     private Schema<?> authErrorSchema() {
@@ -196,7 +201,9 @@ public class OpenApiConfig {
         return declared == null || !declared.name().isBlank();
     }
 
-    /** {@code @Valid @RequestBody} 를 받는지 — GlobalExceptionHandler 의 400 이 여기서만 나온다. */
+    /**
+     * {@code @Valid @RequestBody} 를 받는지 — GlobalExceptionHandler 의 400 이 여기서만 나온다.
+     */
     private boolean hasValidatedBody(HandlerMethod handlerMethod) {
         return Arrays.stream(handlerMethod.getMethod().getParameters())
           .anyMatch(this::isValidatedBody);
@@ -207,7 +214,9 @@ public class OpenApiConfig {
           && parameter.isAnnotationPresent(Valid.class);
     }
 
-    /** 파일 업로드인지. {@link RequestMapping#consumes()} 가 멀티파트로 못박힌 경우만 해당한다. */
+    /**
+     * 파일 업로드인지. {@link RequestMapping#consumes()} 가 멀티파트로 못박힌 경우만 해당한다.
+     */
     private boolean isMultipart(Operation operation) {
         io.swagger.v3.oas.models.parameters.RequestBody body = operation.getRequestBody();
         if (body == null || body.getContent() == null) {
@@ -272,7 +281,8 @@ public class OpenApiConfig {
     /**
      * 이미 선언된 상태코드는 건드리지 않는다.
      *
-     * <p>OpenAPI 는 상태코드당 응답이 하나뿐이라, 덮어쓰면 컨트롤러가 적어 둔 도메인 에러
+     * <p>
+     * OpenAPI 는 상태코드당 응답이 하나뿐이라, 덮어쓰면 컨트롤러가 적어 둔 도메인 에러
      * 설명이 조용히 사라진다.
      */
     private void putIfAbsent(ApiResponses responses, String status, String description) {

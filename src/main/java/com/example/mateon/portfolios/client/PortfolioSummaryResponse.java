@@ -8,7 +8,8 @@ import lombok.Setter;
 /**
  * FastAPI POST /portfolios/summarize 응답 본문.
  *
- * <p>@JsonNaming(SnakeCaseStrategy) 을 쓰지 않는 이유는 {@code ContestExtractResponse} 주석과 같다 —
+ * <p>
+ * @JsonNaming(SnakeCaseStrategy) 을 쓰지 않는 이유는 {@code ContestExtractResponse} 주석과 같다 —
  * Jackson 2 와 3 이 동시에 클래스패스에 있어(Boot 4 는 Jackson 3, jjwt-jackson 이 Jackson 2)
  * 어느 컨버터가 잡히느냐에 따라 조용히 무시되고 전 필드가 null 이 된다. @JsonProperty 는 양쪽에서
  * 동작한다. @JsonIgnoreProperties 도 마찬가지로 클래스에 직접 명시해야 한다 —

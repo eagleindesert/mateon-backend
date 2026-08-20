@@ -35,11 +35,13 @@ import static org.mockito.Mockito.when;
 /**
  * 도메인 작업의 수명 규칙을 고정한다.
  *
- * <p>이 로직이 도메인이 아니라 aichat 에 있는 이유가 곧 이 클래스가 지키는 것이다 — 게이트웨이는
+ * <p>
+ * 이 로직이 도메인이 아니라 aichat 에 있는 이유가 곧 이 클래스가 지키는 것이다 — 게이트웨이는
  * 도메인을 몰라도 "이 스레드에 살아 있는 작업이 있나"를 답할 수 있어야 하고, 만료 규칙은 도메인이
  * 늘어도 한 곳에만 있어야 한다.
  *
- * <p>가장 조용히 깨지는 건 <b>스레드 경계</b>다. 사용자당 도메인당 작업이 1건이라, 다른 스레드에
+ * <p>
+ * 가장 조용히 깨지는 건 <b>스레드 경계</b>다. 사용자당 도메인당 작업이 1건이라, 다른 스레드에
  * 진행 중인 작업을 그대로 돌려주면 이 스레드의 발화가 저쪽에 쌓여 두 대화가 뒤섞인다. 화면에는
  * 아무 이상이 없어 보인다.
  */
@@ -148,7 +150,7 @@ class AiDomainTaskServiceTest {
         @DisplayName("진행 중인 게 없으면 ACTIVE 로 새로 연다")
         void createsWhenNoneActive() {
             when(taskRepository.findByUserIdAndDomainAndStatus(USER_ID, DOMAIN, AiDomainTaskStatus.ACTIVE))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             givenSessionAndUser();
             givenTaskSaved();
 
@@ -169,13 +171,13 @@ class AiDomainTaskServiceTest {
         @DisplayName("방치 임계를 함께 넘긴다 — status 만 보면 어제 하던 얘기를 이어가는 것처럼 군다")
         void passesTheStaleThreshold() {
             when(taskRepository.findLiveDomains(eq(SESSION_ID), eq(AiDomainTaskStatus.ACTIVE), any()))
-                    .thenReturn(List.of(DOMAIN));
+              .thenReturn(List.of(DOMAIN));
 
             assertThat(service.findLiveDomains(SESSION_ID)).containsExactly(DOMAIN);
 
             ArgumentCaptor<LocalDateTime> captor = ArgumentCaptor.forClass(LocalDateTime.class);
             verify(taskRepository).findLiveDomains(eq(SESSION_ID), eq(AiDomainTaskStatus.ACTIVE),
-                    captor.capture());
+              captor.capture());
             assertThat(captor.getValue()).isBefore(LocalDateTime.now().minusHours(23));
         }
     }
@@ -211,14 +213,13 @@ class AiDomainTaskServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private AiDomainTask taskIn(AiChatSession chatSession) {
         return TestEntities.withId(new AiDomainTask(chatSession, user, DOMAIN), TASK_ID);
     }
 
     private void givenActiveTask(AiDomainTask task) {
         when(taskRepository.findByUserIdAndDomainAndStatus(USER_ID, DOMAIN, AiDomainTaskStatus.ACTIVE))
-                .thenReturn(Optional.of(task));
+          .thenReturn(Optional.of(task));
     }
 
     private void givenSessionAndUser() {

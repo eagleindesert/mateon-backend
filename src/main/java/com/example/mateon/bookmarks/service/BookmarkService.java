@@ -23,13 +23,15 @@ import java.util.stream.Collectors;
 /**
  * 활동 북마크(즐겨찾기).
  *
- * <p><b>중복 요청을 에러로 돌려주지 않는다.</b> 이 레포는 보통 중복을 {@code DUPLICATE_RESOURCE} 로
+ * <p>
+ * <b>중복 요청을 에러로 돌려주지 않는다.</b> 이 레포는 보통 중복을 {@code DUPLICATE_RESOURCE} 로
  * 막지만(TeamOfferService), 그건 재제안 스팸을 막는 게 목적이라 그렇다. 북마크는 별 아이콘을
  * 두 번 누르는 게 정상 조작이고 네트워크 재시도로도 같은 요청이 두 번 올 수 있다. 이미 찜한 걸
  * 다시 등록하면 결과 상태는 어차피 '찜한 상태'로 같으므로, 실패시키는 대신 그 상태를 그대로
  * 알려준다. 해제도 마찬가지다 — 원래 없었든 방금 지웠든 결과는 '안 찜한 상태'다.
  *
- * <p>대신 DB 의 {@code uq_event_bookmarks_pair} 는 그대로 둔다. 멱등하게 응답하는 것과 행이
+ * <p>
+ * 대신 DB 의 {@code uq_event_bookmarks_pair} 는 그대로 둔다. 멱등하게 응답하는 것과 행이
  * 두 개 생기는 것은 다른 얘기다.
  */
 @Service
@@ -72,7 +74,8 @@ public class BookmarkService {
     /**
      * 북마크를 해제한다.
      *
-     * <p>활동이 존재하는지는 확인하지 않는다 — 없는 활동의 북마크는 애초에 생길 수 없고
+     * <p>
+     * 활동이 존재하는지는 확인하지 않는다 — 없는 활동의 북마크는 애초에 생길 수 없고
      * (FK), 결과 상태는 어느 쪽이든 '안 찜한 상태'로 같다. 확인해 봐야 404 를 하나 더
      * 만들 뿐 프론트가 할 일은 달라지지 않는다.
      *
@@ -86,7 +89,8 @@ public class BookmarkService {
      * 내 북마크 목록. 활동 시작일순이 아니라 <b>북마크한 최신순</b>이다 — 방금 찜한 게 위에
      * 없으면 찜한 보람이 없다.
      *
-     * <p>페이지 규약은 활동 검색과 같다(size 상한 {@link PageLimits#MAX_PAGE_SIZE},
+     * <p>
+     * 페이지 규약은 활동 검색과 같다(size 상한 {@link PageLimits#MAX_PAGE_SIZE},
      * 배열 길이가 요청한 size 와 같으면 다음 페이지 존재).
      */
     @Transactional(readOnly = true)

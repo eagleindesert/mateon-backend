@@ -22,15 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-
 /**
  * 활동 북마크(즐겨찾기) API [전 경로 인증 필수].
  *
- * <p>인증은 SecurityConfig 의 {@code /api/bookmarks/**} 매처가 강제하므로 여기서는 null 검사를
+ * <p>
+ * 인증은 SecurityConfig 의 {@code /api/bookmarks/**} 매처가 강제하므로 여기서는 null 검사를
  * 하지 않는다 — 익명 요청은 컨트롤러까지 오지 못한다. (permitAll 인 /api/events/** 는 사정이
  * 달라서 EventController 쪽은 익명 토큰을 걸러 낸다.)
  *
- * <p>경로를 {@code /api/events/{id}/bookmark} 가 아니라 이쪽으로 뗀 이유: 활동 조회는
+ * <p>
+ * 경로를 {@code /api/events/{id}/bookmark} 가 아니라 이쪽으로 뗀 이유: 활동 조회는
  * permitAll 이라 그 아래에 인증 필요 경로를 끼워 넣으면 SecurityConfig 의 매처 순서에
  * 기능의 보안이 걸리게 된다(순서가 뒤집히면 조용히 열린다). 접두사를 나누면 그 위험이 없다.
  */
@@ -45,7 +46,8 @@ public class BookmarkController {
     /**
      * 활동 북마크 등록.
      *
-     * <p>새로 생기면 201, 이미 찜한 상태였으면 200 이다. 둘 다 성공이고 응답 본문도 같다
+     * <p>
+     * 새로 생기면 201, 이미 찜한 상태였으면 200 이다. 둘 다 성공이고 응답 본문도 같다
      * ({@code bookmarked: true}) — 프론트는 상태코드를 구분하지 않아도 되고, 구분하고 싶으면
      * 할 수 있다.
      */
@@ -99,7 +101,8 @@ public class BookmarkController {
     /**
      * 내 북마크 목록. 북마크한 최신순이며, 실린 활동은 전부 {@code bookmarked: true} 다.
      *
-     * <p>경로 앞에 {@code /events} 를 둔 건 나중에 다른 대상(팀 모집글 등)이 생겼을 때
+     * <p>
+     * 경로 앞에 {@code /events} 를 둔 건 나중에 다른 대상(팀 모집글 등)이 생겼을 때
      * {@code /api/bookmarks/teams} 로 나란히 붙일 수 있게 하기 위해서다.
      */
     @Operation(summary = "내 북마크 목록",
@@ -123,7 +126,8 @@ public class BookmarkController {
     /**
      * 내가 찜한 활동 id 전량. 화면 여러 곳에서 별 아이콘을 칠해야 할 때 대조표로 쓴다.
      *
-     * <p>위 {@code /events/{eventId:\d+}} 가 숫자로 못박혀 있어 이 경로가 그쪽에 잡히지 않는다
+     * <p>
+     * 위 {@code /events/{eventId:\d+}} 가 숫자로 못박혀 있어 이 경로가 그쪽에 잡히지 않는다
      * (UserController 의 {@code /{userId:\d+}} 와 같은 이유).
      */
     @Operation(summary = "내가 찜한 활동 id 전량",

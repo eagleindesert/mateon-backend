@@ -23,12 +23,14 @@ import static org.mockito.Mockito.when;
 /**
  * 카카오 로그인이 두 빈으로 나뉘어 있는 이유를 지킨다.
  *
- * <p>{@link AuthService} 는 클래스 레벨 {@code @Transactional} 이라 메서드에 들어서는 순간
+ * <p>
+ * {@link AuthService} 는 클래스 레벨 {@code @Transactional} 이라 메서드에 들어서는 순간
  * DB 커넥션을 잡는다. 카카오 {@code user/me} 호출을 그 안에서 하면, 카카오가 느린 만큼
  * 커넥션이 묶인다 — 기본 풀이 10 이라 동시 로그인 몇 건으로 서비스 전체가 멈출 수 있다.
  * 그래서 외부 호출은 트랜잭션이 없는 이 클래스가 먼저 끝내고, DB 작업만 AuthService 에 넘긴다.
  *
- * <p>테스트로 붙잡는 건 <b>순서</b>다. 누군가 편의를 위해 이 두 줄을 AuthService 안으로
+ * <p>
+ * 테스트로 붙잡는 건 <b>순서</b>다. 누군가 편의를 위해 이 두 줄을 AuthService 안으로
  * 합치면(그러면 자기호출이라 @Transactional 도 무시된다) 여기서 걸린다.
  */
 class KakaoLoginServiceTest {
@@ -63,11 +65,11 @@ class KakaoLoginServiceTest {
     @DisplayName("카카오 조회가 실패하면 DB 쪽은 아예 부르지 않는다")
     void doesNotTouchDatabaseWhenKakaoFails() {
         when(kakaoClient.fetchUserInfo("bad-token"))
-                .thenThrow(new MateonException(ErrorCode.KAKAO_AUTH_FAILED));
+          .thenThrow(new MateonException(ErrorCode.KAKAO_AUTH_FAILED));
 
         assertThatThrownBy(() -> kakaoLoginService.login(request("bad-token")))
-                .isInstanceOf(MateonException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
 
         verify(authService, never()).kakaoLogin(any());
     }

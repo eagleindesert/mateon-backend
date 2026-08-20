@@ -16,7 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * team_embeddings.version(V26) 이 실제로 증가하는지 실 DB 로 확인한다.
  *
- * <p>낙관적 락은 "버전이 올라간다"가 아니라 "안 올라가면 조용히 아무것도 못 막는다"가 무서운
+ * <p>
+ * 낙관적 락은 "버전이 올라간다"가 아니라 "안 올라가면 조용히 아무것도 못 막는다"가 무서운
  * 장치다. 매핑이 잘못돼 version 이 0 에 머물면 UPDATE 조건이 항상 참이 되어, 경합 방어가
  * 있는 것처럼 보이면서 실제로는 없는 상태가 된다.
  */
@@ -59,7 +60,9 @@ class TeamEmbeddingVersionTest extends IntegrationTestBase {
         assertThat(afterUpdate.getRequiredSkills()).containsExactly("Java", "Redis");
     }
 
-    /** 영속성 컨텍스트를 비워, 매번 DB 를 실제로 읽고 쓰게 만든다 (프로덕션의 트랜잭션 경계 흉내). */
+    /**
+     * 영속성 컨텍스트를 비워, 매번 DB 를 실제로 읽고 쓰게 만든다 (프로덕션의 트랜잭션 경계 흉내).
+     */
     private void flushAndDetach() {
         em.flush();
         em.clear();

@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.within;
 
 class CollaborationTemperatureCalculatorTest {
 
-    /** 전부 5점을 받은 경우의 합. */
+    /**
+     * 전부 5점을 받은 경우의 합.
+     */
     private static int allFives(int n) {
         return n * 5;
     }
@@ -73,7 +75,6 @@ class CollaborationTemperatureCalculatorTest {
 
         // 초반에는 36.5 근처에서 완만히 오르고, 누적될수록 상한에 접근한다.
         // 이 값들이 바뀌면 계수(C, K)를 건드린 것이므로 ADR 도 함께 갱신해야 한다.
-
         @Test
         @DisplayName("3건이면 39.6 — 첫 팀만으로는 크게 오르지 않는다")
         void threeReviews() {
@@ -108,7 +109,7 @@ class CollaborationTemperatureCalculatorTest {
         @DisplayName("어떤 입력에서도 99 를 넘지 않는다")
         void neverExceedsMax() {
             assertThat(temp(100_000, allFives(100_000)))
-                    .isLessThanOrEqualTo(BigDecimal.valueOf(CollaborationTemperatureCalculator.MAX_TEMP));
+              .isLessThanOrEqualTo(BigDecimal.valueOf(CollaborationTemperatureCalculator.MAX_TEMP));
         }
     }
 
@@ -132,7 +133,7 @@ class CollaborationTemperatureCalculatorTest {
         @DisplayName("0 밑으로 내려가지 않는다")
         void neverBelowMin() {
             assertThat(temp(100_000, 100_000))
-                    .isGreaterThanOrEqualTo(BigDecimal.valueOf(CollaborationTemperatureCalculator.MIN_TEMP));
+              .isGreaterThanOrEqualTo(BigDecimal.valueOf(CollaborationTemperatureCalculator.MIN_TEMP));
         }
 
         @Test
@@ -141,9 +142,9 @@ class CollaborationTemperatureCalculatorTest {
             BigDecimal base = BigDecimal.valueOf(CollaborationTemperatureCalculator.BASE_TEMP);
 
             double gainedRatio = temp(30, allFives(30)).subtract(base).doubleValue()
-                    / (CollaborationTemperatureCalculator.MAX_TEMP - CollaborationTemperatureCalculator.BASE_TEMP);
+              / (CollaborationTemperatureCalculator.MAX_TEMP - CollaborationTemperatureCalculator.BASE_TEMP);
             double lostRatio = base.subtract(temp(30, 30)).doubleValue()
-                    / (CollaborationTemperatureCalculator.BASE_TEMP - CollaborationTemperatureCalculator.MIN_TEMP);
+              / (CollaborationTemperatureCalculator.BASE_TEMP - CollaborationTemperatureCalculator.MIN_TEMP);
 
             assertThat(gainedRatio).isCloseTo(lostRatio, within(0.01));
         }

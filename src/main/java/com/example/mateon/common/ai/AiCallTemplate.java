@@ -19,22 +19,27 @@ import org.springframework.web.client.RestTemplate;
 /**
  * FastAPI AI 서버로 POST 를 보내는 공통 호출부. 인증 헤더와 실패 처리 규약이 여기 한 벌만 있다.
  *
- * <p>원래 {@code matching.client.recommendation.RecommendationClient} 안의 private 메서드였는데,
+ * <p>
+ * 원래 {@code matching.client.recommendation.RecommendationClient} 안의 private 메서드였는데,
  * 제안 조립(/proposals/*)이 같은 규약을 필요로 하면서 밖으로 뺐다. 복사하지 않은 이유는 그 클래스
  * 주석에 적힌 그대로다 — 클라이언트를 복사하면 401/422 진단 로그가 여러 벌이 되고 한쪽만 고쳐지는
  * 사고가 난다.
  *
- * <p>지금은 matching 외에 events(포스터 이미지 추출)·portfolios(PDF 요약)·teams(임베딩 갱신)도
+ * <p>
+ * 지금은 matching 외에 events(포스터 이미지 추출)·portfolios(PDF 요약)·teams(임베딩 갱신)도
  * 이 한 벌을 쓴다. 특정 도메인 소유가 아니라서 common 에 둔다.
  *
- * <p>여기서 보는 건 "본문이 왔는가"까지다. 스키마별 필수 필드 검증은 각 클라이언트가 한다
+ * <p>
+ * 여기서 보는 건 "본문이 왔는가"까지다. 스키마별 필수 필드 검증은 각 클라이언트가 한다
  * (이 클래스는 어떤 응답 타입인지 모른다).
  */
 @Slf4j
 @Component
 public class AiCallTemplate {
 
-    /** AI 서버가 요구하는 내부 인증 헤더. 값이 없거나 틀리면 AI 가 401 로 거절한다. */
+    /**
+     * AI 서버가 요구하는 내부 인증 헤더. 값이 없거나 틀리면 AI 가 401 로 거절한다.
+     */
     private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
 
     private final RestTemplate restTemplate;
@@ -43,13 +48,13 @@ public class AiCallTemplate {
     // @RequiredArgsConstructor 는 @Qualifier 를 못 붙이므로 생성자를 직접 작성한다.
     // 기본 restTemplate 빈(타임아웃 없음)이 아니라 AI 전용 빈을 주입받아야 한다.
     public AiCallTemplate(@Qualifier("aiRestTemplate") RestTemplate restTemplate,
-                          AiServerProperties properties) {
+      AiServerProperties properties) {
         this.restTemplate = restTemplate;
         this.properties = properties;
     }
 
     /**
-     * @param path         AI 서버 기준 경로 (예: "/recommendations/reason")
+     * @param path AI 서버 기준 경로 (예: "/recommendations/reason")
      * @param responseType 역직렬화할 응답 타입
      * @return null 이 아닌 응답 본문
      * @throws MateonException AI_SERVER_UNAVAILABLE(연결/타임아웃) 또는 AI_SERVER_ERROR
@@ -63,11 +68,12 @@ public class AiCallTemplate {
      * multipart/form-data 로 보내는 변형. 파일을 그대로 AI 로 넘기는 엔드포인트
      * (예: /contests/extract-image) 가 쓴다.
      *
-     * <p>파트 구성은 호출자가 한다 — 파트 이름과 파일명 규약은 엔드포인트마다 다르고,
+     * <p>
+     * 파트 구성은 호출자가 한다 — 파트 이름과 파일명 규약은 엔드포인트마다 다르고,
      * 이 클래스는 그걸 알 이유가 없다. 여기서 보장하는 건 인증 헤더와 실패 처리 규약뿐이다.
      *
      * @param parts 파트 맵. 파일 파트는 파일명을 아는 Resource 여야 한다
-     *              (파일명이 없으면 FastAPI 가 UploadFile 로 인식하지 못해 422 를 낸다).
+     * (파일명이 없으면 FastAPI 가 UploadFile 로 인식하지 못해 422 를 낸다).
      */
     public <T> T postMultipart(String path, MultiValueMap<String, Object> parts, Class<T> responseType) {
         HttpHeaders headers = baseHeaders(MediaType.MULTIPART_FORM_DATA);
@@ -81,14 +87,16 @@ public class AiCallTemplate {
         return headers;
     }
 
-    /** 실제 호출과 실패 매핑. JSON/멀티파트가 이 한 벌을 공유한다. */
+    /**
+     * 실제 호출과 실패 매핑. JSON/멀티파트가 이 한 벌을 공유한다.
+     */
     private <T> T doExchange(String path, HttpEntity<?> entity, Class<T> responseType) {
         try {
             ResponseEntity<T> response = restTemplate.exchange(
-                    properties.getBaseUrl() + path,
-                    HttpMethod.POST,
-                    entity,
-                    responseType
+              properties.getBaseUrl() + path,
+              HttpMethod.POST,
+              entity,
+              responseType
             );
 
             T body = response.getBody();
@@ -108,15 +116,15 @@ public class AiCallTemplate {
             // AI 가 4xx/5xx 로 응답. 원인이 전혀 다른 것들이라 로그를 갈라 준다 —
             // 안 그러면 502 만 보고 엉뚱하게 AI 서버를 뒤지게 된다.
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
-                log.error("AI 서버가 인증을 거부했습니다 (status={}). .env 의 AI_INTERNAL_SECRET 이 " +
-                        "AI 서버의 값과 일치하는지 확인하세요 ({} 헤더). body={}",
-                        e.getStatusCode(), INTERNAL_SECRET_HEADER, e.getResponseBodyAsString());
+                log.error("AI 서버가 인증을 거부했습니다 (status={}). .env 의 AI_INTERNAL_SECRET 이 "
+                  + "AI 서버의 값과 일치하는지 확인하세요 ({} 헤더). body={}",
+                  e.getStatusCode(), INTERNAL_SECRET_HEADER, e.getResponseBodyAsString());
             } else if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_CONTENT) {
-                log.error("AI 서버가 요청을 거부했습니다 (422). 요청 스키마가 AI 명세와 어긋납니다 " +
-                        "(본문 형식 또는 필수 헤더 누락). path={}, body={}", path, e.getResponseBodyAsString());
+                log.error("AI 서버가 요청을 거부했습니다 (422). 요청 스키마가 AI 명세와 어긋납니다 "
+                  + "(본문 형식 또는 필수 헤더 누락). path={}, body={}", path, e.getResponseBodyAsString());
             } else {
                 log.warn("AI {} 호출 실패: status={}, body={}",
-                        path, e.getStatusCode(), e.getResponseBodyAsString());
+                  path, e.getStatusCode(), e.getResponseBodyAsString());
             }
             throw new MateonException(ErrorCode.AI_SERVER_ERROR);
         } catch (Exception e) {

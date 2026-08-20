@@ -28,7 +28,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // FE 가 @stomp/stompjs 의 native WebSocket / SockJS 어느 쪽이든 접속할 수 있게 한다.
         applyAllowedOrigins(registry.addEndpoint("/ws-stomp")); // 네이티브 ws://.../ws-stomp
         applyAllowedOrigins(registry.addEndpoint("/ws-stomp"))
-                .withSockJS(); // SockJS fallback: /ws-stomp/**
+          .withSockJS(); // SockJS fallback: /ws-stomp/**
     }
 
     private StompWebSocketEndpointRegistration applyAllowedOrigins(StompWebSocketEndpointRegistration registration) {

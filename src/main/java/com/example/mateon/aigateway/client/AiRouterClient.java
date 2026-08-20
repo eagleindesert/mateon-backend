@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
  * 유일한 곳이다 — 나머지 AI 작업(의도 추출/임베딩/요약)은 전부 외부 FastAPI 가 한다. 여기만
  * 예외인 이유는 "어느 FastAPI 엔드포인트로 보낼지"를 그 호출 전에 정해야 하기 때문이다.
  *
- * <p><b>이 클래스는 예외를 밖으로 내보내지 않는다.</b> 라우터가 죽었다고 챗봇 전체가 죽으면
+ * <p>
+ * <b>이 클래스는 예외를 밖으로 내보내지 않는다.</b> 라우터가 죽었다고 챗봇 전체가 죽으면
  * 게이트웨이 도입 전보다 나빠진다. 어떤 실패든 {@link RouteDecision#passThrough()} 로 떨어지고,
  * 그건 도입 전 동작(무조건 매칭)과 정확히 같다. 그래서 최악의 경우가 "예전과 똑같음"이다.
  */
@@ -41,20 +42,22 @@ public class AiRouterClient {
             - 항상 한국어 존댓말로, 두 문장을 넘기지 않는다.
             """.formatted(RoutableDomain.catalogForPrompt());
 
-    /** Spring AI 모델 빈이 없으면 null. 그때는 항상 폴백한다 (부팅은 막지 않는다). */
+    /**
+     * Spring AI 모델 빈이 없으면 null. 그때는 항상 폴백한다 (부팅은 막지 않는다).
+     */
     private final ChatClient chatClient;
 
     // 생성자가 여럿이라 어느 쪽으로 주입할지 명시해야 한다 (없으면 기본 생성자를 찾다가 실패한다).
     @Autowired
     public AiRouterClient(ObjectProvider<ChatClient.Builder> chatClientBuilders) {
         this.chatClient = chatClientBuilders.stream()
-                .findFirst()
-                .map(builder -> builder.defaultSystem(SYSTEM_PROMPT).build())
-                .orElse(null);
+          .findFirst()
+          .map(builder -> builder.defaultSystem(SYSTEM_PROMPT).build())
+          .orElse(null);
 
         if (this.chatClient == null) {
             log.warn("Spring AI 채팅 모델 빈이 없어 AI 라우터를 비활성화합니다. "
-                    + "모든 발화가 매칭 의도 추출로 통과합니다.");
+              + "모든 발화가 매칭 의도 추출로 통과합니다.");
         }
     }
 
@@ -66,8 +69,8 @@ public class AiRouterClient {
      */
     AiRouterClient(ChatModel chatModel) {
         this.chatClient = chatModel == null
-                ? null
-                : ChatClient.builder(chatModel).defaultSystem(SYSTEM_PROMPT).build();
+          ? null
+          : ChatClient.builder(chatModel).defaultSystem(SYSTEM_PROMPT).build();
     }
 
     /**
@@ -80,9 +83,9 @@ public class AiRouterClient {
 
         try {
             RouteDecision decision = chatClient.prompt()
-                    .user(message)
-                    .call()
-                    .entity(RouteDecision.class);
+              .user(message)
+              .call()
+              .entity(RouteDecision.class);
 
             // 스키마를 줘도 LLM 이 빈 응답을 낼 수 있다. null domain 으로 흘려보내면
             // 호출부의 switch 가 NPE 로 터지므로 여기서 막는다.

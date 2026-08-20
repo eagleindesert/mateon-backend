@@ -14,7 +14,8 @@ import java.util.Set;
 /**
  * 업로드된 이미지의 형식·크기 검증과 바이트 읽기. 공모전 포스터와 프로필 사진이 함께 쓴다.
  *
- * <p>허용 한도(maxBytes)를 상수로 갖지 않고 호출자에게 받는 이유: 공모전 포스터의 10MB 는
+ * <p>
+ * 허용 한도(maxBytes)를 상수로 갖지 않고 호출자에게 받는 이유: 공모전 포스터의 10MB 는
  * AI 서버 제한을 따라간 값이고, 프로필 사진의 한도는 우리 정책이다. 우연히 같은 값이라고
  * 한 곳에 묶으면 한쪽 사정이 바뀔 때 다른 쪽이 조용히 끌려간다.
  */
@@ -23,11 +24,13 @@ public final class ImageFileValidator {
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png");
 
-    /** 확장자 → 저장소에 기록할 Content-Type. 브라우저가 보낸 값은 신뢰하지 않는다. */
+    /**
+     * 확장자 → 저장소에 기록할 Content-Type. 브라우저가 보낸 값은 신뢰하지 않는다.
+     */
     private static final Map<String, String> CONTENT_TYPES = Map.of(
-            "jpg", "image/jpeg",
-            "jpeg", "image/jpeg",
-            "png", "image/png");
+      "jpg", "image/jpeg",
+      "jpeg", "image/jpeg",
+      "png", "image/png");
 
     private ImageFileValidator() {
     }
@@ -38,20 +41,23 @@ public final class ImageFileValidator {
      * @param extension 소문자 확장자 (예: "png")
      */
     public record ValidatedImage(byte[] bytes, String extension, String contentType) {
+
     }
 
     /**
      * @param maxBytes 허용 최대 크기. 초과 시 IMAGE_TOO_LARGE 인데, 그 문구가 "10MB 이하"로
-     *                 고정돼 있으므로 다른 값을 넘기려면 ErrorCode 문구도 함께 손봐야 한다.
+     * 고정돼 있으므로 다른 값을 넘기려면 ErrorCode 문구도 함께 손봐야 한다.
      * @throws MateonException INVALID_IMAGE_FILE(400) — 빈 파일/파일명 없음/허용 외 확장자/읽기 실패,
-     *                         IMAGE_TOO_LARGE(413) — maxBytes 초과
+     * IMAGE_TOO_LARGE(413) — maxBytes 초과
      */
     public static ValidatedImage validate(MultipartFile image, long maxBytes) {
         String extension = validateAndResolveExtension(image, maxBytes);
         return new ValidatedImage(readBytes(image), extension, CONTENT_TYPES.get(extension));
     }
 
-    /** 확장자를 소문자로 돌려준다. 형식/크기 문제는 전부 여기서 걸러진다. */
+    /**
+     * 확장자를 소문자로 돌려준다. 형식/크기 문제는 전부 여기서 걸러진다.
+     */
     private static String validateAndResolveExtension(MultipartFile image, long maxBytes) {
         if (image == null || image.isEmpty()) {
             throw new MateonException(ErrorCode.INVALID_IMAGE_FILE);

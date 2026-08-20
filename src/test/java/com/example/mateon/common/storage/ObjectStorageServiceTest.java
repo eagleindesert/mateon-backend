@@ -29,7 +29,8 @@ import static org.mockito.Mockito.when;
 /**
  * 삭제가 공개 URL 하나만 가지고 객체를 찾아낼 수 있는지 고정한다.
  *
- * <p>객체 키를 DB 에 따로 저장하지 않기로 했으므로(users.profile_image_url 만 둔다) URL→키
+ * <p>
+ * 객체 키를 DB 에 따로 저장하지 않기로 했으므로(users.profile_image_url 만 둔다) URL→키
  * 역변환이 어긋나면 이전 사진을 지우는 길이 아예 사라진다. 그래서 인코딩이 개입하는 키
  * (공백·한글)로 왕복을 확인한다.
  */
@@ -96,26 +97,26 @@ class ObjectStorageServiceTest {
     @DisplayName("저장소 삭제 실패는 IMAGE_DELETE_FAILED 로 올린다 (업로드 실패와 구분한다)")
     void translatesSdkFailure() {
         doThrow(SdkException.builder().message("boom").build())
-                .when(s3Client).deleteObject(any(DeleteObjectRequest.class));
+          .when(s3Client).deleteObject(any(DeleteObjectRequest.class));
 
         String url = uploadAndGetUrl("profile-images/2026/07/x.png");
 
         assertThatThrownBy(() -> service.delete(url))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.IMAGE_DELETE_FAILED);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.IMAGE_DELETE_FAILED);
     }
 
     @Test
     @DisplayName("업로드 실패는 IMAGE_UPLOAD_FAILED 로 올린다")
     void translatesUploadFailure() {
         doThrow(SdkException.builder().message("boom").build())
-                .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+          .when(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
 
         assertThatThrownBy(() -> uploadAndGetUrl("profile-images/2026/07/x.png"))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.IMAGE_UPLOAD_FAILED);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.IMAGE_UPLOAD_FAILED);
     }
 
     @Test
@@ -138,17 +139,17 @@ class ObjectStorageServiceTest {
 
         BucketCapacityGuard guard = new BucketCapacityGuard(s3Client, properties);
         when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
-                .thenReturn(ListObjectsV2Response.builder()
-                        .contents(S3Object.builder().key("old.png").size(8L).build())
-                        .build());
+          .thenReturn(ListObjectsV2Response.builder()
+            .contents(S3Object.builder().key("old.png").size(8L).build())
+            .build());
         guard.syncOnStartup();
 
         ObjectStorageService guarded = new ObjectStorageService(s3Client, properties, guard);
 
         assertThatThrownBy(() -> guarded.upload("profile-images/2026/07/x.png", new byte[5], "image/png"))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.STORAGE_QUOTA_EXCEEDED);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.STORAGE_QUOTA_EXCEEDED);
         verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 }

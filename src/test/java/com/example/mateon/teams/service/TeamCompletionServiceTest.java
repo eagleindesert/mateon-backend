@@ -29,15 +29,18 @@ import static org.mockito.Mockito.when;
 /**
  * 팀 활동 종료 — <b>협업 온도 평가가 열리는 유일한 관문</b>이다.
  *
- * <p>그래서 여기서 이벤트가 안 나가면 팀원 전원이 평가 요청 알림을 못 받고, 평가 기간
+ * <p>
+ * 그래서 여기서 이벤트가 안 나가면 팀원 전원이 평가 요청 알림을 못 받고, 평가 기간
  * (종료 시각 + N일)은 아무도 모르는 채로 흘러가 닫힌다. 되돌릴 방법은 없다 — 팀은 이미
  * 종료돼 있어서 다시 종료할 수도 없다({@code TEAM_ALREADY_ENDED}). 화면상으로는 "종료됨"으로
  * 잘 보이므로 신고도 안 들어온다.
  *
- * <p>{@code autoCompleted} 플래그는 알림 문구를 가르는 값인데, 스케줄러 경로에서만 true 라
+ * <p>
+ * {@code autoCompleted} 플래그는 알림 문구를 가르는 값인데, 스케줄러 경로에서만 true 라
  * 수동 테스트로는 절대 확인되지 않는다. 두 경로가 각각 어떤 값을 싣는지 여기서 못박는다.
  *
- * <p>종료가 {@code isRecruiting=false} 를 함께 세우는 것도 계약이다 — 수동 종료는 모집 중인
+ * <p>
+ * 종료가 {@code isRecruiting=false} 를 함께 세우는 것도 계약이다 — 수동 종료는 모집 중인
  * 팀에도 걸리므로, 이게 빠지면 "끝난 팀이 모집 목록에 계속 떠 있는" 상태가 된다.
  */
 class TeamCompletionServiceTest {
@@ -89,8 +92,8 @@ class TeamCompletionServiceTest {
             givenTeam();
 
             assertThatThrownBy(() -> service.completeByLeader(TEAM_ID, 2L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(eventPublisher, never()).publishEvent(any(Object.class));
         }
@@ -103,8 +106,8 @@ class TeamCompletionServiceTest {
             team.setEndedAt(originalEndedAt);
 
             assertThatThrownBy(() -> service.completeByLeader(TEAM_ID, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TEAM_ALREADY_ENDED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TEAM_ALREADY_ENDED);
 
             assertThat(team.getEndedAt()).isEqualTo(originalEndedAt);
             verify(eventPublisher, never()).publishEvent(any(Object.class));
@@ -116,8 +119,8 @@ class TeamCompletionServiceTest {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.completeByLeader(TEAM_ID, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
@@ -129,20 +132,20 @@ class TeamCompletionServiceTest {
         @DisplayName("팀마다 이벤트가 정확히 한 건씩 나간다")
         void oneEventPerTeam() {
             when(teamRepository.findEndedEventTeamsNotCompleted(any()))
-                    .thenReturn(List.of(team(10L), team(11L), team(12L)));
+              .thenReturn(List.of(team(10L), team(11L), team(12L)));
 
             assertThat(service.completeExpiredTeams(LocalDate.of(2026, 8, 14))).isEqualTo(3);
 
             assertThat(capturedEvents(3))
-                    .extracting(TeamCompletedEvent::teamId)
-                    .containsExactly(10L, 11L, 12L);
+              .extracting(TeamCompletedEvent::teamId)
+              .containsExactly(10L, 11L, 12L);
         }
 
         @Test
         @DisplayName("자동 종료의 autoCompleted 는 true 다 — 이 경로로만 true 가 될 수 있다")
         void flagIsTrue() {
             when(teamRepository.findEndedEventTeamsNotCompleted(any()))
-                    .thenReturn(List.of(team(10L)));
+              .thenReturn(List.of(team(10L)));
 
             service.completeExpiredTeams(LocalDate.of(2026, 8, 14));
 
@@ -184,7 +187,6 @@ class TeamCompletionServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private Team givenTeam() {
         Team team = team(TEAM_ID);
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));

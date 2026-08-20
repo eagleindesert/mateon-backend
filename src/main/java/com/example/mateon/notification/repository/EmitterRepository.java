@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class EmitterRepository {
+
     // 동시성 문제를 방지하기 위해 ConcurrentHashMap 사용
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 

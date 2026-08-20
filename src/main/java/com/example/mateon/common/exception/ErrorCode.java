@@ -1,137 +1,123 @@
-    package com.example.mateon.common.exception;
+package com.example.mateon.common.exception;
 
-    import lombok.Getter;
-    import org.springframework.http.HttpStatus;
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
-    @Getter
-    public enum ErrorCode {
-        // 인증 관련
-        EMAIL_ALREADY_EXISTS("이미 사용 중인 이메일입니다."),
-        INVALID_EMAIL_DOMAIN("교육기관 이메일(.ac.kr)만 사용 가능합니다."),
-        EMAIL_NOT_VERIFIED("이메일 인증이 완료되지 않았습니다."),
-        INVALID_VERIFICATION_TOKEN("이메일 인증 정보가 유효하지 않습니다. 인증을 다시 진행해주세요."),
-        EMAIL_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청은 잠시 후 다시 시도해주세요."),
-        INVALID_VERIFICATION_CODE("인증코드가 올바르지 않거나 만료되었습니다."),
-        INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
-        SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),
-        SCHOOL_NOT_VERIFIED("학교 인증이 필요한 기능입니다."),
-        KAKAO_AUTH_FAILED("카카오 인증에 실패했습니다."),
+@Getter
+public enum ErrorCode {
+    // 인증 관련
+    EMAIL_ALREADY_EXISTS("이미 사용 중인 이메일입니다."),
+    INVALID_EMAIL_DOMAIN("교육기관 이메일(.ac.kr)만 사용 가능합니다."),
+    EMAIL_NOT_VERIFIED("이메일 인증이 완료되지 않았습니다."),
+    INVALID_VERIFICATION_TOKEN("이메일 인증 정보가 유효하지 않습니다. 인증을 다시 진행해주세요."),
+    EMAIL_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청은 잠시 후 다시 시도해주세요."),
+    INVALID_VERIFICATION_CODE("인증코드가 올바르지 않거나 만료되었습니다."),
+    INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
+    SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),
+    SCHOOL_NOT_VERIFIED("학교 인증이 필요한 기능입니다."),
+    KAKAO_AUTH_FAILED("카카오 인증에 실패했습니다."),
+    // 토큰 관련
+    TOKEN_EXPIRED("토큰이 만료되었습니다."),
+    INVALID_TOKEN("유효하지 않은 토큰입니다."),
+    TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다."),
+    // 사용자 관련
+    // 404 인 이유: 이 코드가 쓰이는 곳은 전부 "그 user 행이 없다"는 뜻이다.
+    // GET /api/users/{userId} 로 없는 사람을 조회했을 때 400 은 "요청이 잘못됐다"로 읽혀 오해를 부른다.
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
+    PASSWORD_MISMATCH("비밀번호가 일치하지 않습니다."),
+    INVALID_PASSWORD_FORMAT("비밀번호는 10-20자의 영문과 숫자 조합이어야 합니다."),
+    // 활동(Event) 관련
+    // 404 인 이유: 이 코드가 쓰이는 곳은 "그 활동 행이 없다"는 뜻이다 (USER_NOT_FOUND 와 같은 판단).
+    // 아래 RESOURCE_NOT_FOUND 를 쓰지 않는 이유는 그쪽이 400 이기 때문인데, 상태코드를 바꾸면
+    // 팀·지원서 등 이미 그 코드를 쓰고 있는 API 의 응답이 통째로 달라져 별도 코드를 둔다.
+    EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "활동을 찾을 수 없습니다."),
+    // AI 채팅 스레드 관련
+    // 404 인 이유는 위 둘과 같다 — "그 스레드 행이 없다"는 뜻이다.
+    // 남의 스레드에 접근했을 때도 403 이 아니라 이 코드를 준다. 403 은 "있긴 한데 네 것이
+    // 아니다"라서, 스레드 id 를 훑으면 남이 대화를 몇 개 갖고 있는지 알아낼 수 있다.
+    AI_CHAT_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "대화를 찾을 수 없습니다."),
+    // 팀/지원/공통 관련 ---
+    RESOURCE_NOT_FOUND("요청한 정보를 찾을 수 없습니다."), // 팀, 활동, 지원서 등이 DB에 없을 때
+    FORBIDDEN_ACCESS("해당 자원에 대한 접근 권한이 없습니다."), // 남의 팀 수정 시도 등
+    DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."), // 중복 지원 방지
+    INVALID_INPUT("잘못된 입력값입니다."),
+    // 협업 온도/팀원 평가 관련 ---
+    // 평가는 "종료된 팀"에서 "기간 안에" "팀원끼리"만 가능하다. 프론트가 각 실패를 구분해
+    // 안내 문구를 다르게 띄울 수 있어야 해서 코드를 쪼갠다.
+    TEAM_ALREADY_ENDED("이미 종료된 팀입니다."),
+    TEAM_NOT_ENDED("아직 종료되지 않은 팀입니다. 활동 종료 후 평가할 수 있습니다."),
+    REVIEW_PERIOD_EXPIRED("평가 기간이 종료되었습니다."),
+    NOT_TEAM_MEMBER("해당 팀의 팀원이 아닙니다."),
+    CANNOT_REVIEW_SELF("자기 자신은 평가할 수 없습니다."),
+    ALREADY_REVIEWED("이미 평가를 제출했습니다."),
+    INVALID_RATING("평가 점수는 1~5 사이여야 합니다."),
+    // 매칭/추천 관련 ---
+    // 추천은 의도 추출이 끝나야(user_embeddings + matching_intent_slots) 가능하다.
+    // "아직 준비가 안 됐다"이지 "없다"가 아니라 404 가 아닌 400 으로 준다.
+    MATCHING_INTENT_REQUIRED("먼저 매칭 의도 추출을 완료해주세요."),
+    // 상세 이유는 추천 이력을 근거로 생성한다. 추천에 뜬 적 없는 상대의 이유를 요청한 것이라
+    // "아직 준비가 안 됐다"가 아니라 실제로 없는 것이다 → 400 이 아닌 404.
+    RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "추천 이력을 찾을 수 없습니다."),
+    // 역제안(팀→유저) 관련 ---
+    // 팀 임베딩은 팀 생성/수정 후 비동기로 계산된다. 아직이거나 실패한 상태에서는 팀을
+    // 질의 벡터로 쓸 수 없다. "없다"가 아니라 "아직 준비가 안 됐다"라 404 가 아닌 400 이다
+    // (MATCHING_INTENT_REQUIRED 와 같은 성격).
+    TEAM_EMBEDDING_NOT_READY("팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
+    TEAM_RECRUITMENT_CLOSED("모집이 마감되었거나 종료된 팀입니다."),
+    OFFER_ALREADY_RESPONDED("이미 처리된 제안입니다."),
+    // 지원서 쪽의 짝. 승인/거절은 한 번뿐이다 — 승인된 지원서를 거절로 되돌리면 지원서 상태만
+    // 바뀌고 team_members 행은 활성인 채 남아 인원 수가 실제보다 커진다.
+    APPLICATION_ALREADY_PROCESSED("이미 처리된 지원서입니다."),
+    // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
+    // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.
+    AI_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),
+    AI_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "AI 서버 응답 처리에 실패했습니다."),
+    // 채팅 관련 ---
+    CHAT_ROOM_NOT_FOUND("채팅방을 찾을 수 없습니다."),
+    NOT_ROOM_MEMBER("해당 채팅방의 참여자가 아닙니다."),
+    CANNOT_CHAT_WITH_SELF("자기 자신과는 채팅할 수 없습니다."),
+    // 이미지 업로드/추출 관련 ---
+    // 파일 형식 오류를 INVALID_INPUT 으로 뭉뚱그리지 않는 이유: 프론트가 "jpg/png 만 됩니다"라는
+    // 구체적 안내를 그대로 띄워야 사용자가 다시 시도할 수 있다.
+    INVALID_IMAGE_FILE("jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다."),
+    IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "이미지는 10MB 이하만 업로드할 수 있습니다."),
+    // 502 인 이유는 AI_SERVER_ERROR 와 같다 — 우리 잘못이 아니라 외부 의존(객체 저장소)의 실패다.
+    IMAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소 업로드에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    // 프로필 이미지 교체·삭제에서 이전 객체를 지울 때 쓴다. 현재 호출부는 비동기 워커
+    // (ProfileImageWorker) 라 이 코드가 HTTP 응답으로 나가지는 않지만, 저장소 실패를
+    // IMAGE_UPLOAD_FAILED 로 뭉뚱그리면 로그에서 업로드 실패와 구분되지 않는다.
+    IMAGE_DELETE_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소에서 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    // 버킷 총량 한도(BucketCapacityGuard)에 걸렸을 때. IMAGE_TOO_LARGE(413) 와 가르는 이유는
+    // 사용자가 할 수 있는 일이 다르기 때문이다 — 413 은 "더 작은 파일로 다시", 이쪽은
+    // 사용자가 무엇을 해도 통과하지 못한다. 507 은 "저장 공간이 없다"는 뜻 그대로다.
+    STORAGE_QUOTA_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE,
+      "저장 공간이 가득 차 파일을 업로드할 수 없습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요."),
+    // 포트폴리오 PDF 요약 관련 ---
+    // 이미지 쪽과 같은 이유로 INVALID_INPUT 에 뭉뚱그리지 않는다. 확장자가 .pdf 가 아닌 경우와
+    // 확장자만 .pdf 인 파일(PDF 시그니처 없음)이 같은 코드를 쓴다 — 사용자가 할 일이 "제대로 된
+    // PDF 를 다시 고른다"로 동일하고, 둘을 갈라 봐야 안내 문구가 같기 때문이다.
+    INVALID_PDF_FILE("pdf 형식의 파일만 업로드할 수 있습니다."),
+    PDF_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "포트폴리오 PDF는 20MB 이하만 업로드할 수 있습니다."),
+    // 업로드 공통 ---
+    // 멀티파트 컨테이너 한도(spring.servlet.multipart) 초과 전용. 이 시점에는 요청이 어느
+    // 엔드포인트로 갈 것이었는지 알 수 없어(핸들러 매핑 전에 터진다) 도메인 중립 문구를 쓴다.
+    // 도메인별 정확한 한도 안내는 각 서비스의 IMAGE_TOO_LARGE / PDF_TOO_LARGE 가 낸다.
+    FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 가능한 파일 크기를 초과했습니다."),
+    // 기타
+    INTERNAL_SERVER_ERROR("서버 오류가 발생했습니다."),
+    BAD_REQUEST("잘못된 요청입니다."),
+    UNAUTHORIZED("인증이 필요합니다.");
 
-        // 토큰 관련
-        TOKEN_EXPIRED("토큰이 만료되었습니다."),
-        INVALID_TOKEN("유효하지 않은 토큰입니다."),
-        TOKEN_NOT_FOUND("리프레시 토큰을 찾을 수 없습니다."),
+    private final HttpStatus status;
+    private final String message;
 
-        // 사용자 관련
-        // 404 인 이유: 이 코드가 쓰이는 곳은 전부 "그 user 행이 없다"는 뜻이다.
-        // GET /api/users/{userId} 로 없는 사람을 조회했을 때 400 은 "요청이 잘못됐다"로 읽혀 오해를 부른다.
-        USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
-        PASSWORD_MISMATCH("비밀번호가 일치하지 않습니다."),
-        INVALID_PASSWORD_FORMAT("비밀번호는 10-20자의 영문과 숫자 조합이어야 합니다."),
-        // 활동(Event) 관련
-        // 404 인 이유: 이 코드가 쓰이는 곳은 "그 활동 행이 없다"는 뜻이다 (USER_NOT_FOUND 와 같은 판단).
-        // 아래 RESOURCE_NOT_FOUND 를 쓰지 않는 이유는 그쪽이 400 이기 때문인데, 상태코드를 바꾸면
-        // 팀·지원서 등 이미 그 코드를 쓰고 있는 API 의 응답이 통째로 달라져 별도 코드를 둔다.
-        EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "활동을 찾을 수 없습니다."),
-
-        // AI 채팅 스레드 관련
-        // 404 인 이유는 위 둘과 같다 — "그 스레드 행이 없다"는 뜻이다.
-        // 남의 스레드에 접근했을 때도 403 이 아니라 이 코드를 준다. 403 은 "있긴 한데 네 것이
-        // 아니다"라서, 스레드 id 를 훑으면 남이 대화를 몇 개 갖고 있는지 알아낼 수 있다.
-        AI_CHAT_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "대화를 찾을 수 없습니다."),
-
-        // 팀/지원/공통 관련 ---
-        RESOURCE_NOT_FOUND("요청한 정보를 찾을 수 없습니다."),       // 팀, 활동, 지원서 등이 DB에 없을 때
-        FORBIDDEN_ACCESS("해당 자원에 대한 접근 권한이 없습니다."),   // 남의 팀 수정 시도 등
-        DUPLICATE_RESOURCE("이미 처리된 내역이 존재합니다."),         // 중복 지원 방지
-        INVALID_INPUT("잘못된 입력값입니다."),
-
-        // 협업 온도/팀원 평가 관련 ---
-        // 평가는 "종료된 팀"에서 "기간 안에" "팀원끼리"만 가능하다. 프론트가 각 실패를 구분해
-        // 안내 문구를 다르게 띄울 수 있어야 해서 코드를 쪼갠다.
-        TEAM_ALREADY_ENDED("이미 종료된 팀입니다."),
-        TEAM_NOT_ENDED("아직 종료되지 않은 팀입니다. 활동 종료 후 평가할 수 있습니다."),
-        REVIEW_PERIOD_EXPIRED("평가 기간이 종료되었습니다."),
-        NOT_TEAM_MEMBER("해당 팀의 팀원이 아닙니다."),
-        CANNOT_REVIEW_SELF("자기 자신은 평가할 수 없습니다."),
-        ALREADY_REVIEWED("이미 평가를 제출했습니다."),
-        INVALID_RATING("평가 점수는 1~5 사이여야 합니다."),
-
-        // 매칭/추천 관련 ---
-        // 추천은 의도 추출이 끝나야(user_embeddings + matching_intent_slots) 가능하다.
-        // "아직 준비가 안 됐다"이지 "없다"가 아니라 404 가 아닌 400 으로 준다.
-        MATCHING_INTENT_REQUIRED("먼저 매칭 의도 추출을 완료해주세요."),
-        // 상세 이유는 추천 이력을 근거로 생성한다. 추천에 뜬 적 없는 상대의 이유를 요청한 것이라
-        // "아직 준비가 안 됐다"가 아니라 실제로 없는 것이다 → 400 이 아닌 404.
-        RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "추천 이력을 찾을 수 없습니다."),
-
-        // 역제안(팀→유저) 관련 ---
-        // 팀 임베딩은 팀 생성/수정 후 비동기로 계산된다. 아직이거나 실패한 상태에서는 팀을
-        // 질의 벡터로 쓸 수 없다. "없다"가 아니라 "아직 준비가 안 됐다"라 404 가 아닌 400 이다
-        // (MATCHING_INTENT_REQUIRED 와 같은 성격).
-        TEAM_EMBEDDING_NOT_READY("팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
-        TEAM_RECRUITMENT_CLOSED("모집이 마감되었거나 종료된 팀입니다."),
-        OFFER_ALREADY_RESPONDED("이미 처리된 제안입니다."),
-        // 지원서 쪽의 짝. 승인/거절은 한 번뿐이다 — 승인된 지원서를 거절로 되돌리면 지원서 상태만
-        // 바뀌고 team_members 행은 활성인 채 남아 인원 수가 실제보다 커진다.
-        APPLICATION_ALREADY_PROCESSED("이미 처리된 지원서입니다."),
-
-        // AI 서버 관련 --- (별도 FastAPI 서버. 의도 추출/임베딩)
-        // 둘을 가르는 이유: 프론트가 재시도 여부를 판단할 수 있어야 한다.
-        AI_SERVER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."),
-        AI_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "AI 서버 응답 처리에 실패했습니다."),
-
-        // 채팅 관련 ---
-        CHAT_ROOM_NOT_FOUND("채팅방을 찾을 수 없습니다."),
-        NOT_ROOM_MEMBER("해당 채팅방의 참여자가 아닙니다."),
-        CANNOT_CHAT_WITH_SELF("자기 자신과는 채팅할 수 없습니다."),
-
-        // 이미지 업로드/추출 관련 ---
-        // 파일 형식 오류를 INVALID_INPUT 으로 뭉뚱그리지 않는 이유: 프론트가 "jpg/png 만 됩니다"라는
-        // 구체적 안내를 그대로 띄워야 사용자가 다시 시도할 수 있다.
-        INVALID_IMAGE_FILE("jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다."),
-        IMAGE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "이미지는 10MB 이하만 업로드할 수 있습니다."),
-        // 502 인 이유는 AI_SERVER_ERROR 와 같다 — 우리 잘못이 아니라 외부 의존(객체 저장소)의 실패다.
-        IMAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소 업로드에 실패했습니다. 잠시 후 다시 시도해주세요."),
-        // 프로필 이미지 교체·삭제에서 이전 객체를 지울 때 쓴다. 현재 호출부는 비동기 워커
-        // (ProfileImageWorker) 라 이 코드가 HTTP 응답으로 나가지는 않지만, 저장소 실패를
-        // IMAGE_UPLOAD_FAILED 로 뭉뚱그리면 로그에서 업로드 실패와 구분되지 않는다.
-        IMAGE_DELETE_FAILED(HttpStatus.BAD_GATEWAY, "이미지 저장소에서 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."),
-        // 버킷 총량 한도(BucketCapacityGuard)에 걸렸을 때. IMAGE_TOO_LARGE(413) 와 가르는 이유는
-        // 사용자가 할 수 있는 일이 다르기 때문이다 — 413 은 "더 작은 파일로 다시", 이쪽은
-        // 사용자가 무엇을 해도 통과하지 못한다. 507 은 "저장 공간이 없다"는 뜻 그대로다.
-        STORAGE_QUOTA_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE,
-                "저장 공간이 가득 차 파일을 업로드할 수 없습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요."),
-
-        // 포트폴리오 PDF 요약 관련 ---
-        // 이미지 쪽과 같은 이유로 INVALID_INPUT 에 뭉뚱그리지 않는다. 확장자가 .pdf 가 아닌 경우와
-        // 확장자만 .pdf 인 파일(PDF 시그니처 없음)이 같은 코드를 쓴다 — 사용자가 할 일이 "제대로 된
-        // PDF 를 다시 고른다"로 동일하고, 둘을 갈라 봐야 안내 문구가 같기 때문이다.
-        INVALID_PDF_FILE("pdf 형식의 파일만 업로드할 수 있습니다."),
-        PDF_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "포트폴리오 PDF는 20MB 이하만 업로드할 수 있습니다."),
-
-        // 업로드 공통 ---
-        // 멀티파트 컨테이너 한도(spring.servlet.multipart) 초과 전용. 이 시점에는 요청이 어느
-        // 엔드포인트로 갈 것이었는지 알 수 없어(핸들러 매핑 전에 터진다) 도메인 중립 문구를 쓴다.
-        // 도메인별 정확한 한도 안내는 각 서비스의 IMAGE_TOO_LARGE / PDF_TOO_LARGE 가 낸다.
-        FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 가능한 파일 크기를 초과했습니다."),
-
-        // 기타
-        INTERNAL_SERVER_ERROR("서버 오류가 발생했습니다."),
-        BAD_REQUEST("잘못된 요청입니다."),
-        UNAUTHORIZED("인증이 필요합니다.");
-
-        private final HttpStatus status;
-        private final String message;
-
-        // 상태코드 미지정 시 기본 400 (기존 코드값 동작 유지)
-        ErrorCode(String message) {
-            this(HttpStatus.BAD_REQUEST, message);
-        }
-
-        ErrorCode(HttpStatus status, String message) {
-            this.status = status;
-            this.message = message;
-        }
+    // 상태코드 미지정 시 기본 400 (기존 코드값 동작 유지)
+    ErrorCode(String message) {
+        this(HttpStatus.BAD_REQUEST, message);
     }
 
+    ErrorCode(HttpStatus status, String message) {
+        this.status = status;
+        this.message = message;
+    }
+}

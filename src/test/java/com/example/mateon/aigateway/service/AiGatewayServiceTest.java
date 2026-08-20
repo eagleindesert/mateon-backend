@@ -34,18 +34,22 @@ import static org.mockito.Mockito.when;
 /**
  * 게이트웨이가 존재하는 이유를 그대로 테스트로 옮긴 것.
  *
- * <p>도입 배경은 <b>무관한 발화가 매칭 의도 추출로 흘러가는 것</b>이었다. 오답만 문제가 아니라,
+ * <p>
+ * 도입 배경은 <b>무관한 발화가 매칭 의도 추출로 흘러가는 것</b>이었다. 오답만 문제가 아니라,
  * 그 발화가 작업에 쌓이고 FastAPI 는 매 턴 사용자 발화 <i>전체</i>를 다시 받으므로 노이즈가
  * 누적돼 슬롯 추출 품질까지 갉아먹는다. 그래서 "범위 밖이면 매칭 서비스를 <b>부르지 않는다</b>"가
  * 이 클래스의 첫 번째 계약이다.
  *
- * <p>두 번째는 반대 방향의 안전장치다. 라우터가 죽으면 <b>매칭으로 통과</b>시킨다 — 게이트웨이
+ * <p>
+ * 두 번째는 반대 방향의 안전장치다. 라우터가 죽으면 <b>매칭으로 통과</b>시킨다 — 게이트웨이
  * 하나 때문에 챗봇 전체가 멈추면 도입 전보다 나빠지므로, 최악의 경우가 "예전과 똑같음"이어야 한다.
  *
- * <p>세 번째는 <b>게이트웨이가 도메인을 모른다</b>는 것이다(V31). 라우터를 건너뛸지는 매칭
+ * <p>
+ * 세 번째는 <b>게이트웨이가 도메인을 모른다</b>는 것이다(V31). 라우터를 건너뛸지는 매칭
  * 서비스가 아니라 도메인 무관 조회로 정한다 — 도메인이 늘어도 이 클래스가 늘지 않아야 한다.
  *
- * <p>콜라보레이터가 다섯이라 {@code mock()} 나열 대신 {@link MockitoExtension} 을 쓴다. 다만
+ * <p>
+ * 콜라보레이터가 다섯이라 {@code mock()} 나열 대신 {@link MockitoExtension} 을 쓴다. 다만
  * {@code @InjectMocks} 는 쓰지 않는다 — 생성자가 바뀌어도 조용히 null 이 주입돼서, 조립은
  * {@code @BeforeEach} 에서 눈에 보이게 한다. 설정 객체는 목이 아니라 진짜를 쓴다(값 하나뿐이다).
  */
@@ -72,7 +76,7 @@ class AiGatewayServiceTest {
     void setUp() {
         properties = new AiRouterProperties();
         service = new AiGatewayService(
-                chatService, taskService, routerClient, matchingIntentService, properties);
+          chatService, taskService, routerClient, matchingIntentService, properties);
     }
 
     @Nested
@@ -122,7 +126,7 @@ class AiGatewayServiceTest {
             givenRouterSays(RoutableDomain.UNCLEAR, "   ");
 
             assertThat(service.submitMessage(USER_ID, SESSION_ID, "안녕").getAssistantMessage())
-                    .isNotBlank();
+              .isNotBlank();
         }
     }
 
@@ -153,7 +157,7 @@ class AiGatewayServiceTest {
             when(matchingIntentService.submitTurn(USER_ID, TURN)).thenReturn(matchingResponse());
 
             assertThat(service.submitMessage(USER_ID, SESSION_ID, "백엔드 팀 찾아요").getAssistantMessage())
-                    .isEqualTo("어떤 기술을 쓰시나요?");
+              .isEqualTo("어떤 기술을 쓰시나요?");
         }
 
         @Test
@@ -178,7 +182,7 @@ class AiGatewayServiceTest {
         void skipsWhenExactlyOneLiveDomain() {
             givenTurnRecorded();
             when(taskService.findLiveDomains(SESSION_ID))
-                    .thenReturn(List.of(RoutableDomain.MATCHING_INTENT));
+              .thenReturn(List.of(RoutableDomain.MATCHING_INTENT));
             when(matchingIntentService.submitTurn(USER_ID, TURN)).thenReturn(matchingResponse());
 
             AiGatewayResponseDTO response = service.submitMessage(USER_ID, SESSION_ID, "백엔드요");
@@ -194,9 +198,9 @@ class AiGatewayServiceTest {
             // 오늘은 위임 가능한 도메인이 하나뿐이라 이 상황이 실제로는 나오지 않는다. 두 번째
             // 도메인이 붙는 순간 생기고, 그때 규칙이 이미 서 있어야 해서 미리 고정한다.
             when(taskService.findLiveDomains(SESSION_ID))
-                    .thenReturn(List.of(RoutableDomain.MATCHING_INTENT, RoutableDomain.MATCHING_INTENT));
+              .thenReturn(List.of(RoutableDomain.MATCHING_INTENT, RoutableDomain.MATCHING_INTENT));
             when(routerClient.classify(any()))
-                    .thenReturn(new RouteDecision(RoutableDomain.OUT_OF_SCOPE, "안내"));
+              .thenReturn(new RouteDecision(RoutableDomain.OUT_OF_SCOPE, "안내"));
 
             service.submitMessage(USER_ID, SESSION_ID, "그건 그렇고 날씨는?");
 
@@ -262,17 +266,18 @@ class AiGatewayServiceTest {
             givenRouterSays(RoutableDomain.OUT_OF_SCOPE, "안내");
 
             assertThat(service.submitMessage(USER_ID, SESSION_ID, "잡담").getSessionId())
-                    .isEqualTo(SESSION_ID);
+              .isEqualTo(SESSION_ID);
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenTurnRecorded() {
         when(chatService.appendUserMessage(anyLong(), anyLong(), any())).thenReturn(TURN);
     }
 
-    /** 라우터를 부르는 경우다 — 살아 있는 작업이 없다는 것까지 함께 세운다. */
+    /**
+     * 라우터를 부르는 경우다 — 살아 있는 작업이 없다는 것까지 함께 세운다.
+     */
     private void givenRouterSays(RoutableDomain domain, String assistantMessage) {
         when(taskService.findLiveDomains(SESSION_ID)).thenReturn(List.of());
         when(routerClient.classify(any())).thenReturn(new RouteDecision(domain, assistantMessage));
@@ -280,6 +285,6 @@ class AiGatewayServiceTest {
 
     private MatchingIntentResponseDTO matchingResponse() {
         return new MatchingIntentResponseDTO(10L, false, List.of("skills"),
-                new ExtractedDTO(), "어떤 기술을 쓰시나요?", 55L);
+          new ExtractedDTO(), "어떤 기술을 쓰시나요?", 55L);
     }
 }

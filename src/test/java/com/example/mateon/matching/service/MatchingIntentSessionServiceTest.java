@@ -52,22 +52,27 @@ import static org.mockito.Mockito.when;
 /**
  * 의도 추출 세션의 DB 규칙을 고정한다.
  *
- * <p><b>수명 관리는 여기 없다.</b> 작업을 열고·이어가고·만료시키는 건 {@link AiDomainTaskService}
+ * <p>
+ * <b>수명 관리는 여기 없다.</b> 작업을 열고·이어가고·만료시키는 건 {@link AiDomainTaskService}
  * 의 일이고(V31), 그 규칙은 {@code AiDomainTaskServiceTest} 가 지킨다. 여기서 고정하는 건
  * "그 결과를 어떻게 쓰는가"다.
  *
- * <p>가장 조용히 깨지는 건 <b>대화 이력이 이 도메인 것이 아니라는 점</b>이다. 발화는 AI 채팅
+ * <p>
+ * 가장 조용히 깨지는 건 <b>대화 이력이 이 도메인 것이 아니라는 점</b>이다. 발화는 AI 채팅
  * 통합 로그가 갖고, 이 서비스는 "이 턴은 내 작업 소관"이라고 표시만 한다. 게이트웨이가 위임 전에
  * 이미 기록해 두기 때문에 여기서 또 저장하면 같은 문장이 두 벌 남고, 반대로 도장을 안 찍으면
  * 방금 한 발화가 AI 로 보낼 배열에서 통째로 빠진다. 둘 다 화면에는 이상이 없어 보인다.
  *
- * <p>두 번째는 <b>임베딩 차원 검증</b>. {@code vector(1536)} 컬럼에 다른 길이를 넣으면 DB 예외가
+ * <p>
+ * 두 번째는 <b>임베딩 차원 검증</b>. {@code vector(1536)} 컬럼에 다른 길이를 넣으면 DB 예외가
  * 전역 catch-all 로 떨어져 원인 불명 500 이 된다. 앞단에서 502 로 잡아야 한다.
  *
- * <p>세 번째는 <b>깨진 JSON 에 예외를 던지지 않는 것</b>. 대화 복원은 부가 기능이라, 저장해 둔
+ * <p>
+ * 세 번째는 <b>깨진 JSON 에 예외를 던지지 않는 것</b>. 대화 복원은 부가 기능이라, 저장해 둔
  * JSON 이 깨졌다고 세션 조회 자체가 실패하면 사용자가 대화를 이어갈 수 없게 된다.
  *
- * <p>임베딩 차원은 픽스처에서 3 으로 낮춘다 — 1536 개짜리 배열을 만들 이유가 없고, 검증하려는
+ * <p>
+ * 임베딩 차원은 픽스처에서 3 으로 낮춘다 — 1536 개짜리 배열을 만들 이유가 없고, 검증하려는
  * 건 "설정값과 일치하는가" 뿐이다.
  */
 class MatchingIntentSessionServiceTest {
@@ -111,12 +116,12 @@ class MatchingIntentSessionServiceTest {
         // MatchingIntentSessionService 는 Jackson 2 의 ObjectMapper 를 주입받는다
         // (이 프로젝트는 Jackson 2/3 이 함께 있다). 진짜 매퍼를 써야 직렬화 왕복을 검증할 수 있다.
         service = new MatchingIntentSessionService(sessionRepository, chatService, taskService,
-                slotRepository, userRepository, userEmbeddingRepository, properties, new ObjectMapper());
+          slotRepository, userRepository, userEmbeddingRepository, properties, new ObjectMapper());
 
         user = User.builder().id(USER_ID).name("김학생").build();
         chatSession = TestEntities.withId(new AiChatSession(user), CHAT_SESSION_ID);
         task = TestEntities.withId(
-                new AiDomainTask(chatSession, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
+          new AiDomainTask(chatSession, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
     }
 
     @Nested
@@ -189,13 +194,13 @@ class MatchingIntentSessionServiceTest {
             givenTaskOpened();
             when(sessionRepository.findByTaskId(TASK_ID)).thenReturn(Optional.empty());
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-            when(sessionRepository.save(any())).thenAnswer(i ->
-                    TestEntities.withId(i.getArgument(0), SESSION_ID));
+            when(sessionRepository.save(any())).thenAnswer(i
+              -> TestEntities.withId(i.getArgument(0), SESSION_ID));
 
             service.bindTurn(USER_ID, TURN);
 
-            ArgumentCaptor<MatchingIntentSession> captor =
-                    ArgumentCaptor.forClass(MatchingIntentSession.class);
+            ArgumentCaptor<MatchingIntentSession> captor
+              = ArgumentCaptor.forClass(MatchingIntentSession.class);
             verify(sessionRepository).save(captor.capture());
             assertThat(captor.getValue().getTask()).isSameAs(task);
         }
@@ -220,8 +225,8 @@ class MatchingIntentSessionServiceTest {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.bindTurn(USER_ID, TURN))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 
@@ -235,8 +240,8 @@ class MatchingIntentSessionServiceTest {
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.applyResult(SESSION_ID, USER_ID, incomplete("문구")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
         @Test
@@ -254,8 +259,8 @@ class MatchingIntentSessionServiceTest {
         void incompleteDoesNotPersistSlotOrEmbedding() {
             givenSessionExists();
 
-            MatchingIntentResponseDTO response =
-                    service.applyResult(SESSION_ID, USER_ID, incomplete("어떤 기술을 쓰시나요?"));
+            MatchingIntentResponseDTO response
+              = service.applyResult(SESSION_ID, USER_ID, incomplete("어떤 기술을 쓰시나요?"));
 
             assertThat(response.isCompleted()).isFalse();
             assertThat(response.getSlotId()).isNull();
@@ -271,8 +276,8 @@ class MatchingIntentSessionServiceTest {
             givenSessionExists();
             givenSlotAndEmbeddingAbsent();
 
-            MatchingIntentResponseDTO response =
-                    service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2, 0.3}));
+            MatchingIntentResponseDTO response
+              = service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2, 0.3}));
 
             assertThat(response.isCompleted()).isTrue();
             assertThat(response.getSlotId()).isEqualTo(55L);
@@ -300,8 +305,8 @@ class MatchingIntentSessionServiceTest {
             ai.setExtracted(null);
 
             assertThatThrownBy(() -> service.applyResult(SESSION_ID, USER_ID, ai))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
         }
 
         @Test
@@ -311,8 +316,8 @@ class MatchingIntentSessionServiceTest {
             givenSlotSaved();
 
             assertThatThrownBy(() -> service.applyResult(SESSION_ID, USER_ID, completed(null)))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
         }
 
         @Test
@@ -321,10 +326,10 @@ class MatchingIntentSessionServiceTest {
             givenSessionExists();
             givenSlotSaved();
 
-            assertThatThrownBy(() ->
-                    service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2})))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
+            assertThatThrownBy(()
+              -> service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2})))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
 
             verify(userEmbeddingRepository, never()).save(any());
         }
@@ -341,7 +346,7 @@ class MatchingIntentSessionServiceTest {
             verify(userEmbeddingRepository).save(captor.capture());
             assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
             assertThat(captor.getValue().getEmbedding())
-                    .containsExactly(new float[]{0.1f, -0.5f, 0.25f}, within(1e-6f));
+              .containsExactly(new float[]{0.1f, -0.5f, 0.25f}, within(1e-6f));
         }
 
         @Test
@@ -370,8 +375,8 @@ class MatchingIntentSessionServiceTest {
             when(slotRepository.save(existing)).thenReturn(existing);
             when(userEmbeddingRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
-            MatchingIntentResponseDTO response =
-                    service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2, 0.3}));
+            MatchingIntentResponseDTO response
+              = service.applyResult(SESSION_ID, USER_ID, completed(new double[]{0.1, 0.2, 0.3}));
 
             assertThat(response.getSlotId()).isEqualTo(77L);
             assertThat(existing.getSkills()).containsExactly("Figma");
@@ -388,7 +393,7 @@ class MatchingIntentSessionServiceTest {
         @DisplayName("진행 중인 작업이 없으면 empty")
         void noTask() {
             when(taskService.findActive(USER_ID, RoutableDomain.MATCHING_INTENT))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             assertThat(service.getCurrentSession(USER_ID)).isEmpty();
         }
@@ -399,8 +404,8 @@ class MatchingIntentSessionServiceTest {
             givenRestorable(session());
 
             assertThat(service.getCurrentSession(USER_ID)).get()
-                    .extracting(IntentSessionResponseDTO::getStatus)
-                    .isEqualTo(IntentSessionStatus.IN_PROGRESS);
+              .extracting(IntentSessionResponseDTO::getStatus)
+              .isEqualTo(IntentSessionStatus.IN_PROGRESS);
         }
 
         @Test
@@ -411,7 +416,7 @@ class MatchingIntentSessionServiceTest {
             givenRestorable(session);
 
             assertThat(service.getCurrentSession(USER_ID)).get()
-                    .extracting(IntentSessionResponseDTO::isCompleted).isEqualTo(true);
+              .extracting(IntentSessionResponseDTO::isCompleted).isEqualTo(true);
         }
 
         @Test
@@ -422,7 +427,7 @@ class MatchingIntentSessionServiceTest {
             givenRestorable(session);
 
             assertThat(service.getCurrentSession(USER_ID)).get()
-                    .extracting(IntentSessionResponseDTO::isCompleted).isEqualTo(false);
+              .extracting(IntentSessionResponseDTO::isCompleted).isEqualTo(false);
         }
 
         @Test
@@ -452,12 +457,12 @@ class MatchingIntentSessionServiceTest {
             givenActiveTask();
             when(sessionRepository.findByTaskId(TASK_ID)).thenReturn(Optional.of(session()));
             when(chatService.findTaskMessages(TASK_ID)).thenReturn(List.of(
-                    new AiChatMessage(chatSession, 1, AiChatRole.USER, "디자인 팀 찾아요"),
-                    new AiChatMessage(chatSession, 2, AiChatRole.ASSISTANT, "어떤 기술을?")));
+              new AiChatMessage(chatSession, 1, AiChatRole.USER, "디자인 팀 찾아요"),
+              new AiChatMessage(chatSession, 2, AiChatRole.ASSISTANT, "어떤 기술을?")));
 
             assertThat(service.getCurrentSession(USER_ID).orElseThrow().getMessages())
-                    .extracting(IntentSessionResponseDTO.MessageDTO::getMessage)
-                    .containsExactly("디자인 팀 찾아요", "어떤 기술을?");
+              .extracting(IntentSessionResponseDTO.MessageDTO::getMessage)
+              .containsExactly("디자인 팀 찾아요", "어떤 기술을?");
         }
 
         @Test
@@ -502,7 +507,7 @@ class MatchingIntentSessionServiceTest {
         @DisplayName("진행 중인 작업이 없어도 성공한다 (재시작은 멱등이다)")
         void noOpWhenNothingInProgress() {
             when(taskService.findActive(USER_ID, RoutableDomain.MATCHING_INTENT))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             service.restart(USER_ID);
 
@@ -511,14 +516,13 @@ class MatchingIntentSessionServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private MatchingIntentSession session() {
         return TestEntities.withId(new MatchingIntentSession(user, task), SESSION_ID);
     }
 
     private void givenTaskOpened() {
         when(taskService.openOrResume(CHAT_SESSION_ID, USER_ID, RoutableDomain.MATCHING_INTENT))
-                .thenReturn(task);
+          .thenReturn(task);
     }
 
     private void givenMatchingRowExists() {
@@ -527,7 +531,7 @@ class MatchingIntentSessionServiceTest {
 
     private void givenActiveTask() {
         when(taskService.findActive(USER_ID, RoutableDomain.MATCHING_INTENT))
-                .thenReturn(Optional.of(task));
+          .thenReturn(Optional.of(task));
     }
 
     private MatchingIntentSession givenSessionExists() {

@@ -8,6 +8,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class BaseResponse<T> {
+
     @Schema(description = "처리 성공 여부. 실패면 data 는 보통 null 이다.", example = "true")
     private boolean success;
     @Schema(description = "사용자에게 그대로 보여줄 수 있는 한국어 안내 문구", example = "성공")

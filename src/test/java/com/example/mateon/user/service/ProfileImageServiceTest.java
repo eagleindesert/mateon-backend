@@ -28,14 +28,15 @@ import static org.mockito.Mockito.when;
 /**
  * 접수 단계의 규약을 고정한다. 핵심은 <b>무엇을 동기로 거절하고 무엇을 워커에 넘기는가</b>다.
  *
- * <p>형식·크기 검증이 여기서 일어나지 않으면 400 을 받을 수 있는 요청이 200 으로 접수되고,
+ * <p>
+ * 형식·크기 검증이 여기서 일어나지 않으면 400 을 받을 수 있는 요청이 200 으로 접수되고,
  * 실패는 로그에만 남아 사용자는 이유를 알 수 없게 된다.
  */
 class ProfileImageServiceTest {
 
     private static final long USER_ID = 42L;
-    private static final String OLD_URL =
-            "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/ns/b/mateon/o/profile-images/2026/06/old.png";
+    private static final String OLD_URL
+      = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/ns/b/mateon/o/profile-images/2026/06/old.png";
 
     private UserRepository userRepository;
     private ProfileImageWorker worker;
@@ -72,9 +73,9 @@ class ProfileImageServiceTest {
     @DisplayName("형식이 어긋난 파일은 워커를 부르기 전에 400 으로 거절한다")
     void rejectsInvalidFileSynchronously() {
         assertThatThrownBy(() -> service.upload(USER_ID, image("사진.gif")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
 
         verifyNoInteractions(worker);
     }
@@ -83,12 +84,12 @@ class ProfileImageServiceTest {
     @DisplayName("한도를 넘는 파일은 워커를 부르기 전에 413 으로 거절한다")
     void rejectsOversizedFileSynchronously() {
         MultipartFile huge = new MockMultipartFile(
-                "image", "사진.png", "image/png", new byte[10 * 1024 * 1024 + 1]);
+          "image", "사진.png", "image/png", new byte[10 * 1024 * 1024 + 1]);
 
         assertThatThrownBy(() -> service.upload(USER_ID, huge))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
 
         verifyNoInteractions(worker);
     }
@@ -99,9 +100,9 @@ class ProfileImageServiceTest {
         when(userRepository.existsById(USER_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> service.upload(USER_ID, image("사진.png")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
         verifyNoInteractions(worker);
     }
@@ -132,9 +133,9 @@ class ProfileImageServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(USER_ID))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
         verifyNoInteractions(worker);
     }

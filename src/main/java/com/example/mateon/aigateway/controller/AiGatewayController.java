@@ -34,7 +34,7 @@ public class AiGatewayController {
     private final AiGatewayService aiGatewayService;
 
     @Operation(summary = "새 대화 시작",
-            description = """
+      description = """
                           빈 스레드를 만들고 그 id 를 돌려준다. 이후 발화는 이 `sessionId` 를 실어
                           `POST /api/ai/chat/messages` 로 보낸다.
 
@@ -42,45 +42,45 @@ public class AiGatewayController {
     @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PostMapping("/sessions")
     public ResponseEntity<BaseResponse<AiChatSessionSummaryDTO>> createSession(
-            Authentication authentication
+      Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(BaseResponse.success(aiGatewayService.createSession(userId)));
     }
 
     @Operation(summary = "내 대화 목록 (사이드바)",
-            description = """
+      description = """
                           최근에 쓴 순으로 스레드를 돌려준다. 최대 50건이며 페이지네이션은 아직 없다.
 
                           `lastMessage` 는 미리보기용 마지막 한 줄이고, 아직 발화가 없는 스레드는
                           `title` 과 함께 null 이다.""")
     @GetMapping("/sessions")
     public ResponseEntity<BaseResponse<List<AiChatSessionSummaryDTO>>> listSessions(
-            Authentication authentication
+      Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(BaseResponse.success(aiGatewayService.listSessions(userId)));
     }
 
     @Operation(summary = "대화 하나 복원",
-            description = """
+      description = """
                           그 스레드의 대화를 시간순으로 전부 돌려준다. 그대로 채팅 화면에 그리면 된다.
 
                           도메인이 정해지기 전의 되묻기 턴도 함께 온다(그런 줄은 `domain` 이 null 이다)
                           — 사용자 눈에는 그것도 자기가 나눈 대화다.""")
     @ApiResponse(responseCode = "404",
-            description = "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")
+      description = "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")
     @GetMapping("/sessions/{sessionId}")
     public ResponseEntity<BaseResponse<AiChatSessionDetailDTO>> getSession(
-            @PathVariable Long sessionId,
-            Authentication authentication
+      @PathVariable Long sessionId,
+      Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
         return ResponseEntity.ok(BaseResponse.success(aiGatewayService.getSession(userId, sessionId)));
     }
 
     @Operation(summary = "AI 채팅 — 발화 보내고 답변 받기",
-            description = """
+      description = """
                           **챗봇 화면은 이 엔드포인트 하나로 시작한다.** 사용자가 무엇을 입력하든
                           여기로 보내면 서버가 어느 기능인지 판단해서 처리한다.
 
@@ -105,21 +105,21 @@ public class AiGatewayController {
                           판정 없이 무조건 매칭으로 처리되고 스레드도 지정할 수 없으므로 신규 화면은
                           이쪽을 쓴다.""")
     @ApiResponse(responseCode = "404",
-            description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다. / "
-                    + "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")
+      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다. / "
+      + "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")
     @ApiResponse(responseCode = "502",
-            description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다. (위임된 도메인 AI 의 실패다. "
-                    + "라우터 자체가 실패하면 매칭으로 통과시키므로 이 코드가 나오지 않는다)")
+      description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다. (위임된 도메인 AI 의 실패다. "
+      + "라우터 자체가 실패하면 매칭으로 통과시키므로 이 코드가 나오지 않는다)")
     @ApiResponse(responseCode = "503",
-            description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
+      description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
     @PostMapping("/messages")
     public ResponseEntity<BaseResponse<AiGatewayResponseDTO>> submitMessage(
-            @Valid @RequestBody AiGatewayMessageRequestDTO request,
-            Authentication authentication
+      @Valid @RequestBody AiGatewayMessageRequestDTO request,
+      Authentication authentication
     ) {
         Long userId = Long.valueOf(authentication.getName());
-        AiGatewayResponseDTO response =
-                aiGatewayService.submitMessage(userId, request.getSessionId(), request.getMessage());
+        AiGatewayResponseDTO response
+          = aiGatewayService.submitMessage(userId, request.getSessionId(), request.getMessage());
         return ResponseEntity.ok(BaseResponse.success(response));
     }
 }

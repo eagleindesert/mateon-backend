@@ -30,27 +30,39 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 알림이 실제로 <b>DB 에 남는지</b>를 확인한다. 단위 테스트가 "누구에게 보내기로 했는가"를 잠근다면,
  * 이쪽은 그 결정이 트랜잭션을 넘어 영속화되는지를 본다.
  *
- * <p>이 구분이 필요한 이유가 있다. 예전에 SSE 전송 실패가 IllegalStateException 으로 올라와
+ * <p>
+ * 이 구분이 필요한 이유가 있다. 예전에 SSE 전송 실패가 IllegalStateException 으로 올라와
  * 호출자 트랜잭션을 rollback-only 로 만들었고, 그 결과 <b>send 는 호출됐는데 알림 행은 없는</b>
  * 상태가 됐다. 목으로 send 호출만 세는 테스트는 그런 사고를 절대 못 잡는다.
  *
- * <p>특히 팀 삭제가 핵심이다 — 팀·지원서·제안이 전부 사라진 뒤에도 알림만은 남아야 한다.
+ * <p>
+ * 특히 팀 삭제가 핵심이다 — 팀·지원서·제안이 전부 사라진 뒤에도 알림만은 남아야 한다.
  * 알림이 팀을 참조했다면 CASCADE 에 함께 쓸려 나갔을 것이다.
  *
- * <p>구독 중인 emitter 로의 실시간 push 는 여기서 일어나지 않는다. AFTER_COMMIT 리스너가 맡는데
+ * <p>
+ * 구독 중인 emitter 로의 실시간 push 는 여기서 일어나지 않는다. AFTER_COMMIT 리스너가 맡는데
  * 테스트는 롤백으로 끝나기 때문이다. 의도한 바다 — 여기서 보려는 것은 저장이지 전송이 아니다.
  */
 class TeamNotificationIntegrationTest extends IntegrationTestBase {
 
-    @Autowired TeamService teamService;
-    @Autowired TeamOfferService teamOfferService;
-    @Autowired TeamCompletionService teamCompletionService;
-    @Autowired TeamRepository teamRepository;
-    @Autowired TeamApplicationRepository applicationRepository;
-    @Autowired TeamMemberRepository teamMemberRepository;
-    @Autowired UserRepository userRepository;
-    @Autowired NotificationRepository notificationRepository;
-    @PersistenceContext EntityManager entityManager;
+    @Autowired
+    TeamService teamService;
+    @Autowired
+    TeamOfferService teamOfferService;
+    @Autowired
+    TeamCompletionService teamCompletionService;
+    @Autowired
+    TeamRepository teamRepository;
+    @Autowired
+    TeamApplicationRepository applicationRepository;
+    @Autowired
+    TeamMemberRepository teamMemberRepository;
+    @Autowired
+    UserRepository userRepository;
+    @Autowired
+    NotificationRepository notificationRepository;
+    @PersistenceContext
+    EntityManager entityManager;
 
     private User leader;
     private User applicant;
@@ -86,9 +98,9 @@ class TeamNotificationIntegrationTest extends IntegrationTestBase {
     void cancelApplicationPersistsNotificationForLeader() {
         teamService.applyToTeam(team.getId(), applicationRequest(), applicant.getId());
         Long applicationId = applicationRepository
-                .findByTeamIdAndApplicantId(team.getId(), applicant.getId())
-                .orElseThrow()
-                .getId();
+          .findByTeamIdAndApplicantId(team.getId(), applicant.getId())
+          .orElseThrow()
+          .getId();
 
         teamService.cancelApplication(applicationId, applicant.getId());
 
@@ -101,7 +113,7 @@ class TeamNotificationIntegrationTest extends IntegrationTestBase {
     @DisplayName("제안을 회수하면 대상 유저 앞으로 알림 행이 쌓인다")
     void cancelOfferPersistsNotificationForTarget() {
         TeamOfferResponseDTO offer = teamOfferService.createOffer(
-                team.getId(), applicant.getId(), "함께해요", leader.getId());
+          team.getId(), applicant.getId(), "함께해요", leader.getId());
 
         teamOfferService.cancelOffer(offer.getOfferId(), leader.getId());
 
@@ -138,11 +150,11 @@ class TeamNotificationIntegrationTest extends IntegrationTestBase {
     }
 
     // --- 헬퍼 ---
-
     /**
      * 요청 경계를 흉내 낸다.
      *
-     * <p>실전에서는 지원·제안·팀 삭제가 각각 별개의 요청이라, 삭제가 시작될 때 앞선 요청이 만든
+     * <p>
+     * 실전에서는 지원·제안·팀 삭제가 각각 별개의 요청이라, 삭제가 시작될 때 앞선 요청이 만든
      * TeamMember/TeamApplication/TeamOffer 는 영속성 컨텍스트에 남아 있지 않다. 반면 이 테스트는
      * 전부 한 트랜잭션이라 그것들이 그대로 살아 있고, team 을 지우는 순간 <b>삭제된 Team 을
      * 참조한 채로</b> flush 되어 TransientPropertyValueException 이 난다. 실제로는 일어나지 않는
@@ -155,10 +167,10 @@ class TeamNotificationIntegrationTest extends IntegrationTestBase {
 
     private User createUser(String name) {
         return userRepository.save(User.builder()
-                .email(UUID.randomUUID() + "@test.ac.kr")
-                .name(name)
-                .schoolVerified(true)
-                .build());
+          .email(UUID.randomUUID() + "@test.ac.kr")
+          .name(name)
+          .schoolVerified(true)
+          .build());
     }
 
     private TeamApplicationRequestDTO applicationRequest() {
@@ -171,8 +183,8 @@ class TeamNotificationIntegrationTest extends IntegrationTestBase {
 
     private List<String> titlesOf(User receiver) {
         return notificationRepository.findAllByReceiverIdOrderByCreatedAtDesc(receiver.getId())
-                .stream()
-                .map(Notification::getTitle)
-                .toList();
+          .stream()
+          .map(Notification::getTitle)
+          .toList();
     }
 }

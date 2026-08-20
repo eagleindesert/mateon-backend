@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 /**
  * AI 게이트웨이 라우터 설정. (common/ai/AiServerProperties 와 같은 형태)
  *
- * <p>여기에는 시크릿 검증(@PostConstruct)이 없다 — AiServerProperties 와 다른 점이다. AI 서버
+ * <p>
+ * 여기에는 시크릿 검증(@PostConstruct)이 없다 — AiServerProperties 와 다른 점이다. AI 서버
  * 시크릿은 없으면 기능이 아예 못 도니 부팅을 막는 게 맞지만, 라우터는 <b>실패해도 기존 동작으로
  * 폴백</b>하도록 설계돼 있다. 키가 없다고 앱을 못 뜨게 하면 그 폴백을 시험할 수조차 없고,
  * 게이트웨이 하나 때문에 서비스 전체가 안 뜨는 건 도입 전보다 나쁘다.

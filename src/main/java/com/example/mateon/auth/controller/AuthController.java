@@ -58,7 +58,7 @@ public class AuthController {
     public ResponseEntity<BaseResponse<EmailVerifyResponse>> verifyEmail(@Valid @RequestBody EmailVerifyRequest request) {
         String verificationToken = authService.verifyEmail(request);
         return ResponseEntity.ok(BaseResponse.success(
-                "이메일 인증이 완료되었습니다.", new EmailVerifyResponse(verificationToken)));
+          "이메일 인증이 완료되었습니다.", new EmailVerifyResponse(verificationToken)));
     }
 
     // 로그인 후 학교(재학생) 이메일 인증코드 발송 [인증 필요]
@@ -79,8 +79,8 @@ public class AuthController {
       description = "EMAIL_REQUEST_TOO_FREQUENT — 인증코드 요청은 잠시 후 다시 시도해주세요.")
     @PostMapping("/school/email/request")
     public ResponseEntity<BaseResponse<Object>> requestSchoolEmailVerification(
-            @Valid @RequestBody SchoolEmailRequest request,
-            Authentication authentication) {
+      @Valid @RequestBody SchoolEmailRequest request,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         authService.requestSchoolEmailVerification(userId, request);
         return ResponseEntity.ok(BaseResponse.success("학교 이메일로 인증코드가 발송되었습니다."));
@@ -98,8 +98,8 @@ public class AuthController {
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PostMapping("/school/email/verify")
     public ResponseEntity<BaseResponse<Object>> verifySchoolEmail(
-            @Valid @RequestBody SchoolEmailVerifyRequest request,
-            Authentication authentication) {
+      @Valid @RequestBody SchoolEmailVerifyRequest request,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         authService.verifySchoolEmail(userId, request);
         return ResponseEntity.ok(BaseResponse.success("학교 인증이 완료되었습니다."));

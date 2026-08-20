@@ -27,17 +27,20 @@ import static org.mockito.Mockito.when;
 /**
  * 라우터가 LLM 응답을 우리 타입으로 옮기는 구간과, <b>실패하면 반드시 통과시키는</b> 규약을 고정한다.
  *
- * <p>목을 {@link ChatModel} 에 두는 이유: {@code ChatClient} 는 fluent 라 그걸 목으로 만들면
+ * <p>
+ * 목을 {@link ChatModel} 에 두는 이유: {@code ChatClient} 는 fluent 라 그걸 목으로 만들면
  * {@code prompt().user().call().entity()} 체인을 흉내 내는 데 그치고, 정작 위험한 부분 —
  * Spring AI 의 BeanOutputConverter 가 {@link RouteDecision} record 와 {@link RoutableDomain}
  * enum 으로 스키마를 만들고 응답을 역직렬화하는 것 — 은 하나도 거치지 않는다. ChatModel 은
  * 그 변환의 <i>아래</i>에 있어서, 여기에 목을 두면 변환이 실제로 돈다.
  *
- * <p>HTTP 경계(MockRestServiceServer)로 더 내리지 않은 이유는 Spring AI 2.0 의 OpenAI 연동이
+ * <p>
+ * HTTP 경계(MockRestServiceServer)로 더 내리지 않은 이유는 Spring AI 2.0 의 OpenAI 연동이
  * Spring 의 RestClient 가 아니라 공식 OpenAI Java SDK(OkHttp)를 쓰기 때문이다. 거기까지 내려가면
  * 검증 대상이 우리 코드가 아니라 Spring AI 의 와이어 포맷이 된다.
  *
- * <p>가장 중요한 건 마지막 묶음이다. 이 클래스는 <b>어떤 경우에도 예외를 밖으로 내보내지
+ * <p>
+ * 가장 중요한 건 마지막 묶음이다. 이 클래스는 <b>어떤 경우에도 예외를 밖으로 내보내지
  * 않는다</b>. 라우터가 죽었다고 챗봇 전체가 죽으면 게이트웨이 도입 전보다 나빠지기 때문이다.
  */
 class AiRouterClientTest {
@@ -113,7 +116,7 @@ class AiRouterClientTest {
             givenModelReplies("{\"domain\":\"MATCHING_INTENT\",\"assistantMessage\":\"\"}");
 
             assertThat(client.classify("백엔드 팀 찾아요").domain())
-                    .isEqualTo(RoutableDomain.MATCHING_INTENT);
+              .isEqualTo(RoutableDomain.MATCHING_INTENT);
         }
     }
 
@@ -123,11 +126,11 @@ class AiRouterClientTest {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {
-                "{\"domain\":\"WEATHER_FORECAST\",\"assistantMessage\":\"맑아요\"}",  // enum 밖의 값
-                "죄송하지만 JSON 으로 답할 수 없습니다",                                  // JSON 이 아님
-                "{\"assistantMessage\":\"문구만 있음\"}",                              // domain 누락
-                "{}",                                                                // 빈 객체
-                ""                                                                   // 빈 응답
+            "{\"domain\":\"WEATHER_FORECAST\",\"assistantMessage\":\"맑아요\"}", // enum 밖의 값
+            "죄송하지만 JSON 으로 답할 수 없습니다", // JSON 이 아님
+            "{\"assistantMessage\":\"문구만 있음\"}", // domain 누락
+            "{}", // 빈 객체
+            "" // 빈 응답
         })
         @DisplayName("망가진 응답은 매칭으로 통과시킨다")
         void brokenResponsesPassThrough(String body) {
@@ -142,11 +145,11 @@ class AiRouterClientTest {
         @DisplayName("모델 호출이 예외를 던져도 예외가 밖으로 나가지 않는다 (키 없음·타임아웃·장애가 전부 여기다)")
         void modelFailureDoesNotPropagate() {
             when(chatModel.call(any(Prompt.class)))
-                    .thenThrow(new RuntimeException("401 Unauthorized"));
+              .thenThrow(new RuntimeException("401 Unauthorized"));
 
             assertThatCode(() -> assertThat(client.classify("아무 말").domain())
-                    .isEqualTo(RoutableDomain.MATCHING_INTENT))
-                    .doesNotThrowAnyException();
+              .isEqualTo(RoutableDomain.MATCHING_INTENT))
+              .doesNotThrowAnyException();
         }
 
         @Test
@@ -155,14 +158,13 @@ class AiRouterClientTest {
             AiRouterClient disabled = new AiRouterClient((ChatModel) null);
 
             assertThat(disabled.classify("백엔드 팀 찾아요").domain())
-                    .isEqualTo(RoutableDomain.MATCHING_INTENT);
+              .isEqualTo(RoutableDomain.MATCHING_INTENT);
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenModelReplies(String content) {
         when(chatModel.call(any(Prompt.class)))
-                .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(content)))));
+          .thenReturn(new ChatResponse(List.of(new Generation(new AssistantMessage(content)))));
     }
 }

@@ -39,7 +39,7 @@ class ImageFileValidatorTest {
     void ignoresClientContentType() {
         // 브라우저·OS 에 따라 octet-stream 으로 오는 경우가 있다. 그때도 jpg 는 jpg 로 다뤄야 한다.
         MultipartFile file = new MockMultipartFile(
-                "image", "profile.jpg", "application/octet-stream", new byte[]{1});
+          "image", "profile.jpg", "application/octet-stream", new byte[]{1});
 
         assertThat(ImageFileValidator.validate(file, MAX).contentType()).isEqualTo("image/jpeg");
     }
@@ -61,9 +61,9 @@ class ImageFileValidatorTest {
         MultipartFile gif = new MockMultipartFile("image", "profile.gif", "image/gif", new byte[]{1});
 
         assertThatThrownBy(() -> ImageFileValidator.validate(gif, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test
@@ -72,9 +72,9 @@ class ImageFileValidatorTest {
         MultipartFile file = new MockMultipartFile("image", "profile", "image/png", new byte[]{1});
 
         assertThatThrownBy(() -> ImageFileValidator.validate(file, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test
@@ -83,9 +83,9 @@ class ImageFileValidatorTest {
         MultipartFile file = new MockMultipartFile("image", "", "image/png", new byte[]{1});
 
         assertThatThrownBy(() -> ImageFileValidator.validate(file, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test
@@ -94,26 +94,26 @@ class ImageFileValidatorTest {
         MultipartFile empty = new MockMultipartFile("image", "profile.png", "image/png", new byte[0]);
 
         assertThatThrownBy(() -> ImageFileValidator.validate(empty, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
 
         assertThatThrownBy(() -> ImageFileValidator.validate(null, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test
     @DisplayName("한도를 넘으면 413 (형식 오류와 구분한다)")
     void rejectsOversizedFile() {
         MultipartFile huge = new MockMultipartFile(
-                "image", "profile.png", "image/png", new byte[(int) MAX + 1]);
+          "image", "profile.png", "image/png", new byte[(int) MAX + 1]);
 
         assertThatThrownBy(() -> ImageFileValidator.validate(huge, MAX))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
     }
 
     @Test
@@ -123,8 +123,8 @@ class ImageFileValidatorTest {
 
         assertThat(ImageFileValidator.validate(file, 100).bytes()).hasSize(100);
         assertThatThrownBy(() -> ImageFileValidator.validate(file, 99))
-                .isInstanceOf(MateonException.class)
-                .extracting(ImageFileValidatorTest::errorCodeOf)
-                .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
     }
 }

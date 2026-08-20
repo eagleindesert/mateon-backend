@@ -105,8 +105,8 @@ public class GlobalExceptionHandler {
     private String describeInvalidValue(Class<?> targetType, Object value) {
         if (targetType != null && targetType.isEnum()) {
             String allowed = Arrays.stream(targetType.getEnumConstants())
-                    .map(String::valueOf)
-                    .collect(Collectors.joining(", "));
+              .map(String::valueOf)
+              .collect(Collectors.joining(", "));
             return String.format("'%s' 는 허용되지 않는 값입니다. 가능한 값: %s", value, allowed);
         }
         return String.format("'%s' 는 형식이 올바르지 않습니다.", value);
@@ -178,10 +178,12 @@ public class GlobalExceptionHandler {
     /**
      * 업로드 파일이 spring.servlet.multipart 제한을 넘었다.
      *
-     * <p>이 핸들러가 없으면 catch-all 로 떨어져 500 "서버 오류가 발생했습니다" 가 나가는데,
+     * <p>
+     * 이 핸들러가 없으면 catch-all 로 떨어져 500 "서버 오류가 발생했습니다" 가 나가는데,
      * 실제로는 사용자가 더 작은 파일을 고르면 해결되는 문제다.
      *
-     * <p>도메인 중립 문구({@link ErrorCode#FILE_TOO_LARGE})를 쓴다. 이 예외는 멀티파트 파싱
+     * <p>
+     * 도메인 중립 문구({@link ErrorCode#FILE_TOO_LARGE})를 쓴다. 이 예외는 멀티파트 파싱
      * 단계에서 터져 어느 엔드포인트로 갈 요청이었는지 알 수 없기 때문이다 — 이미지(10MB)와
      * 포트폴리오 PDF(20MB)의 한도가 다른데 한쪽 숫자를 적으면 다른 쪽에서 틀린 안내가 나간다.
      * 도메인별 한도 안내는 각 서비스가 하는 2차 검사(IMAGE_TOO_LARGE / PDF_TOO_LARGE)의 몫이다.

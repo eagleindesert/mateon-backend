@@ -35,10 +35,12 @@ import java.util.Optional;
  * 의도 추출 대화의 DB 작업을 담당한다. FastAPI 호출은 여기서 하지 않는다
  * (MatchingIntentService 가 TX 밖에서 호출한다 — 이유는 그쪽 주석 참고).
  *
- * <p>대화 이력은 이 도메인이 직접 갖지 않고 AI 채팅 통합 로그(AiChatService)에 맡긴다.
+ * <p>
+ * 대화 이력은 이 도메인이 직접 갖지 않고 AI 채팅 통합 로그(AiChatService)에 맡긴다.
  * 게이트웨이가 위임할 때 발화를 이미 기록해 두므로, 여기서 또 쓰면 두 벌이 된다.
  *
- * <p>세션의 <b>수명</b>도 이 클래스가 직접 판단하지 않는다. 열고·이어가고·만료시키는 건
+ * <p>
+ * 세션의 <b>수명</b>도 이 클래스가 직접 판단하지 않는다. 열고·이어가고·만료시키는 건
  * {@link AiDomainTaskService} 의 일이고 여기서는 그 결과를 받아 쓴다 — 그래야 도메인이 늘어도
  * 만료 규칙이 복제되지 않고, 게이트웨이가 도메인을 모른 채 라우팅을 판단할 수 있다.
  */
@@ -61,22 +63,25 @@ public class MatchingIntentSessionService {
      * [TX1] 작업을 확보하고, 통합 로그에 이미 적힌 사용자 발화를 이 작업 소관으로 표시한 뒤,
      * FastAPI 로 보낼 대화 전체를 반환한다.
      *
-     * <p>발화를 여기서 저장하지 않는 게 핵심이다. 게이트웨이가 라우팅을 판단하려면 위임 전에
+     * <p>
+     * 발화를 여기서 저장하지 않는 게 핵심이다. 게이트웨이가 라우팅을 판단하려면 위임 전에
      * 이미 발화를 기록해 둬야 하고, 여기서 또 쓰면 같은 문장이 두 벌 남는다. 그래서 저장은
      * 통합 로그 한 곳에서 하고 여기서는 "이 턴은 내 소관"이라고 도장만 찍는다.
      *
-     * <p>도장을 찍고 나서 읽어야 방금 발화까지 배열에 포함된다 (같은 트랜잭션이라 JPQL 조회
+     * <p>
+     * 도장을 찍고 나서 읽어야 방금 발화까지 배열에 포함된다 (같은 트랜잭션이라 JPQL 조회
      * 직전에 자동 flush 된다).
      *
-     * <p>반환값이 엔티티가 아닌 이유는 ConversationSnapshot 주석 참고.
+     * <p>
+     * 반환값이 엔티티가 아닌 이유는 ConversationSnapshot 주석 참고.
      */
     public ConversationSnapshot bindTurn(Long userId, AiChatTurn turn) {
         AiDomainTask task = taskService.openOrResume(
-                turn.chatSessionId(), userId, RoutableDomain.MATCHING_INTENT);
+          turn.chatSessionId(), userId, RoutableDomain.MATCHING_INTENT);
 
         MatchingIntentSession session = sessionRepository.findByTaskId(task.getId())
-                .orElseGet(() -> sessionRepository.save(
-                        new MatchingIntentSession(requireUser(userId), task)));
+          .orElseGet(() -> sessionRepository.save(
+          new MatchingIntentSession(requireUser(userId), task)));
 
         chatService.assignTask(turn.messageId(), task.getId());
 
@@ -127,7 +132,8 @@ public class MatchingIntentSessionService {
     /**
      * 진행 중인 세션을 버린다. 새 세션은 만들지 않는다 — 다음 메시지 때 자동 생성된다.
      *
-     * <p>채팅 스레드는 건드리지 않는다. 스레드를 여러 개 갖고 골라 들어가게 되면서 "이 대화를
+     * <p>
+     * 채팅 스레드는 건드리지 않는다. 스레드를 여러 개 갖고 골라 들어가게 되면서 "이 대화를
      * 닫는다"는 프론트가 새 스레드를 여는 것으로 표현되기 때문이다 — 여기서 스레드까지 닫으면
      * 사이드바에서 그 대화를 다시 열었을 때 이어 쓸 수 없게 된다.
      */
@@ -137,7 +143,6 @@ public class MatchingIntentSessionService {
     }
 
     // ── 내부 ──────────────────────────────────────────────────────────────
-
     /**
      * 사용자당 슬롯 1건 — 있으면 덮어쓴다.
      */

@@ -87,7 +87,7 @@ public class AuthService {
     // 인증된 유저가 학교 이메일 인증코드를 검증하면 재학생 상태로 전환한다.
     public void verifySchoolEmail(Long userId, SchoolEmailVerifyRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         String schoolEmail = request.getSchoolEmail();
 
@@ -108,19 +108,19 @@ public class AuthService {
 
         // 재요청 쿨다운: 마지막 발송(updatedAt) 이후 RESEND_COOLDOWN 이내면 거부 (메일 폭탄/남용 방지)
         if (existing != null && existing.getUpdatedAt() != null
-                && existing.getUpdatedAt().isAfter(LocalDateTime.now().minus(RESEND_COOLDOWN))) {
+          && existing.getUpdatedAt().isAfter(LocalDateTime.now().minus(RESEND_COOLDOWN))) {
             throw new MateonException(ErrorCode.EMAIL_REQUEST_TOO_FREQUENT);
         }
 
         String code = String.format("%06d", random.nextInt(1000000));
 
         EmailVerification verification = EmailVerification.builder()
-                .id(existing != null ? existing.getId() : null)
-                .email(email)
-                .code(code)
-                .expiresAt(LocalDateTime.now().plusMinutes(5))
-                .verified(false)
-                .build();
+          .id(existing != null ? existing.getId() : null)
+          .email(email)
+          .code(code)
+          .expiresAt(LocalDateTime.now().plusMinutes(5))
+          .verified(false)
+          .build();
 
         emailVerificationRepository.save(verification);
 
@@ -132,7 +132,7 @@ public class AuthService {
     // 반환값은 발급된 일회용 티켓(회원가입 주체 식별용). 학교 이메일 경로는 이 값을 사용하지 않는다.
     private String verifyCode(String email, String code) {
         EmailVerification verification = emailVerificationRepository.findByEmail(email)
-                .orElseThrow(() -> new MateonException(ErrorCode.INVALID_VERIFICATION_CODE));
+          .orElseThrow(() -> new MateonException(ErrorCode.INVALID_VERIFICATION_CODE));
 
         if (!verification.isValid()) {
             throw new MateonException(ErrorCode.INVALID_VERIFICATION_CODE);
@@ -161,7 +161,7 @@ public class AuthService {
 
         // 이메일 인증 확인
         EmailVerification verification = emailVerificationRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new MateonException(ErrorCode.EMAIL_NOT_VERIFIED));
+          .orElseThrow(() -> new MateonException(ErrorCode.EMAIL_NOT_VERIFIED));
 
         // 인증 티켓 검증: 이 이메일 인증을 완료한 주체만(= 티켓 소유자만) 가입할 수 있다.
         // 이메일이 verified 라는 사실만으로 통과시키면, 인증을 마친 이메일을 제3자가 선점(도용)할 수 있다.
@@ -171,22 +171,22 @@ public class AuthService {
 
         // 사용자 생성 (로컬 유저는 학교 이메일로 선행 인증했으므로 재학생 상태로 확정)
         User user = User.builder()
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .provider(AuthProvider.LOCAL)
-                .schoolEmail(request.getEmail())
-                .schoolVerified(true)
-                .name(request.getName())
-                .school(request.getSchool())
-                .campus(request.getCampus())
-                .college(request.getCollege())
-                .major(request.getMajor())
-                .grade(request.getGrade())
-                .interestJobPrimary(request.getInterestJobPrimary())
-                .interestJobSecondary(request.getInterestJobSecondary())
-                .interestJobTertiary(request.getInterestJobTertiary())
-                .tagline(request.getTagline())
-                .build();
+          .email(request.getEmail())
+          .password(passwordEncoder.encode(request.getPassword()))
+          .provider(AuthProvider.LOCAL)
+          .schoolEmail(request.getEmail())
+          .schoolVerified(true)
+          .name(request.getName())
+          .school(request.getSchool())
+          .campus(request.getCampus())
+          .college(request.getCollege())
+          .major(request.getMajor())
+          .grade(request.getGrade())
+          .interestJobPrimary(request.getInterestJobPrimary())
+          .interestJobSecondary(request.getInterestJobSecondary())
+          .interestJobTertiary(request.getInterestJobTertiary())
+          .tagline(request.getTagline())
+          .build();
 
         userRepository.save(user);
 
@@ -195,10 +195,10 @@ public class AuthService {
 
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new MateonException(ErrorCode.INVALID_CREDENTIALS));
+          .orElseThrow(() -> new MateonException(ErrorCode.INVALID_CREDENTIALS));
 
         if (user.getPassword() == null
-                || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+          || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new MateonException(ErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -208,15 +208,16 @@ public class AuthService {
     /**
      * 카카오에서 받아온 사용자 정보로 로그인/회원가입한다. (신원 기준: provider=KAKAO + providerId)
      *
-     * <p>카카오 API 호출은 여기가 아니라 {@link KakaoLoginService} 가 트랜잭션 밖에서 한다.
+     * <p>
+     * 카카오 API 호출은 여기가 아니라 {@link KakaoLoginService} 가 트랜잭션 밖에서 한다.
      * 이 클래스는 클래스 레벨 @Transactional 이라 메서드 진입 시점에 이미 DB 커넥션을 잡는데,
      * 그 안에서 외부 HTTP 를 기다리면 응답이 늦어지는 만큼 커넥션이 묶인다.
      */
     public TokenResponse kakaoLogin(KakaoUserInfo info) {
         // 1) 재방문 카카오 유저: (KAKAO, providerId) 로 조회되면 그대로 로그인.
         User user = userRepository
-                .findByProviderAndProviderId(AuthProvider.KAKAO, info.providerId())
-                .orElse(null);
+          .findByProviderAndProviderId(AuthProvider.KAKAO, info.providerId())
+          .orElse(null);
 
         if (user == null) {
             // 2) 연동 후보 이메일: 카카오가 검증한 이메일만 신뢰(도용 방지).
@@ -233,12 +234,12 @@ public class AuthService {
             } else {
                 // 2-b) 신규 카카오 유저 생성 (학교 미인증 상태로 시작).
                 user = User.builder()
-                        .provider(AuthProvider.KAKAO)
-                        .providerId(info.providerId())
-                        .email(linkableEmail) // 미동의/미검증이면 null
-                        .name(info.nickname() != null ? info.nickname() : "카카오사용자")
-                        .schoolVerified(false)
-                        .build();
+                  .provider(AuthProvider.KAKAO)
+                  .providerId(info.providerId())
+                  .email(linkableEmail) // 미동의/미검증이면 null
+                  .name(info.nickname() != null ? info.nickname() : "카카오사용자")
+                  .schoolVerified(false)
+                  .build();
                 userRepository.save(user);
             }
         }
@@ -254,11 +255,11 @@ public class AuthService {
         saveRefreshToken(user.getId(), refreshToken);
 
         return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(jwtProperties.getExpiration() / 1000)
-                .build();
+          .accessToken(accessToken)
+          .refreshToken(refreshToken)
+          .tokenType("Bearer")
+          .expiresIn(jwtProperties.getExpiration() / 1000)
+          .build();
     }
 
     public TokenResponse refreshToken(RefreshTokenRequest request) {
@@ -269,7 +270,7 @@ public class AuthService {
         }
 
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-                .orElseThrow(() -> new MateonException(ErrorCode.TOKEN_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.TOKEN_NOT_FOUND));
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
@@ -280,11 +281,11 @@ public class AuthService {
         String newAccessToken = jwtTokenProvider.createAccessToken(userId);
 
         return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshTokenValue)
-                .tokenType("Bearer")
-                .expiresIn(jwtProperties.getExpiration() / 1000)
-                .build();
+          .accessToken(newAccessToken)
+          .refreshToken(refreshTokenValue)
+          .tokenType("Bearer")
+          .expiresIn(jwtProperties.getExpiration() / 1000)
+          .build();
     }
 
     public void changePassword(ChangePasswordRequest request) {
@@ -293,7 +294,7 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new MateonException(ErrorCode.PASSWORD_MISMATCH);
@@ -308,7 +309,7 @@ public class AuthService {
 
     public void logout(LogoutRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 
@@ -320,14 +321,16 @@ public class AuthService {
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpiration() / 1000);
 
         RefreshToken refreshToken = refreshTokenRepository.findByUserId(userId)
-                .map(existing -> { existing.rotate(refreshTokenValue, expiresAt); return existing; })
-                .orElseGet(() -> RefreshToken.builder()
-                        .token(refreshTokenValue)
-                        .userId(userId)
-                        .expiresAt(expiresAt)
-                        .build());
+          .map(existing -> {
+              existing.rotate(refreshTokenValue, expiresAt);
+              return existing;
+          })
+          .orElseGet(() -> RefreshToken.builder()
+          .token(refreshTokenValue)
+          .userId(userId)
+          .expiresAt(expiresAt)
+          .build());
 
         refreshTokenRepository.save(refreshToken);
     }
 }
-

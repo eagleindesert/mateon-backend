@@ -63,8 +63,8 @@ public class EventMatchingService {
         if (campusScope != null && !campusScope.isBlank()) {
             // campusScope 는 자유 입력이라 학교명("단국대학교")과 캠퍼스명("죽전") 중 무엇이든 들어올 수 있다.
             if (Event.CAMPUS_SCOPE_ALL.equalsIgnoreCase(campusScope.trim())
-                    || matchesCampusScope(campusScope, user.getSchool())
-                    || matchesCampusScope(campusScope, user.getCampus())) {
+              || matchesCampusScope(campusScope, user.getSchool())
+              || matchesCampusScope(campusScope, user.getCampus())) {
                 score += SCORE_CAMPUS;
             }
         }
@@ -93,9 +93,9 @@ public class EventMatchingService {
         }
 
         // Event의 제목, 설명, 요약 설명을 모두 합쳐서 검색 텍스트 생성
-        String searchText = (event.getTitle() != null ? event.getTitle() : "") + " " +
-                            (event.getDescription() != null ? event.getDescription() : "") + " " +
-                            (event.getSummarizedDescription() != null ? event.getSummarizedDescription() : "");
+        String searchText = (event.getTitle() != null ? event.getTitle() : "") + " "
+          + (event.getDescription() != null ? event.getDescription() : "") + " "
+          + (event.getSummarizedDescription() != null ? event.getSummarizedDescription() : "");
         searchText = searchText.toLowerCase().trim();
 
         String interestJobLower = interestJob.toLowerCase().trim();
@@ -137,4 +137,3 @@ public class EventMatchingService {
         return text.trim().split("\\s+");
     }
 }
-

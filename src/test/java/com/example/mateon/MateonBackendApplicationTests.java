@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
  */
 class MateonBackendApplicationTests extends IntegrationTestBase {
 
-	@Test
-	void contextLoads() {
-	}
+    @Test
+    void contextLoads() {
+    }
 
 }

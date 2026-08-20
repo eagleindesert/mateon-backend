@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 public class Notification {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -45,7 +46,7 @@ public class Notification {
 
     public enum NotificationType {
         APPROVE, // 파란 체크 아이콘
-        REJECT,  // 빨간 X 아이콘
+        REJECT, // 빨간 X 아이콘
         INFO     // 일반 알림
     }
 }

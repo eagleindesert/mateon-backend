@@ -32,11 +32,13 @@ import static org.mockito.Mockito.when;
 /**
  * 팀 종료 알림이 <b>혼자인 팀</b>에서 어떻게 갈리는지 고정한다.
  *
- * <p>혼자인 팀에 평가 요청을 보내지 않는 것은 옳다 — 평가할 상대가 없으니 소음이다. 그런데 그
+ * <p>
+ * 혼자인 팀에 평가 요청을 보내지 않는 것은 옳다 — 평가할 상대가 없으니 소음이다. 그런데 그
  * early return 때문에 <b>스케줄러가 마감일 경과로 닫은 1인 팀의 팀장은 아무것도 받지 못했다</b>.
  * 본인이 한 일이 아니므로 모집이 닫히고 활동이 끝난 사실 자체를 알 길이 없었다.
  *
- * <p>그래서 종료 경로를 구분한다. 팀장이 직접 누른 종료는 본인이 아는 일이라 여전히 침묵하고,
+ * <p>
+ * 그래서 종료 경로를 구분한다. 팀장이 직접 누른 종료는 본인이 아는 일이라 여전히 침묵하고,
  * 스케줄러가 닫은 경우에만 알린다. 아래 두 테스트가 그 갈림을 잠근다 — 한쪽만 검증하면
  * "항상 보낸다" 로 퇴화해도 통과한다.
  */
@@ -65,7 +67,7 @@ class TeamCompletedNotificationListenerTest {
         when(properties.getReviewWindowDays()).thenReturn(14);
 
         listener = new TeamCompletedNotificationListener(teamRepository, teamMemberRepository,
-                userRepository, notificationService, properties);
+          userRepository, notificationService, properties);
 
         team = new Team();
         team.setId(TEAM_ID);
@@ -86,7 +88,7 @@ class TeamCompletedNotificationListenerTest {
 
         ArgumentCaptor<User> receiver = ArgumentCaptor.forClass(User.class);
         verify(notificationService).send(receiver.capture(), eq("활동 자동 종료"),
-                contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
+          contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
         assertThat(receiver.getValue().getId()).isEqualTo(LEADER_ID);
 
         // 혼자라 평가할 상대가 없다.
@@ -111,7 +113,7 @@ class TeamCompletedNotificationListenerTest {
         listener.onTeamCompleted(new TeamCompletedEvent(TEAM_ID, true));
 
         verify(notificationService).send(eq(leader), eq("활동 자동 종료"), anyString(),
-                eq(Notification.NotificationType.INFO));
+          eq(Notification.NotificationType.INFO));
     }
 
     @Test
@@ -122,20 +124,19 @@ class TeamCompletedNotificationListenerTest {
         listener.onTeamCompleted(new TeamCompletedEvent(TEAM_ID, true));
 
         verify(notificationService, times(2)).send(any(), eq("팀원 평가 요청"),
-                contains("14일 안에"), eq(Notification.NotificationType.INFO));
+          contains("14일 안에"), eq(Notification.NotificationType.INFO));
         verify(notificationService, never()).send(any(), eq("활동 자동 종료"), anyString(), any());
     }
 
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────
-
     private User givenUser(long id, String name) {
         return User.builder().id(id).name(name).schoolVerified(true).build();
     }
 
     private void givenMembers(User... users) {
         List<TeamMember> members = List.of(users).stream()
-                .map(user -> TeamMember.of(team, user, TeamMemberRole.MEMBER))
-                .toList();
+          .map(user -> TeamMember.of(team, user, TeamMemberRole.MEMBER))
+          .toList();
         when(teamMemberRepository.findActiveMembersWithUser(TEAM_ID)).thenReturn(members);
     }
 }

@@ -9,6 +9,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class SignupRequest {
+
     @Schema(description = "가입 이메일. 학교 이메일(.ac.kr)이어야 하며, 이 주소로 학교 인증까지 끝난 것으로 처리된다.")
     @NotBlank(message = "이메일을 입력해주세요.")
     @Email(message = "올바른 이메일 형식이 아닙니다.")
@@ -68,4 +69,3 @@ public class SignupRequest {
     @Size(max = 200, message = "태그라인은 200자 이하여야 합니다.")
     private String tagline;
 }
-

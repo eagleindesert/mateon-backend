@@ -40,20 +40,24 @@ import static org.mockito.Mockito.when;
 /**
  * 유저 서비스에서 <b>컨트롤러 테스트가 못 보는 두 가지</b>만 다룬다.
  *
- * <p>응답 필드와 협업 온도 폴백은 {@code UserProfileControllerTest} 가 이미 전선까지 고정했으므로
+ * <p>
+ * 응답 필드와 협업 온도 폴백은 {@code UserProfileControllerTest} 가 이미 전선까지 고정했으므로
  * 여기서 되풀이하지 않는다. 남는 것은 이것들이다.
  *
- * <p><b>하나, 비밀번호 변경의 부수효과.</b> 새 비밀번호를 저장하는 것만으로는 부족하다 —
+ * <p>
+ * <b>하나, 비밀번호 변경의 부수효과.</b> 새 비밀번호를 저장하는 것만으로는 부족하다 —
  * 기존 리프레시 토큰을 지워야 이미 로그인돼 있던 다른 기기가 끊긴다. 비밀번호를 바꾸는 흔한
  * 이유가 "계정이 털린 것 같아서" 인데, 이 삭제가 빠지면 침입자의 세션이 <b>토큰 만료일까지
  * 그대로 살아 있다</b>. 화면에는 "변경되었습니다"가 뜨므로 사용자는 조치가 끝났다고 믿는다.
  * 평문 비교를 하지 않는 것(인코더 경유)도 여기서 확인한다.
  *
- * <p><b>둘, 참여 활동 조회가 N+1 이 아닌 것.</b> 활동은 멤버십마다 찾지 않고 id 를 모아 한 번에
+ * <p>
+ * <b>둘, 참여 활동 조회가 N+1 이 아닌 것.</b> 활동은 멤버십마다 찾지 않고 id 를 모아 한 번에
  * 읽는다. 프로필·마이페이지·공개 프로필 세 곳이 이 메서드를 공유하므로, 되돌아오면 활동을 많이
  * 한 유저의 프로필이 눈에 띄게 느려진다. 성능 회귀는 테스트가 잡지 않으면 아무도 못 잡는다.
  *
- * <p>덤으로 <b>팀장으로 만든 팀도 참여 활동에 들어간다</b>는 것을 고정한다 — '승인된 지원서'로
+ * <p>
+ * 덤으로 <b>팀장으로 만든 팀도 참여 활동에 들어간다</b>는 것을 고정한다 — '승인된 지원서'로
  * 세면 빠지는 값이라, 집계 기준이 {@code team_members} 라는 사실 자체가 계약이다.
  */
 class UserServiceTest {
@@ -82,12 +86,12 @@ class UserServiceTest {
         refreshTokenRepository = mock(RefreshTokenRepository.class);
 
         service = new UserService(userRepository, teamMemberRepository, collaborationScoreRepository,
-                eventRepository, matchingIntentSlotRepository, passwordEncoder, refreshTokenRepository);
+          eventRepository, matchingIntentSlotRepository, passwordEncoder, refreshTokenRepository);
 
         user = User.builder()
-                .id(USER_ID).name("나").email("me@example.com")
-                .password("ENCODED-OLD").school("메이트대").major("컴퓨터공학")
-                .build();
+          .id(USER_ID).name("나").email("me@example.com")
+          .password("ENCODED-OLD").school("메이트대").major("컴퓨터공학")
+          .build();
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(collaborationScoreRepository.findById(anyLong())).thenReturn(Optional.empty());
         when(matchingIntentSlotRepository.findByUserId(anyLong())).thenReturn(Optional.empty());
@@ -136,9 +140,9 @@ class UserServiceTest {
         @DisplayName("확인란이 다르면 조회도 인코더 호출도 없이 막힌다")
         void confirmMismatchShortCircuits() {
             assertThatThrownBy(() -> service.changePassword(USER_ID,
-                    request("현재비번", "새비밀번호1234", "오타비밀번호99")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
+              request("현재비번", "새비밀번호1234", "오타비밀번호99")))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
 
             verify(userRepository, never()).findById(anyLong());
             verify(passwordEncoder, never()).matches(anyString(), anyString());
@@ -155,9 +159,9 @@ class UserServiceTest {
             when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
             assertThatThrownBy(() -> service.changePassword(USER_ID,
-                    request("틀린비번", "새비밀번호1234", "새비밀번호1234")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
+              request("틀린비번", "새비밀번호1234", "새비밀번호1234")))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
 
             verify(userRepository, never()).save(any());
             verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
@@ -169,15 +173,15 @@ class UserServiceTest {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.changePassword(USER_ID,
-                    request("현재비번", "새비밀번호1234", "새비밀번호1234")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              request("현재비번", "새비밀번호1234", "새비밀번호1234")))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
 
         private void givenCurrentPasswordMatches() {
             when(passwordEncoder.matches("현재비번", "ENCODED-OLD")).thenReturn(true);
             when(passwordEncoder.encode(anyString()))
-                    .thenAnswer(invocation -> "ENCODED-" + invocation.getArgument(0));
+              .thenAnswer(invocation -> "ENCODED-" + invocation.getArgument(0));
         }
     }
 
@@ -189,13 +193,13 @@ class UserServiceTest {
         @DisplayName("활동은 멤버십마다 찾지 않고 한 번에 모아 읽는다 (N+1 방지)")
         void batchesEventLookup() {
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID)).thenReturn(List.of(
-                    membership(team(10L, "팀A", 100L), TeamMemberRole.MEMBER),
-                    membership(team(11L, "팀B", 101L), TeamMemberRole.MEMBER),
-                    membership(team(12L, "팀C", 102L), TeamMemberRole.LEADER)));
+              membership(team(10L, "팀A", 100L), TeamMemberRole.MEMBER),
+              membership(team(11L, "팀B", 101L), TeamMemberRole.MEMBER),
+              membership(team(12L, "팀C", 102L), TeamMemberRole.LEADER)));
             when(eventRepository.findAllById(any())).thenReturn(List.of(
-                    event(100L, Event.Category.CONTEST),
-                    event(101L, Event.Category.SCHOOL),
-                    event(102L, Event.Category.EXTERNAL)));
+              event(100L, Event.Category.CONTEST),
+              event(101L, Event.Category.SCHOOL),
+              event(102L, Event.Category.EXTERNAL)));
 
             service.getMyPage(USER_ID);
 
@@ -207,26 +211,26 @@ class UserServiceTest {
         @DisplayName("팀장으로 만든 팀도 참여 활동에 들어간다 ('승인된 지원서'로 세면 빠진다)")
         void includesTeamsILead() {
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID)).thenReturn(List.of(
-                    membership(team(10L, "내가 만든 팀", 100L), TeamMemberRole.LEADER),
-                    membership(team(11L, "지원해서 들어간 팀", 101L), TeamMemberRole.MEMBER)));
+              membership(team(10L, "내가 만든 팀", 100L), TeamMemberRole.LEADER),
+              membership(team(11L, "지원해서 들어간 팀", 101L), TeamMemberRole.MEMBER)));
             when(eventRepository.findAllById(any())).thenReturn(List.of(
-                    event(100L, Event.Category.CONTEST), event(101L, Event.Category.SCHOOL)));
+              event(100L, Event.Category.CONTEST), event(101L, Event.Category.SCHOOL)));
 
             assertThat(service.getMyPage(USER_ID).getParticipatedActivities())
-                    .extracting(MyPageResponseDTO.ActivitySummaryDTO::getTitle)
-                    .containsExactly("내가 만든 팀", "지원해서 들어간 팀");
+              .extracting(MyPageResponseDTO.ActivitySummaryDTO::getTitle)
+              .containsExactly("내가 만든 팀", "지원해서 들어간 팀");
         }
 
         @Test
         @DisplayName("연결 활동이 없는 자율 팀은 조회조차 하지 않고 카테고리가 '기타' 다")
         void standaloneTeamSkipsLookup() {
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID))
-                    .thenReturn(List.of(membership(team(10L, "자율 팀", null), TeamMemberRole.LEADER)));
+              .thenReturn(List.of(membership(team(10L, "자율 팀", null), TeamMemberRole.LEADER)));
 
             assertThat(service.getMyPage(USER_ID).getParticipatedActivities())
-                    .singleElement()
-                    .extracting(MyPageResponseDTO.ActivitySummaryDTO::getCategory)
-                    .isEqualTo("기타");
+              .singleElement()
+              .extracting(MyPageResponseDTO.ActivitySummaryDTO::getCategory)
+              .isEqualTo("기타");
 
             // eventIds 가 비면 리포지토리를 아예 부르지 않는다.
             verify(eventRepository, never()).findAllById(any());
@@ -236,13 +240,13 @@ class UserServiceTest {
         @DisplayName("활동 행이 사라진 팀도 목록에서 빠지지 않고 '기타' 로 표시된다")
         void missingEventFallsBackToEtc() {
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID))
-                    .thenReturn(List.of(membership(team(10L, "팀A", 100L), TeamMemberRole.MEMBER)));
+              .thenReturn(List.of(membership(team(10L, "팀A", 100L), TeamMemberRole.MEMBER)));
             when(eventRepository.findAllById(any())).thenReturn(List.of());
 
             assertThat(service.getMyPage(USER_ID).getParticipatedActivities())
-                    .singleElement()
-                    .extracting(MyPageResponseDTO.ActivitySummaryDTO::getCategory)
-                    .isEqualTo("기타");
+              .singleElement()
+              .extracting(MyPageResponseDTO.ActivitySummaryDTO::getCategory)
+              .isEqualTo("기타");
         }
 
         @Test
@@ -259,7 +263,7 @@ class UserServiceTest {
         @DisplayName("내 프로필과 마이페이지가 같은 집계를 쓴다 (두 화면의 숫자가 어긋날 수 없다)")
         void profileAndMyPageAgree() {
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID))
-                    .thenReturn(List.of(membership(team(10L, "팀A", null), TeamMemberRole.MEMBER)));
+              .thenReturn(List.of(membership(team(10L, "팀A", null), TeamMemberRole.MEMBER)));
 
             assertThat(service.getMyProfile(USER_ID).getParticipatedActivities()).hasSize(1);
             assertThat(service.getMyPage(USER_ID).getParticipatedActivities()).hasSize(1);
@@ -276,14 +280,14 @@ class UserServiceTest {
             when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getMyProfile(99L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
             assertThatThrownBy(() -> service.getMyPage(99L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
             assertThatThrownBy(() -> service.getPublicProfile(99L, USER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
 
         @Test
@@ -292,14 +296,13 @@ class UserServiceTest {
             when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getPublicProfile(99L, USER_ID))
-                    .isInstanceOf(MateonException.class);
+              .isInstanceOf(MateonException.class);
 
             verify(matchingIntentSlotRepository, never()).findByUserId(anyLong());
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private TeamMember membership(Team team, TeamMemberRole role) {
         return TeamMember.of(team, user, role);
     }
