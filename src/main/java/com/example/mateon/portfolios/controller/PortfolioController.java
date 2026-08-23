@@ -48,6 +48,7 @@ public class PortfolioController {
                     200 이다 — 그 저장은 캐시일 뿐 조회용 자원이 아니다.
 
                     확장자가 .pdf 가 아니거나 내용이 PDF 가 아니면 둘 다 INVALID_PDF_FILE 이다.""")
+    @ApiResponse(responseCode = "200", description = "마크다운 요약 문자열. 같은 PDF 면 저장된 요약을 그대로 돌려준다.")
     @ApiResponse(responseCode = "400",
       description = "INVALID_PDF_FILE — pdf 형식의 파일만 업로드할 수 있습니다.")
     @ApiResponse(responseCode = "413",

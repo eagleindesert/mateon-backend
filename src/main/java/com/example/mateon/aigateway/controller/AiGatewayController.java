@@ -39,6 +39,7 @@ public class AiGatewayController {
                           `POST /api/ai/chat/messages` 로 보낸다.
 
                           제목(`title`)은 첫 발화가 들어올 때 서버가 채우므로 여기서는 null 이다.""")
+    @ApiResponse(responseCode = "200", description = "만들어진 빈 대화 세션. title 과 lastMessage 는 null 이다.")
     @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PostMapping("/sessions")
     public ResponseEntity<BaseResponse<AiChatSessionSummaryDTO>> createSession(
@@ -68,6 +69,7 @@ public class AiGatewayController {
 
                           도메인이 정해지기 전의 되묻기 턴도 함께 온다(그런 줄은 `domain` 이 null 이다)
                           — 사용자 눈에는 그것도 자기가 나눈 대화다.""")
+    @ApiResponse(responseCode = "200", description = "그 대화 세션의 전체 대화. 시간순이다.")
     @ApiResponse(responseCode = "404",
       description = "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")
     @GetMapping("/sessions/{sessionId}")
@@ -104,6 +106,8 @@ public class AiGatewayController {
                           기존 `POST /api/matching/intents/messages` 도 그대로 동작하지만, 도메인
                           판정 없이 무조건 매칭으로 처리되고 대화 세션도 지정할 수 없으므로 신규 화면은
                           이쪽을 쓴다.""")
+    @ApiResponse(responseCode = "200",
+      description = "이 턴의 처리 결과. domain 으로 분기하고, MATCHING_INTENT 면 matching 이 함께 온다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다. / "
       + "AI_CHAT_SESSION_NOT_FOUND — 없는 대화이거나 내 대화가 아닙니다.")

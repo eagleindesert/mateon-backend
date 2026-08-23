@@ -57,6 +57,8 @@ public class BookmarkController {
                     본문도 같으므로(`bookmarked: true`) 상태코드를 구분하지 않아도 된다.
 
                     같은 활동을 여러 번 눌러도 안전하다(멱등).""")
+    @ApiResponse(responseCode = "200", description = "이미 찜한 상태였다. 본문은 201 일 때와 같다.")
+    @ApiResponse(responseCode = "201", description = "새로 찜했다. 본문은 bookmarked: true 다.")
     @ApiResponse(responseCode = "404", description = """
             EVENT_NOT_FOUND — 활동을 찾을 수 없습니다.
             USER_NOT_FOUND — 사용자를 찾을 수 없습니다.""")
@@ -82,6 +84,7 @@ public class BookmarkController {
       description = """
                     원래 찜하지 않았더라도 200 이다 — 결과 상태가 같으므로 실패로 볼 이유가 없다.
                     응답 본문은 항상 `bookmarked: false` 다.""")
+    @ApiResponse(responseCode = "200", description = "찜을 해제했다. 원래 없었어도 같은 응답이다(bookmarked: false).")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "eventId", description = "찜을 해제할 활동.")

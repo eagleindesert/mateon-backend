@@ -65,6 +65,7 @@ public class EventController {
 
                     등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.""")
     @PostMapping
+    @ApiResponse(responseCode = "201", description = "등록된 활동. 팀 모집글의 eventId 로 연결할 수 있다.")
     public ResponseEntity<BaseResponse<EventResponseDTO>> createEvent(
       @Valid @RequestBody EventRequestDTO request
     ) {
@@ -92,6 +93,7 @@ public class EventController {
 
                     읽어 내지 못한 항목은 null 이고, category·field 는 판독이 애매하면 ETC 로 온다 —
                     빈칸 없이 다 채워질 거라고 가정하지 말 것.""")
+    @ApiResponse(responseCode = "200", description = "포스터에서 뽑은 활동 등록 초안. 저장은 하지 않는다.")
     @ApiResponse(responseCode = "400",
       description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
     @ApiResponse(responseCode = "413",
@@ -192,6 +194,8 @@ public class EventController {
                     호출하면 `Deprecation`/`Sunset` 응답 헤더가 붙고 서버에 경고 로그가 남는다
                     (누가 아직 쓰는지 파악해 걷어내기 위한 것). 대체 방식이 정해지기 전까지
                     동작은 그대로 둔다.""")
+    @ApiResponse(responseCode = "200",
+      description = "카테고리별 1건씩의 추천 활동. Deprecation/Sunset 헤더가 함께 붙는다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "category", description = "생략하면 모든 카테고리에서 각각 1건씩 반환한다.")

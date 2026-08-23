@@ -35,6 +35,7 @@ public class UserController {
                     참여 활동까지 한 번에 실린다 (폐기 예정인 `/mypage` 와 같은 값).
 
                     대상은 토큰의 주인이라 경로에 userId 를 넣지 않는다.""")
+    @ApiResponse(responseCode = "200", description = "내 프로필. 협업 온도와 참여 활동까지 함께 실린다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/me")
@@ -51,6 +52,7 @@ public class UserController {
 
                     이메일·학교 인증 상태·비밀번호는 여기서 바꿀 수 없다
                     (비밀번호는 `POST /api/users/password/change`).""")
+    @ApiResponse(responseCode = "200", description = "수정 후의 내 프로필.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @PutMapping("/me")
@@ -74,6 +76,7 @@ public class UserController {
       deprecated = true,
       summary = "[폐기 예정] 마이페이지 종합 정보 조회",
       description = "GET /api/users/me 로 대체되었습니다. 같은 값을 모두 주므로 새 호출부는 /me 를 쓰세요.")
+    @ApiResponse(responseCode = "200", description = "마이페이지 종합 정보. /me 가 같은 값을 준다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @GetMapping("/mypage")
@@ -101,6 +104,7 @@ public class UserController {
 
                           자기 자신을 조회하면 isMe 가 true 로 온다. 매칭 의도 슬롯이나 협업 온도는
                           아직 없을 수 있고(의도 추출 전·평가 0건) 그때는 null 이다.""")
+    @ApiResponse(responseCode = "200", description = "연락처를 뺀 공개 프로필. 자기 자신이면 isMe 가 true 다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "userId", description = "조회할 사용자. 숫자만 받는다(/me 같은 리터럴 경로와 겹치지 않게 하기 위함).")
@@ -137,6 +141,7 @@ public class UserController {
 
                           형식·크기가 잘못된 파일은 접수 단계에서 400/413 으로 즉시 거절되므로,
                           200 을 받았다면 파일 자체에는 문제가 없다는 뜻이다.""")
+    @ApiResponse(responseCode = "200", description = "업로드를 접수했다. 새 URL 은 잠시 뒤 유저 조회로 확인한다.")
     @ApiResponse(responseCode = "400",
       description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
     @ApiResponse(responseCode = "413",
@@ -166,6 +171,7 @@ public class UserController {
 
                           이미지가 없는 상태에서 불러도 성공한다(멱등) — 요청이 원한 결과가
                           이미 그 상태이기 때문이다.""")
+    @ApiResponse(responseCode = "200", description = "삭제를 접수했다. 원래 이미지가 없어도 성공한다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @DeleteMapping("/me/profile-image")
@@ -181,6 +187,7 @@ public class UserController {
                           바꾸는 화면이라면 `POST /api/auth/password/change` 를 쓴다.
 
                           성공하면 저장된 refreshToken 이 폐기되므로 **다시 로그인해야 한다.**""")
+    @ApiResponse(responseCode = "200", description = "비밀번호를 바꿨다. 다시 로그인해야 한다. data 는 null 이다.")
     @ApiResponse(responseCode = "400",
       description = "PASSWORD_MISMATCH — 현재 비밀번호가 틀렸거나, 새 비밀번호와 확인값이 다릅니다.")
     @ApiResponse(responseCode = "404",

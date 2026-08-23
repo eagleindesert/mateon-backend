@@ -61,6 +61,7 @@ public class TeamController {
                     이 이름으로 읽고 있어 그대로 둔다.
 
                     토큰 없이도 호출할 수 있고, 그때 조회자 기준 필드는 false/null 로 내려간다.""")
+    @ApiResponse(responseCode = "200", description = "팀 모집글 상세.")
     @ApiResponse(responseCode = "400",
       description = "RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.")
     @SecurityRequirement(name = "")  // 비로그인 허용
@@ -80,6 +81,7 @@ public class TeamController {
                     학교 인증(재학생)이 완료된 유저만 쓸 수 있다 — 미인증이면 400 SCHOOL_NOT_VERIFIED.
                     작성자는 즉시 LEADER 로 팀원에 포함되므로 생성 직후 인원은 1명이다.
                     커밋 후 비동기로 AI 임베딩이 계산된다(추천에 쓰임).""")
+    @ApiResponse(responseCode = "201", description = "만들어진 팀 모집글.")
     @ApiResponse(responseCode = "400", description = """
             SCHOOL_NOT_VERIFIED — 학교 인증이 필요한 기능입니다.
             RESOURCE_NOT_FOUND — 연결하려는 활동을 찾을 수 없습니다.""")
@@ -96,6 +98,7 @@ public class TeamController {
 
     // 3. 팀 모집글 수정
     @Operation(summary = "팀 모집글 수정", description = "팀장만 가능(400 FORBIDDEN_ACCESS). AI 임베딩이 재계산된다.")
+    @ApiResponse(responseCode = "200", description = "수정된 팀 모집글.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 팀장만 수정할 수 있습니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -111,6 +114,7 @@ public class TeamController {
 
     // 4. 팀 모집글 삭제
     @Operation(summary = "팀 모집글 삭제", description = "팀장만 가능. 지원서·제안·팀원 소속이 함께 정리된다.")
+    @ApiResponse(responseCode = "200", description = "삭제 완료. data 에 안내 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 팀장만 삭제할 수 있습니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -128,6 +132,7 @@ public class TeamController {
       description = """
                     학교 인증 필요. 본인이 만든 팀에는 지원할 수 없고, 같은 팀에 두 번 지원할 수 없다.
                     지원서가 생길 뿐 팀원이 되지는 않는다 — 팀장 승인이 있어야 소속이 생긴다.""")
+    @ApiResponse(responseCode = "200", description = "지원 완료. data 에 안내 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             SCHOOL_NOT_VERIFIED — 학교 인증이 필요한 기능입니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.
@@ -161,6 +166,7 @@ public class TeamController {
                     지원 이력이지 팀원 명단이 아니다 — 역제안으로 합류한 사람은 지원서가 없어 여기
                     나타나지 않는다. 확정 팀원 명단이 필요하면 `GET /api/teams/{teamId}` 의
                     members 를 쓴다.""")
+    @ApiResponse(responseCode = "200", description = "이 팀에 온 지원서 목록. 없으면 빈 배열이다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 조회할 수 있습니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -180,6 +186,7 @@ public class TeamController {
 
                     PENDING 인 지원서에만 쓸 수 있다 — 이미 처리한 지원서를 다시 부르면
                     400 APPLICATION_ALREADY_PROCESSED. 승인을 되돌리는 용도가 아니다.""")
+    @ApiResponse(responseCode = "200", description = "처리 완료. data 에 승인/거절 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 처리할 수 있습니다.
             APPLICATION_ALREADY_PROCESSED — 이미 처리된 지원서입니다.
@@ -197,6 +204,7 @@ public class TeamController {
 
     // 9. 지원서 수정 (지원자용)
     @Operation(summary = "지원서 수정", description = "작성자 본인만, PENDING 상태에서만 가능.")
+    @ApiResponse(responseCode = "200", description = "수정 완료. data 에 안내 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 작성자 본인이 아니거나 이미 처리된 지원서입니다.
             RESOURCE_NOT_FOUND — 지원서를 찾을 수 없습니다.""")
@@ -212,6 +220,7 @@ public class TeamController {
 
     // 10. 지원 취소 (지원자용)
     @Operation(summary = "지원 취소", description = "작성자 본인만, PENDING 상태에서만 가능.")
+    @ApiResponse(responseCode = "200", description = "취소 완료. data 에 안내 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 작성자 본인이 아니거나 이미 처리된 지원서입니다.
             RESOURCE_NOT_FOUND — 지원서를 찾을 수 없습니다.""")
@@ -226,6 +235,7 @@ public class TeamController {
 
     // 11. [NEW] 지원서 상세 조회 (팀장 OR 지원자 본인만 가능)
     @Operation(summary = "지원서 상세 조회", description = "지원 당사자이거나 해당 팀의 팀장이어야 한다(400 FORBIDDEN_ACCESS).")
+    @ApiResponse(responseCode = "200", description = "지원서 상세.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 지원 당사자나 해당 팀의 팀장이 아닙니다.
             RESOURCE_NOT_FOUND — 지원서를 찾을 수 없습니다.""")

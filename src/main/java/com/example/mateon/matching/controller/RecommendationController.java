@@ -63,6 +63,7 @@ public class RecommendationController {
 
                           각 항목의 label 은 짧은 한 줄 요약이다. 긴 설명이 필요하면 카드를 고른
                           시점에 `POST /reason/user-to-team` 을 부른다.""")
+    @ApiResponse(responseCode = "200", description = "적합도순 팀 목록. 후보가 없으면 빈 배열이다.")
     @ApiResponse(responseCode = "400",
       description = "MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.")
     @ApiResponse(responseCode = "502",
@@ -110,6 +111,7 @@ public class RecommendationController {
 
                           팀 임베딩은 팀 생성·수정 후 비동기로 계산된다. 아직 안 끝났으면
                           400 TEAM_EMBEDDING_NOT_READY 이므로 잠시 후 다시 부르면 된다.""")
+    @ApiResponse(responseCode = "200", description = "적합도순 유저 목록. 후보가 없으면 빈 배열이다.")
     @ApiResponse(responseCode = "400", description = """
             TEAM_EMBEDDING_NOT_READY — 팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 재시도.
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
@@ -163,6 +165,7 @@ public class RecommendationController {
 
                           **선행 호출:** `GET /user-to-team`. 추천에 뜬 적 없는 팀이면
                           404 RECOMMENDATION_NOT_FOUND 다.""")
+    @ApiResponse(responseCode = "200", description = "왜 이 팀인지에 대한 긴 설명. 한 번 만들면 고정된다.")
     @ApiResponse(responseCode = "400", description = """
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -197,6 +200,7 @@ public class RecommendationController {
                           404 조건은 유저→팀 방향과 같다.
 
                           **선행 호출:** `GET /team-to-user`.""")
+    @ApiResponse(responseCode = "200", description = "왜 이 사람인지에 대한 긴 설명. 한 번 만들면 고정된다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 호출할 수 있습니다.
             MATCHING_INTENT_REQUIRED — 상대 유저의 매칭 의도 정보가 없습니다.

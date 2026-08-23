@@ -38,6 +38,8 @@ public class MatchingIntentController {
                           첫 호출이면 세션이 새로 만들어진다 — 별도의 "시작" API 는 없다.
                           완료 여부는 응답의 완료 플래그로 판단하고, 끝나야 추천 API 가
                           400 MATCHING_INTENT_REQUIRED 를 내지 않는다.""")
+    @ApiResponse(responseCode = "200",
+      description = "이 턴의 결과. assistantMessage 를 보여주고 completed 로 종료를 판단한다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @ApiResponse(responseCode = "502",

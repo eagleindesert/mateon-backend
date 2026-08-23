@@ -70,6 +70,7 @@ public class ProposalController {
                           적합도 점수의 출처가 추천 이력뿐이라, 추천에 뜬 적 없는 팀이면
                           404 RECOMMENDATION_NOT_FOUND 다. 추천을 거치지 않고 그냥 지원하려면
                           이 API 없이 곧바로 지원 API 를 쓰면 된다.""")
+    @ApiResponse(responseCode = "200", description = "저장하지 않은 지원 문구 초안. 호출할 때마다 새로 나온다.")
     @ApiResponse(responseCode = "400", description = """
             MATCHING_INTENT_REQUIRED — 먼저 매칭 의도 추출을 완료해주세요.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -103,6 +104,7 @@ public class ProposalController {
                           나온다. 사용자가 고친 뒤 `POST /api/teams/{teamId}/offers` 로 보낸다.
 
                           **선행 호출:** `GET /api/matching/recommendations/team-to-user`.""")
+    @ApiResponse(responseCode = "200", description = "저장하지 않은 제안 문구 초안. 호출할 때마다 새로 나온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 호출할 수 있습니다.
             MATCHING_INTENT_REQUIRED — 상대 유저의 매칭 의도 정보가 없습니다.

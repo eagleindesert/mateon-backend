@@ -43,6 +43,7 @@ public class TeamOfferController {
                     이미 팀원이거나, 지원서를 냈거나, 이미 제안을 받은 유저에게는 보낼 수 없다
                     (400 DUPLICATE_RESOURCE). AI 점수/근거는 요청 값이 아니라 서버가 추천 이력에서
                     찾아 넣으므로 본문에 담아 보낼 필요가 없다.""")
+    @ApiResponse(responseCode = "200", description = "보낸 제안. 상대가 수락할 때까지 PENDING 이다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 제안할 수 있습니다.
             DUPLICATE_RESOURCE — 이미 팀원·지원자이거나 제안을 받은 유저입니다.
@@ -67,6 +68,7 @@ public class TeamOfferController {
      * (팀장용) 이 팀이 보낸 제안 목록.
      */
     @Operation(summary = "(팀장용) 이 팀이 보낸 제안 목록", description = "최신순. 팀장만 조회할 수 있다.")
+    @ApiResponse(responseCode = "200", description = "이 팀이 보낸 제안 목록(최신순). 없으면 빈 배열이다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 조회할 수 있습니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
@@ -105,6 +107,8 @@ public class TeamOfferController {
 
                     이미 응답했거나 팀장이 회수한 제안이면 400 OFFER_ALREADY_RESPONDED,
                     그 사이 정원이 찼거나 활동이 끝났으면 400 TEAM_RECRUITMENT_CLOSED.""")
+    @ApiResponse(responseCode = "200",
+      description = "응답 후의 제안. status 가 ACCEPTED 또는 REJECTED 로 바뀐다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 나에게 온 제안이 아닙니다.
             OFFER_ALREADY_RESPONDED — 이미 처리된 제안입니다.
@@ -126,6 +130,7 @@ public class TeamOfferController {
      * (팀장용) 아직 응답받지 않은 제안 회수.
      */
     @Operation(summary = "(팀장용) 제안 회수", description = "아직 PENDING 인 제안만 회수할 수 있다.")
+    @ApiResponse(responseCode = "200", description = "회수 완료. data 에 안내 문구가 문자열로 들어온다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 이 팀의 팀장만 회수할 수 있습니다.
             OFFER_ALREADY_RESPONDED — 이미 처리된 제안입니다.
