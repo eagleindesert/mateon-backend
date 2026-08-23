@@ -181,6 +181,9 @@ Write-Host "`n===== 19) AI Gateway (AI 채팅 입구) =====" -ForegroundColor Ma
 #
 # 도메인 분류가 안 되는 서버(키 없음 등)에서는 도메인 값 단정을 스스로 건너뛰고 구조 계약만
 # 검증한다 — 그 상태를 실패로 잡으려면 개별 실행: pwsh -File .\19_ai_gateway.ps1 -StrictRouting
+#
+# 19.4b(스텁 문구 [stub#N] 확인)는 실패가 아니라 [WARN](주의)로 남는다. 스텁 없이 실제 LLM 으로
+# 돌리면 표시가 없는 게 정상이라, 아래 요약의 "주의" 목록에만 나오고 종료 코드에는 안 들어간다.
 & "$PSScriptRoot\19_ai_gateway.ps1"
 
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
@@ -189,4 +192,5 @@ Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 $failedCount = Write-TestSummary -From 0
 
 # 실패가 있으면 0 이 아닌 종료 코드로 종료 (CI 등에서 활용 가능)
+# 주의([WARN])는 실패로 세지 않는다 - 요약에 따로 나열될 뿐 종료 코드에는 영향이 없다.
 exit $failedCount

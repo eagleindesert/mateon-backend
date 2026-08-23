@@ -117,6 +117,8 @@ function Reset-TestResults {
 }
 
 # 성공/실패 개수와 실패 목록을 출력한다.
+#   Assert-Test -WarnOnly 로 남은 [WARN] 은 성공/실패와 나란히 "주의"(노랑)로 따로 센다.
+#   반환값(실패 개수 = 종료 코드)에는 들어가지 않는다.
 #   -From : 이 인덱스 이후의 결과만 요약한다. 기본값은 "이 스크립트가 시작된 시점"이라,
 #           개별 실행/99_run_all 실행 모두 별도 지정 없이 "이 스크립트만의" 요약이 나온다.
 #           전체 실행 총합을 보려면 -From 0 을 넘긴다(99_run_all.ps1 이 마지막에 이렇게 쓴다).
@@ -125,7 +127,10 @@ function Write-TestSummary {
     $results = @($global:MateonTestResults | Select-Object -Skip $From)
     $total   = $results.Count
     $failedItems = @($results | Where-Object { -not $_.Ok })
-    $passed  = $total - $failedItems.Count
+    # 주의(WARN): 조건은 어긋났지만 실패로 세지 않기로 한 항목. 성공과 따로 센다
+    # (전체 = 성공 + 주의 + 실패). 종료 코드는 실패 개수만 본다.
+    $warnItems   = @($results | Where-Object { $_.IsWarning })
+    $passed  = $total - $failedItems.Count - $warnItems.Count
 
     $expectedBlocks = @($results | Where-Object { $_.IsExpectedBlock -and $_.Ok })
 
@@ -135,6 +140,7 @@ function Write-TestSummary {
     Write-Host ("=" * 70) -ForegroundColor DarkGray
     Write-Host ("  전체: {0}" -f $total) -ForegroundColor White
     Write-Host ("  성공: {0}" -f $passed) -ForegroundColor Green
+    Write-Host ("  주의: {0}" -f $warnItems.Count) -ForegroundColor $(if ($warnItems.Count -gt 0) { "Yellow" } else { "Green" })
     Write-Host ("  실패: {0}" -f $failedItems.Count) -ForegroundColor $(if ($failedItems.Count -gt 0) { "Red" } else { "Green" })
 
     if ($expectedBlocks.Count -gt 0) {
@@ -142,6 +148,16 @@ function Write-TestSummary {
         Write-Host ("  정상 차단된 항목 ({0}개):" -f $expectedBlocks.Count) -ForegroundColor Cyan
         foreach ($b in $expectedBlocks) {
             Write-Host ("    - [{0}] {1}  ({2} {3})" -f $b.Status, $b.Title, $b.Method, $b.Path) -ForegroundColor Cyan
+        }
+    }
+
+    if ($warnItems.Count -gt 0) {
+        Write-Host ""
+        Write-Host ("  주의 - 실패로 세지 않았지만 확인이 필요한 항목 ({0}개):" -f $warnItems.Count) -ForegroundColor Yellow
+        foreach ($w in $warnItems) {
+            $line = "    - [{0}] {1}" -f $w.Status, $w.Title
+            if ($w.Detail) { $line += " - $($w.Detail)" }
+            Write-Host $line -ForegroundColor Yellow
         }
     }
 
@@ -155,7 +171,11 @@ function Write-TestSummary {
         }
     } else {
         Write-Host ""
-        Write-Host "  모든 테스트 통과 🎉" -ForegroundColor Green
+        if ($warnItems.Count -gt 0) {
+            Write-Host ("  실패 없음 - 주의 {0}건만 확인하세요 🎉" -f $warnItems.Count) -ForegroundColor Yellow
+        } else {
+            Write-Host "  모든 테스트 통과 🎉" -ForegroundColor Green
+        }
     }
     Write-Host ("=" * 70) -ForegroundColor DarkGray
 
@@ -331,21 +351,30 @@ function Assert-Test {
     param(
         [Parameter(Mandatory = $true)][string]$Title,
         [Parameter(Mandatory = $true)][bool]$Condition,
-        [string]$Detail
+        [string]$Detail,
+        # 조건이 틀려도 실패로 잡지 않고 [WARN](주의)으로 남긴다. 요약에서 성공/실패와 별도로
+        # 세고, 종료 코드에는 잡히지 않는다.
+        # 서버 환경에 따라 갈리는, 사람이 눈으로만 확인하면 되는 항목에 쓴다
+        # (예: 19.4b - 스텁이 아니라 실제 LLM 이 답했다면 표시가 없는 게 정상이다).
+        [switch]$WarnOnly
     )
     $ok    = [bool]$Condition
-    $tag   = if ($ok) { "PASS" } else { "FAIL" }
-    $color = if ($ok) { "Green" } else { "Red" }
+    $warn  = ((-not $ok) -and $WarnOnly)
+    $tag   = if ($ok) { "PASS" } elseif ($warn) { "WARN" } else { "FAIL" }
+    $color = if ($ok) { "Green" } elseif ($warn) { "Yellow" } else { "Red" }
     $line  = "  [$tag] $Title"
     if ($Detail) { $line += " - $Detail" }
     Write-Host $line -ForegroundColor $color
 
     $global:MateonTestResults.Add([pscustomobject]@{
-        Title  = $Title
-        Method = "ASSERT"
-        Path   = ""
-        Status = $tag
-        Ok     = $ok
+        Title     = $Title
+        Method    = "ASSERT"
+        Path      = ""
+        Status    = $tag
+        Detail    = $Detail
+        # 주의는 실패가 아니다 - 실패 목록/종료 코드에 잡히지 않는다(성공 개수와도 따로 센다).
+        Ok        = ($ok -or $warn)
+        IsWarning = $warn
     })
     return $ok
 }

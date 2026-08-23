@@ -24,6 +24,8 @@
 #       그래서 19.4 에서 먼저 탐지하고, 분류가 안 되는 환경이면 도메인 값 단정은 건너뛴다
 #       (구조 계약 — endpoint/matching/assistantMessage 의 관계 — 는 어느 분기든 검증한다).
 #       -StrictRouting 을 주면 그 경우도 FAIL 로 잡는다. 99_run_all 기본값은 관대한 쪽이다.
+#       같은 이유로 19.4b(스텁 문구 [stub#N] 확인)는 성공/실패가 아니라 [WARN](주의)으로만
+#       남는다 — 실제 LLM 을 붙여 돌리면 표시가 없는 게 정상이라 실패로 세면 안 된다.
 #   (2) 대화 세션을 나눠 쓴다. 게이트웨이는 "이 대화 세션에 진행 중인 작업이 정확히 하나면 분류를
 #       건너뛴다". 그래서 매칭 위임을 한 대화 세션에서 되묻기 분기를 검증하면 라우터를 아예
 #       안 타고 통과해 버린다. A 는 게이트웨이 직답 전용, B 는 위임 전용이다.
@@ -72,6 +74,7 @@ function Assert-TurnShape {
 
 # 라우터 스텁이 답한 문구에는 [stub#N] 이 박혀 있다. 없으면 게이트웨이의 기본 문구가 나간 것
 # (= LLM 이 문구를 안 줬거나 애초에 스텁까지 못 갔다).
+# 실제 LLM 을 붙이고 돌리면 당연히 표시가 없으므로, 이 검사는 실패가 아니라 주의로만 잡는다.
 function Test-FromStub {
     param($Turn)
     return [bool]($Turn.data.assistantMessage -match '\[stub#\d+\]')
@@ -158,8 +161,10 @@ Assert-Test -Title "19.4a domain=OUT_OF_SCOPE" -Condition ($oos.data.domain -eq 
     -Detail "domain=$($oos.data.domain)"
 
 if ($routerLive) {
-    Assert-Test -Title "19.4b 스텁이 답한 문구다 ([stub#N] 표시)" -Condition (Test-FromStub $oos) `
-        -Detail "표시가 없으면 게이트웨이 기본 문구이거나 실제 LLM 응답입니다"
+    # -WarnOnly: 표시가 없어도 실패가 아니라 [WARN](주의)로만 남는다. 실제 LLM 으로 돌리면 없는 게
+    # 정상이라, FAIL 로 잡으면 진짜 실패와 구분이 안 된다. 스텁으로 돌릴 의도였는지만 사람이 본다.
+    Assert-Test -Title "19.4b 스텁이 답한 문구다 ([stub#N] 표시)" -Condition (Test-FromStub $oos) -WarnOnly `
+        -Detail "표시가 없으면 게이트웨이 기본 문구이거나 실제 LLM 응답입니다 (스텁으로 돌릴 의도였는지 확인)"
 } else {
     Write-Host "  (i) 19.4b 스텁 문구 확인 - 분류가 폴백 중이라 건너뜁니다." -ForegroundColor DarkGray
 }
