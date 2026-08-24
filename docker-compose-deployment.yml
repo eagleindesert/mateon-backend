@@ -6,7 +6,7 @@
 #
 # 사용법 (배포 서버에서):
 #   1) 이 파일과 .env 를 서버로 복사한다. (.env 에는 MAIL/JWT/AI 시크릿 포함)
-#   2) DOCKERHUB_USERNAME / APP_IMAGE_TAG 를 .env 또는 셸 환경변수로 지정한다.
+#   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
 #   3) docker compose -f docker-compose-deployment.yml up -d
 #
 # 종료:  docker compose -f docker-compose-deployment.yml down
