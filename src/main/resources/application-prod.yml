@@ -1,6 +1,13 @@
-# 배포 프로필.
+# 운영 프로필 — 아직 이걸 켜는 환경이 없다.
 # ------------------------------------------------------------------------------
-# docker-compose-deployment.yml 의 app 서비스가 SPRING_PROFILES_ACTIVE=prod 로 켠다.
+# 운영 서버가 없어서 미리 만들어만 둔 프로필이다. 지금 배포돼 있는 서버는
+# docker-compose-deployment.yml 이 dev 로 띄운다. 운영 환경이 생기면 그 파일의
+# SPRING_PROFILES_ACTIVE 를 prod 로 바꾸는 것이 시작점이고, 그때 같이 챙길 것은
+# 그 파일의 주석에 목록으로 적어 뒀다.
+#
+# 그전까지 이 파일을 실제로 밟아 보는 유일한 경로는 로컬 스모크다:
+#   $env:SPRING_PROFILES_ACTIVE='prod'; ./gradlew bootRun
+# (CORS_ALLOWED_ORIGINS 가 없으면 아래 이유로 부팅이 막히는 게 정상이다.)
 #
 # 주의 — 이 파일의 값은 서버 .env 에 이길 수 없다. Spring 의 설정 우선순위에서 OS 환경변수가
 # 프로필 yml 보다 높은데, 배포 compose 는 env_file 로 .env 의 모든 키를 환경변수로 주입한다.
@@ -26,10 +33,12 @@ spring:
 
   jpa:
     # 운영 로그에 쿼리를 흘리지 않는다. 양도 문제지만 WHERE 절에 실린 값이 그대로 남는다.
-    show-sql: false
+    # dev 와 같은 스위치를 두되 기본값만 뒤집는다 — 운영에서 잠깐 켜야 할 일이 생기면
+    # .env 에 JPA_SHOW_SQL=true 를 주고 되돌린다(LOG_LEVEL_SQL=DEBUG 와 짝으로).
+    show-sql: "${JPA_SHOW_SQL:false}"
     properties:
       hibernate:
-        format_sql: false
+        format_sql: "${JPA_SHOW_SQL:false}"
 
 # 허용 오리진 (REST + STOMP 핸드셰이크 공통, CorsProperties 가 읽는다).
 #
@@ -58,7 +67,12 @@ debug.oauth.enabled: "${DEBUG_OAUTH_ENABLED:false}"
 logging:
   level:
     root: INFO
-    com.example.mateon: INFO
+    # dev 와 같은 이름의 스위치를 두되 기본값만 뒤집는다. 장애 조사로 잠깐 올릴 때
+    # .env 에 LOG_LEVEL_APP=DEBUG 를 주고, 끝나면 지운다.
+    com.example.mateon: "${LOG_LEVEL_APP:INFO}"
+    # SQL 로거. JPA_SHOW_SQL 만 켜면 System.out 쪽만 열리므로 이쪽도 같이 있어야
+    # 운영에서 쿼리를 볼 수 있다. 기본은 당연히 닫혀 있다.
+    org.hibernate.SQL: "${LOG_LEVEL_SQL:INFO}"
 
 springdoc:
   swagger-ui:

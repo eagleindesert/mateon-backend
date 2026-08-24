@@ -6,8 +6,11 @@ spring:
   # debug.* 스위치가 맡는데, 운영에서 잠깐 디버그를 켜자고 프로필을 바꾸면 CORS·로그·커넥션 풀까지
   # 통째로 딸려 오기 때문이다. 두 축은 서로 직교한다.
   #
-  # 아무것도 주지 않으면 dev 다 — bootRun/IDE 실행이 무설정으로 돌아야 하고, 배포는
-  # docker-compose-deployment.yml 이 SPRING_PROFILES_ACTIVE=prod 를 명시하므로 헷갈릴 일이 없다.
+  # 아무것도 주지 않으면 dev 다 — bootRun/IDE 실행이 무설정으로 돌아야 한다.
+  #
+  # prod 는 아직 쓰는 환경이 없다. 운영 서버가 없어서 미리 만들어만 둔 프로필이고,
+  # 지금 배포돼 있는 서버(docker-compose-deployment.yml)도 dev 로 돈다.
+  # 그래서 "dev = 로컬" 이 아니라 "dev = 아직 운영이 아닌 전부" 로 읽어야 한다.
   profiles:
     default: dev
 
@@ -31,7 +34,10 @@ spring:
     # 같이 옮겨 뒀다.
 
   # JPA 설정
-  # show-sql / format_sql 은 프로필별로 나뉜다 (dev 만 켠다).
+  # show-sql / format_sql 은 프로필이 기본값만 정하고(dev true / prod false), 실제 on/off 는
+  # .env 의 JPA_SHOW_SQL 이 쥔다. 배포된 서버가 dev 프로필로 도는 동안 프로필을 갈아끼우지
+  # 않고 SQL 로그만 끄기 위한 것이다. 같은 이유로 로그 레벨에는 LOG_LEVEL_APP /
+  # LOG_LEVEL_SQL 이 있다 — 셋은 보통 같이 움직인다.
   jpa:
     # open-in-view=false 는 필수다. true(기본값)면 EntityManager 가 요청이 끝날 때까지 살아 있는데,
     # SSE 구독(/api/notifications/subscribe)은 최대 notification.sse-timeout(기본 1시간)짜리

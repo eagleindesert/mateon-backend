@@ -46,21 +46,47 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 
 | 프로필 | 설정 파일 | 언제 |
 | --- | --- | --- |
-| `dev` | [application-dev.yml](src/main/resources/application-dev.yml) | 기본값. `bootRun` / IDE 실행은 아무 설정 없이 여기로 옵니다 |
-| `prod` | [application-prod.yml](src/main/resources/application-prod.yml) | [docker-compose-deployment.yml](docker-compose-deployment.yml) 이 `SPRING_PROFILES_ACTIVE=prod` 로 켭니다 |
+| `dev` | [application-dev.yml](src/main/resources/application-dev.yml) | 기본값. `bootRun` / IDE 실행은 아무 설정 없이 여기로 오고, **배포 서버도 지금은 이 프로필로 돕니다** |
+| `prod` | [application-prod.yml](src/main/resources/application-prod.yml) | **아직 켜는 곳이 없습니다** (아래 참고) |
 | `test` | [application-test.yml](src/test/resources/application-test.yml) | `IntegrationTestBase` 의 `@ActiveProfiles("test")` |
+
+> **`prod` 는 미리 만들어만 둔 프로필입니다.** 운영 환경이 아직 없고,
+> [docker-compose-deployment.yml](docker-compose-deployment.yml) 이 띄우는 서버는 "배포된 개발
+> 서버" 라서 `SPRING_PROFILES_ACTIVE: dev` 로 돕니다. 그래서 `dev` 는 "로컬" 이 아니라
+> "아직 운영이 아닌 전부" 로 읽어야 합니다.
+>
+> 운영이 생기면 그 파일의 `SPRING_PROFILES_ACTIVE` 를 `prod` 로 바꾸는 것이 시작점이고,
+> 그때 같이 챙길 것은 해당 줄의 주석에 목록으로 적어 뒀습니다.
+> 그전까지 `prod` 를 실제로 밟아 보는 유일한 경로는 로컬 스모크입니다:
+>
+> ```powershell
+> $env:SPRING_PROFILES_ACTIVE='prod'; ./gradlew bootRun
+> ```
 
 공통 설정은 [application.yml](src/main/resources/application.yml) 에 남아 있고,
 프로필 파일은 **환경마다 달라야 하는 것만** 덮어씁니다.
+다만 프로필은 *기본값*만 정합니다 — 아래 항목은 전부 `.env` 로 뒤집을 수 있습니다.
+배포 서버가 `dev` 로 도는 동안 프로필을 갈아끼우지 않고 로그만 끌 수 있어야 하기 때문입니다.
 
-| 항목 | dev | prod |
-| --- | --- | --- |
-| SQL 로그 (`show-sql`) | 켬 | 끔 |
-| 로그 레벨 (`com.example.mateon`) | `DEBUG` | `INFO` |
-| CORS 허용 오리진 | `*` (전체 허용) | `CORS_ALLOWED_ORIGINS` **필수** |
-| 디버그 컨트롤러 (`/debug/**`) | 등록 | 미등록 |
-| Docker Compose 자동 기동 | 켬 | 끔 |
-| 커넥션 풀 크기 | 10 | 20 |
+| 항목 | dev 기본 | prod 기본 | 덮어쓰는 `.env` 키 |
+| --- | --- | --- | --- |
+| SQL 로그 (`show-sql`) | 켬 | 끔 | `JPA_SHOW_SQL` |
+| SQL 로거 (`org.hibernate.SQL`) | `DEBUG` | `INFO` | `LOG_LEVEL_SQL` |
+| 앱 로그 레벨 (`com.example.mateon`) | `DEBUG` | `INFO` | `LOG_LEVEL_APP` |
+| CORS 허용 오리진 | `*` (전체 허용) | 기본값 없음 (누락 시 부팅 실패) | `CORS_ALLOWED_ORIGINS` |
+| 디버그 컨트롤러 (`/debug/**`) | 등록 | 미등록 | `DEBUG_OAUTH_ENABLED` |
+| 커넥션 풀 크기 | 10 | 20 | `DB_POOL_SIZE` |
+| Docker Compose 자동 기동 | 켬 | 끔 | — (프로필 전용) |
+
+> SQL 을 완전히 끄려면 **`JPA_SHOW_SQL` 하나로는 부족합니다.** 같은 쿼리를 두 곳이 찍기
+> 때문입니다 — `show-sql` 은 `System.out` 으로, `org.hibernate.SQL` 은 로거로. 그래서 서버를
+> 조용히 시킬 때는 세 개를 세트로 줍니다:
+>
+> ```dotenv
+> JPA_SHOW_SQL=false
+> LOG_LEVEL_SQL=INFO
+> LOG_LEVEL_APP=INFO
+> ```
 
 ## 환경 변수 (.env)
 
@@ -120,11 +146,18 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 | `CORS_ALLOWED_ORIGINS` | **prod 만** ✅ | `*` | — | 허용 오리진. 콤마 구분, 스킴·포트까지 정확히. REST 와 STOMP 핸드셰이크가 같은 값을 씁니다 |
 | `DEBUG_OAUTH_ENABLED` | | `true` | `false` | 카카오 인가코드 수신 컨트롤러(`/debug/**`) 등록 여부. `false` 면 빈 미등록 → 404 |
 | `SWAGGER_UI_ENABLED` | | `true` | `true` | Swagger UI 노출. `false` 로 닫아도 `/v3/api-docs` 는 계속 열려 있습니다 |
+| `JPA_SHOW_SQL` | | `true` | `false` | 실행 쿼리를 `System.out` 으로. `format_sql` 도 같은 값을 봅니다 |
+| `LOG_LEVEL_SQL` | | `DEBUG` | `INFO` | `org.hibernate.SQL` 로거. `JPA_SHOW_SQL` 과 짝으로 움직입니다 |
+| `LOG_LEVEL_APP` | | `DEBUG` | `INFO` | `com.example.mateon` 로거 |
 
 > `CORS_ALLOWED_ORIGINS` 는 prod 에서 기본값이 없습니다. 값이 없으면
 > `CorsProperties.validateAllowedOrigins()` 가 부팅을 막습니다 — 전체 허용으로 조용히 뜨는 것보다
 > 낫기 때문입니다(`allowCredentials(true)` + `*` 는 아무 사이트나 로그인된 사용자 자격으로
 > 이 API 를 호출할 수 있다는 뜻입니다).
+>
+> ⚠️ **이 안전망은 `prod` 프로필에만 있습니다.** 배포 서버는 지금 `dev` 로 돌기 때문에
+> (기본값이 `*`), 키 이름에 오타가 나거나 줄이 사라져도 부팅이 막히지 않고 조용히 전체 허용이
+> 됩니다. 오리진을 좁혀 뒀다면 서버에서 값이 실제로 먹었는지 직접 확인하세요.
 >
 > ```dotenv
 > CORS_ALLOWED_ORIGINS=https://mateon.example.com,https://www.mateon.example.com
@@ -178,10 +211,25 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 | `PGADMIN_DEFAULT_EMAIL` / `_PASSWORD` | `admin@admin.com` / `admin` | pgAdmin 로그인 |
 | `PGADMIN_PORT` | `5050` | |
 
-`SPRING_PROFILES_ACTIVE` 는 `.env` 가 아니라 compose 의 `environment:` 에 `prod` 로 박혀 있습니다.
+`SPRING_PROFILES_ACTIVE` 는 `.env` 가 아니라 compose 의 `environment:` 에 박혀 있습니다.
+지금 값은 `prod` 가 아니라 **`dev`** 입니다 — 운영 환경이 아직 없기 때문입니다
+([프로필](#프로필-dev--prod) 참고).
 
-> ⚠️ 로컬 `.env` 를 배포 서버로 그대로 복사하지 마세요. `CORS_ALLOWED_ORIGINS` 가 없어 부팅이
-> 막히고, `DEBUG_OAUTH_ENABLED=true` 가 딸려 가면 디버그 컨트롤러가 운영에 열립니다.
+그래서 배포 서버에는 `dev` 기본값을 눌러 줄 키를 같이 넣습니다:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://mateon.example.com   # dev 기본값 "*" 를 좁힌다
+JPA_SHOW_SQL=false                                 # SQL 로그 끄기 (아래 로거와 세트)
+LOG_LEVEL_SQL=INFO
+LOG_LEVEL_APP=INFO
+DEBUG_OAUTH_ENABLED=true                           # 서버에서 카카오 인가코드를 받을 때만
+```
+
+> ⚠️ 로컬 `.env` 를 배포 서버로 그대로 복사하지 마세요. 시크릿이 섞이는 것도 문제지만,
+> 위 키가 빠진 채로 올라가면 서버가 `dev` 기본값 그대로 — CORS 전체 허용에 SQL 로그까지 —
+> 돌게 됩니다. `prod` 와 달리 그 상태로도 부팅은 멀쩡히 되므로 알아챌 단서가 없습니다.
+>
+> 컨테이너 로그 자체는 compose 의 `logging:` 이 10MB × 3 으로 돌려 디스크가 차는 것만 막습니다.
 
 ### `./scripts/docker/.env` — 배포 스크립트용
 
