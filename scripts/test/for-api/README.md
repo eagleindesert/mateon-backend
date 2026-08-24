@@ -158,32 +158,28 @@ Get-SlotUserId "B"      # 슬롯 B 의 userId (JWT subject) — 평가 대상 �
 200(실패)으로 뜹니다. 이건 회귀가 아니라 **잔존 데이터 때문에 전제가 깨진 것**이니, 다시
 검증하려면 DB 를 초기화하세요.
 
-DB 를 초기화한 뒤에는 반드시 아래 순서를 지키세요. `99_run_all.ps1` 은 로그인만 시도할 뿐
-가입을 하지 않으므로(`-LoginOnly`), 계정이 없는 상태에서 곧장 돌리면 2단계(유저 준비)부터
-전부 실패합니다.
-
 ```powershell
-# 1) DB 초기화 (전체 테이블 정리 - 로컬/테스트 서버 전용). 아래 SQL 을 psql/pgAdmin 으로 실행.
-
-# 2) 유저 A·B·C 재가입 (각각 이메일 인증코드 수동 입력)
-pwsh -File .\auth\09_three_users.ps1
-
-# 3) 전체 순차 실행
+# 1) DB 초기화 (아래 SQL 을 psql/pgAdmin 으로 실행 — users 는 보존되므로 재가입 불필요)
+# 2) 전체 순차 실행
 pwsh -File .\99_run_all.ps1
 ```
 
 ```sql
 -- ================================================================
---  전체 테스트 데이터 초기화 SQL  (로컬/테스트 서버 전용 - 프로덕션 금지)
---  db/migration/V1~V23 기준 애플리케이션 테이블 전체를 비운다.
---  flyway_schema_history 는 마이그레이션 이력이므로 대상에서 제외한다.
+--  테스트 데이터 초기화 SQL (로컬/테스트 서버 전용)
+--  users(계정 정보)는 남겨두어 수동 재가입(이메일 인증) 없이 즉시 테스트 가능하며,
+--  매칭/AI채팅/팀/활동 등 잔존 테스트 데이터만 깔끔히 비운다.
 --  TRUNCATE ... CASCADE 라 FK 순서를 신경 쓸 필요는 없다.
 -- ================================================================
 TRUNCATE TABLE
+    ai_chat_messages,
+    ai_chat_sessions,
+    ai_domain_tasks,
     chat_messages,
     chat_room_members,
     chat_rooms,
     email_verifications,
+    event_bookmarks,
     events,
     matching_intent_messages,
     matching_intent_sessions,
@@ -201,8 +197,8 @@ TRUNCATE TABLE
     teams,
     user_collaboration_scores,
     user_embeddings,
+    user_portfolios,
     user_to_team_recommendation_items,
-    user_to_team_recommendation_logs,
-    users
+    user_to_team_recommendation_logs
 RESTART IDENTITY CASCADE;
 ```
