@@ -1,7 +1,7 @@
 package com.example.mateon.chat.config;
 
+import com.example.mateon.common.config.CorsProperties;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -16,10 +16,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
-
-    // SecurityConfig 의 CORS 디버그 플래그와 동일한 키를 공유한다 (.env 의 debug.enabled=true 로 활성화).
-    @Value("${debug.enabled:false}")
-    private boolean debugEnabled;
+    private final CorsProperties corsProperties;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
@@ -31,12 +28,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
           .withSockJS(); // SockJS fallback: /ws-stomp/**
     }
 
+    /**
+     * 허용 오리진은 REST 와 같은 값을 쓴다 ({@link CorsProperties}).
+     *
+     * <p>
+     * setAllowedOrigins 가 아니라 setAllowedOriginPatterns 인 이유는 SecurityConfig 쪽과 같다 —
+     * 정확한 오리진도 패턴으로 매칭되고, 로컬 기본값 "*" 는 Patterns 여야만 쓸 수 있다.
+     */
     private StompWebSocketEndpointRegistration applyAllowedOrigins(StompWebSocketEndpointRegistration registration) {
-        if (debugEnabled) {
-            // allowCredentials 와 함께 와일드카드를 쓰려면 Origins 가 아닌 OriginPatterns 를 사용해야 한다.
-            return registration.setAllowedOriginPatterns("*");
-        }
-        return registration.setAllowedOrigins("http://localhost:3000", "http://localhost:5173");
+        return registration.setAllowedOriginPatterns(
+          corsProperties.getAllowedOrigins().toArray(String[]::new));
     }
 
     @Override

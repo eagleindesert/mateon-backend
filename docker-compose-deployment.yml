@@ -26,6 +26,9 @@ services:
     env_file:
       - .env
     environment:
+      # 배포 프로필. 이게 없으면 application.yml 의 spring.profiles.default 에 따라 dev 로 뜬다
+      # (SQL 전문 로그 + CORS 전체 허용). 반드시 명시한다.
+      SPRING_PROFILES_ACTIVE: prod
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}

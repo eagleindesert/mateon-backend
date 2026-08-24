@@ -2,21 +2,23 @@ spring:
   application:
     name: mateon
 
+  # 프로필은 "환경"만 가른다 — dev(로컬)와 prod(배포) 둘뿐이다. 디버그 기능은 프로필이 아니라
+  # debug.* 스위치가 맡는데, 운영에서 잠깐 디버그를 켜자고 프로필을 바꾸면 CORS·로그·커넥션 풀까지
+  # 통째로 딸려 오기 때문이다. 두 축은 서로 직교한다.
+  #
+  # 아무것도 주지 않으면 dev 다 — bootRun/IDE 실행이 무설정으로 돌아야 하고, 배포는
+  # docker-compose-deployment.yml 이 SPRING_PROFILES_ACTIVE=prod 를 명시하므로 헷갈릴 일이 없다.
+  profiles:
+    default: dev
+
   # 로컬 개발 시 .env 파일에서 값을 읽어옵니다 (없으면 무시).
   # Docker 환경에서는 docker-compose 의 env_file/environment 로 주입됩니다.
   # 대괄호가 YAML 의 flow 시퀀스로 해석되지 않도록 따옴표로 감싼다.
   config:
     import: "optional:file:.env[.properties]"
 
-  # Docker Compose 지원 (로컬 개발용 인프라 자동 기동)
-  # bootRun 시 docker-compose.yml 의 postgres/pgadmin 을 자동으로 up 하고,
-  # datasource 접속 정보는 postgres 서비스에서 자동 연결됩니다.
-  # 파일 경로는 지정하지 않는다 — docker-compose.yml 은 Boot 이 작업 디렉터리에서
-  # 자동 탐지하는 기본 이름이다. 같은 파일의 app 서비스는 "app" 프로파일에 묶여 있어
-  # 여기서 함께 뜨지 않는다(앱은 Gradle 이 실행하므로 포트가 겹친다).
-  docker:
-    compose:
-      lifecycle-management: start_and_stop
+  # Docker Compose 지원(로컬 인프라 자동 기동)은 application-dev.yml 로 옮겼다.
+  # spring-boot-docker-compose 가 developmentOnly 의존성이라 배포 JAR 에는 아예 없다.
 
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -24,17 +26,13 @@ spring:
     username: "${SPRING_DATASOURCE_USERNAME:admin}"
     password: "${SPRING_DATASOURCE_PASSWORD:admin}"
 
-    # 커넥션 풀 (HikariCP)
-    # leak-detection-threshold: 이 시간 넘게 반납되지 않은 커넥션이 있으면 "빌려간 지점의 스택트레이스"를
-    #   경고 로그로 찍는다. 커넥션 누수는 증상(풀 고갈)만으로는 범인을 못 찾기 때문에 반드시 켜 둔다.
-    #   운영 중 커넥션을 실제로 오래 쓰는 정상 작업이 없으므로 오탐 부담도 없다.
-    hikari:
-      leak-detection-threshold: "${DB_LEAK_DETECTION_MS:20000}"
-      maximum-pool-size: "${DB_POOL_SIZE:20}"
+    # 커넥션 풀(HikariCP) 설정은 프로필별로 나뉜다 — application-dev.yml / application-prod.yml.
+    # 풀 크기가 환경마다 다르고(로컬은 Postgres 컨테이너 하나), 그 옆에 붙는 누수 감지 주석도
+    # 같이 옮겨 뒀다.
 
   # JPA 설정
+  # show-sql / format_sql 은 프로필별로 나뉜다 (dev 만 켠다).
   jpa:
-    show-sql: false
     # open-in-view=false 는 필수다. true(기본값)면 EntityManager 가 요청이 끝날 때까지 살아 있는데,
     # SSE 구독(/api/notifications/subscribe)은 최대 notification.sse-timeout(기본 1시간)짜리
     # async 요청이라 그동안 DB 커넥션이
@@ -46,9 +44,6 @@ spring:
       # 스키마는 Flyway 가 관리한다. Hibernate 는 엔티티↔실제 스키마 불일치를
       # 부팅 시 검증만 하고(validate), 절대 스키마를 변경하지 않는다.
       ddl-auto: validate
-    properties:
-      hibernate:
-        format_sql: true
 
   # Flyway (DB 마이그레이션)
   # baseline-on-migrate: 기존 데이터가 있는 DB(클라우드)는 V1 을 "이미 적용됨"으로
@@ -194,9 +189,9 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
-    # UI 노출은 환경변수로 끌 수 있다. 운영에서 닫으려면 SWAGGER_UI_ENABLED=false 를 준다
-    # (/v3/api-docs 자체는 살아 있어 프론트가 스키마를 계속 받아볼 수 있다).
-    enabled: "${SWAGGER_UI_ENABLED:true}"
+    # UI 노출 여부(enabled)는 프로필별로 나뉜다 — application-dev.yml / application-prod.yml.
+    # 어느 쪽이든 SWAGGER_UI_ENABLED 로 덮을 수 있고, /v3/api-docs 자체는 이 값과 무관하게
+    # 계속 살아 있어 프론트가 스키마를 받아볼 수 있다.
   # 스키마 안에서 필드 순서를 DTO 선언 순서가 아닌 알파벳순으로 고정 — diff 가 안정된다.
   writer-with-order-by-keys: true
 

@@ -62,6 +62,9 @@ services:
     env_file:
       - .env
     environment:
+      # 기본값이 dev 라 없어도 결과는 같지만, 배포 파일(docker-compose-deployment.yml)과
+      # 나란히 놓고 볼 때 차이가 드러나도록 명시해 둔다.
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin

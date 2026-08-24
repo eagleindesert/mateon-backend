@@ -1,0 +1,66 @@
+# 로컬 개발 프로필.
+# ------------------------------------------------------------------------------
+# SPRING_PROFILES_ACTIVE 를 주지 않으면 이 프로필이다 (application.yml 의 spring.profiles.default).
+# 즉 bootRun / IDE 실행은 아무 설정 없이 여기로 온다.
+#
+# 여기 있는 값은 전부 "환경이 달라서" 다른 것들이다. 도메인 규칙(평가 기간, 임베딩 차원 등)이나
+# 시크릿은 application.yml 과 .env 가 계속 맡는다 — 프로필 파일에 시크릿을 넣지 않는다.
+# ------------------------------------------------------------------------------
+spring:
+  # bootRun 시 docker-compose.yml 의 postgres/pgadmin 을 자동으로 up 하고, datasource 접속
+  # 정보는 postgres 서비스에서 자동 연결된다. 앱 종료 시 stop 까지 한다(start_and_stop).
+  #
+  # 파일 경로는 지정하지 않는다 — docker-compose.yml 은 Boot 이 작업 디렉터리에서 자동 탐지하는
+  # 기본 이름이다. 같은 파일의 app 서비스는 "app" 프로파일에 묶여 있어 여기서 함께 뜨지 않는다
+  # (앱은 Gradle 이 실행하므로 포트가 겹친다).
+  #
+  # prod 에는 대응 항목이 없다. spring-boot-docker-compose 가 developmentOnly 의존성이라
+  # 배포 JAR 에 애초에 들어가지 않고, 런타임 이미지 안에는 compose 파일도 docker CLI 도 없다.
+  docker:
+    compose:
+      lifecycle-management: start_and_stop
+
+  datasource:
+    # 커넥션 풀 (HikariCP)
+    # leak-detection-threshold: 이 시간 넘게 반납되지 않은 커넥션이 있으면 "빌려간 지점의
+    #   스택트레이스"를 경고 로그로 찍는다. 커넥션 누수는 증상(풀 고갈)만으로는 범인을 못 찾기
+    #   때문에 반드시 켜 둔다. 커넥션을 실제로 오래 쓰는 정상 작업이 없으므로 오탐 부담도 없다.
+    # 로컬은 나 혼자 쓰는 컨테이너 하나라 풀을 크게 잡을 이유가 없다.
+    hikari:
+      leak-detection-threshold: "${DB_LEAK_DETECTION_MS:20000}"
+      maximum-pool-size: "${DB_POOL_SIZE:10}"
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# 허용 오리진 (REST + STOMP 핸드셰이크 공통, CorsProperties 가 읽는다).
+#
+# 로컬은 오리진이 일정하지 않다 — file:// 로 연 chat-client.js, 포트가 매번 바뀌는 Vite,
+# 스크립트가 임의 Origin 헤더로 보내는 preflight 점검까지 있다. 그래서 기본이 전체 허용이고,
+# 이건 예전 debug.enabled=true 가 주던 동작 그대로다.
+# 특정 오리진만으로 좁혀 시험하려면 .env 에 CORS_ALLOWED_ORIGINS 를 준다.
+cors:
+  allowed-origins: "${CORS_ALLOWED_ORIGINS:*}"
+
+# 디버그 기능 스위치. 프로필이 기본값만 정하고, 켜고 끄는 건 환경변수로 언제든 뒤집을 수 있다.
+#
+# 중첩이 아니라 평평한 키로 적는다 — Spring Boot 의 예약 프로퍼티 debug(boolean)와 자리가
+# 겹쳐서, 여기에 매핑을 두면 에디터가 타입 충돌로 잡는다. 해석 방식은 두 표기가 같다.
+# 카카오 인가코드 수신용 로컬 컨트롤러(OAuthDebugController)를 빈으로 등록한다.
+# false 면 @ConditionalOnProperty 에 걸려 미등록 → /debug/** 는 404 다.
+debug.oauth.enabled: "${DEBUG_OAUTH_ENABLED:true}"
+
+logging:
+  level:
+    com.example.mateon: DEBUG
+    org.hibernate.SQL: DEBUG
+    # 바인딩 파라미터(? 자리에 실제로 들어간 값)까지 보려면 아래 주석을 푼다.
+    # 평소에는 로그가 읽을 수 없을 만큼 길어진다.
+    # org.hibernate.orm.jdbc.bind: TRACE
+
+springdoc:
+  swagger-ui:
+    enabled: "${SWAGGER_UI_ENABLED:true}"

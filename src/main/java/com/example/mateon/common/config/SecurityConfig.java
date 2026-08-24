@@ -3,7 +3,6 @@ package com.example.mateon.common.config;
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,10 +27,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    // 로컬/개발 환경에서 모든 오리진을 허용하기 위한 디버그 플래그 (.env 의 debug.enabled=true 로 활성화)
-    @Value("${debug.enabled:false}")
-    private boolean debugEnabled;
+    private final CorsProperties corsProperties;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -92,15 +88,18 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * REST API 의 CORS 정책. 허용 오리진은 {@link CorsProperties} 가 프로필에서 받아 온다.
+     *
+     * <p>
+     * setAllowedOrigins 가 아니라 setAllowedOriginPatterns 인 이유: 정확한 오리진 문자열도
+     * 패턴으로 그대로 매칭되고, 로컬 기본값인 "*" 는 allowCredentials(true) 와 함께 쓰려면
+     * 반드시 Patterns 여야 한다. 한쪽 코드로 양쪽을 다 처리하려고 이걸 택했다.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        if (debugEnabled) {
-            // allowCredentials(true) 와 함께 와일드카드를 쓰려면 Origins 가 아닌 OriginPatterns 를 사용해야 한다.
-            configuration.setAllowedOriginPatterns(List.of("*"));
-        } else {
-            configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
-        }
+        configuration.setAllowedOriginPatterns(corsProperties.getAllowedOrigins());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

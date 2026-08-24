@@ -1,0 +1,22 @@
+# 테스트 프로필 (IntegrationTestBase 의 @ActiveProfiles("test") 가 켠다).
+# ------------------------------------------------------------------------------
+# 테스트는 dev/prod 어느 쪽에도 딸려 가지 않는다. spring.profiles.default 가 dev 라서
+# 이걸 지정하지 않으면 통합 테스트가 dev 설정(SQL 전문 로그, 디버그 컨트롤러 등록)을 집는데,
+# 그러면 dev 기본값을 바꿀 때마다 테스트 환경이 같이 흔들리고 출력도 SQL 로 뒤덮인다.
+#
+# DB 접속 정보는 여기 없다 — Testcontainers 의 @ServiceConnection 이 주입한다.
+# ------------------------------------------------------------------------------
+spring:
+  jpa:
+    show-sql: false
+
+cors:
+  allowed-origins: "http://localhost:3000"
+
+# 평평한 키로 적는 이유는 프로필 파일들과 같다 (Boot 예약 프로퍼티 debug 와 자리가 겹친다).
+debug.oauth.enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.example.mateon: INFO
