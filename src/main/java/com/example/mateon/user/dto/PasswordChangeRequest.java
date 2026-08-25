@@ -7,10 +7,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Schema(description = "로그인 상태에서의 비밀번호 변경. 대상은 토큰으로 정해지므로 email 을 받지 않는다 "
-        + "(비로그인 경로는 POST /api/auth/password/change).")
+  + "(비로그인 경로는 POST /api/auth/password/change).")
 @Getter
 @Setter
 public class PasswordChangeRequest {
+
     @NotBlank(message = "현재 비밀번호를 입력해주세요.")
     private String currentPassword;
 

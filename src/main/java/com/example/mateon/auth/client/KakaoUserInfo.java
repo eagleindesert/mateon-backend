@@ -5,9 +5,10 @@ package com.example.mateon.auth.client;
  * providerId 는 카카오 회원번호(항상 존재), 나머지는 사용자 동의에 따라 없을 수 있다.
  */
 public record KakaoUserInfo(
-        String providerId,
-        String email,
-        boolean emailVerified,
-        String nickname
-) {
+  String providerId,
+  String email,
+  boolean emailVerified,
+  String nickname
+  ) {
+
 }

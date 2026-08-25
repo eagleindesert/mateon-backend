@@ -27,11 +27,13 @@ public class PortfolioController {
      * 포트폴리오 PDF 를 요약한다 [인증 필수].
      * 요청은 multipart/form-data 이며 파트 이름은 {@code pdf_file} (20MB 이하).
      *
-     * <p>응답은 마크다운 문자열 하나다(불릿 목록 + "요약" 문단). 저장된 자원을 만드는 게 아니라
+     * <p>
+     * 응답은 마크다운 문자열 하나다(불릿 목록 + "요약" 문단). 저장된 자원을 만드는 게 아니라
      * 요약 결과를 계산해 돌려주는 것이라 201 이 아니라 200 이다 — 요약을 DB 에 남기긴 하지만
      * 그건 같은 PDF 를 다시 올렸을 때 AI 호출을 건너뛰기 위한 캐시이지 사용자가 조회할 자원이 아니다.
      *
-     * <p>인증 여부는 SecurityConfig 의 매처가 강제한다.
+     * <p>
+     * 인증 여부는 SecurityConfig 의 매처가 강제한다.
      */
     @Operation(summary = "포트폴리오 PDF 요약",
       description = """
@@ -46,6 +48,7 @@ public class PortfolioController {
                     200 이다 — 그 저장은 캐시일 뿐 조회용 자원이 아니다.
 
                     확장자가 .pdf 가 아니거나 내용이 PDF 가 아니면 둘 다 INVALID_PDF_FILE 이다.""")
+    @ApiResponse(responseCode = "200", description = "마크다운 요약 문자열. 같은 PDF 면 저장된 요약을 그대로 돌려준다.")
     @ApiResponse(responseCode = "400",
       description = "INVALID_PDF_FILE — pdf 형식의 파일만 업로드할 수 있습니다.")
     @ApiResponse(responseCode = "413",

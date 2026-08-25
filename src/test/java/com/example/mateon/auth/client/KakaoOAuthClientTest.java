@@ -26,14 +26,17 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 /**
  * 카카오 {@code /v2/user/me} 호출의 요청 형태와 응답 해석을 고정한다.
  *
- * <p>요청 쪽에서 못박는 건 <b>POST + Bearer + form 콘텐츠 타입</b> 세 가지다. 카카오는 이 조합을
+ * <p>
+ * 요청 쪽에서 못박는 건 <b>POST + Bearer + form 콘텐츠 타입</b> 세 가지다. 카카오는 이 조합을
  * 벗어나면 거절하는데, 로컬에서는 재현되지 않고 실제 로그인 시점에만 드러난다.
  *
- * <p>응답 쪽 핵심은 <b>어떤 실패든 {@code KAKAO_AUTH_FAILED} 하나로 수렴</b>한다는 것이다.
+ * <p>
+ * 응답 쪽 핵심은 <b>어떤 실패든 {@code KAKAO_AUTH_FAILED} 하나로 수렴</b>한다는 것이다.
  * 여기서 {@code RestClientResponseException} 이 그대로 새어 나가면 전역 핸들러의 catch-all 로
  * 떨어져 500 "서버 오류" 가 되고, 프론트는 "토큰이 만료됐으니 다시 로그인" 안내를 띄울 수 없다.
  *
- * <p>또한 카카오는 동의 항목에 따라 {@code kakao_account} 자체를 통째로 빼고 준다.
+ * <p>
+ * 또한 카카오는 동의 항목에 따라 {@code kakao_account} 자체를 통째로 빼고 준다.
  * 그 경우에도 NPE 없이 null 로 채워져야 한다 — 신규 가입 경로가 여기에 달려 있다.
  */
 class KakaoOAuthClientTest {
@@ -61,10 +64,10 @@ class KakaoOAuthClientTest {
         @DisplayName("POST + Bearer 토큰 + form 콘텐츠 타입으로 부른다 (카카오가 요구하는 조합)")
         void sendsCanonicalRequest() {
             server.expect(requestTo(USER_ME_URL))
-                    .andExpect(method(HttpMethod.POST))
-                    .andExpect(header("Authorization", "Bearer access-token"))
-                    .andExpect(header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE))
-                    .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
+              .andExpect(method(HttpMethod.POST))
+              .andExpect(header("Authorization", "Bearer access-token"))
+              .andExpect(header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE))
+              .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
 
             client.fetchUserInfo("access-token");
 
@@ -142,9 +145,9 @@ class KakaoOAuthClientTest {
         @DisplayName("401 — 토큰 만료·위조. RestClientResponseException 이 새어 500 이 되면 안 된다")
         void unauthorized() {
             server.expect(requestTo(USER_ME_URL))
-                    .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body("{\"msg\":\"this access token does not exist\",\"code\":-401}"));
+              .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"msg\":\"this access token does not exist\",\"code\":-401}"));
 
             assertKakaoAuthFailed();
         }
@@ -153,7 +156,7 @@ class KakaoOAuthClientTest {
         @DisplayName("카카오 5xx")
         void serverError() {
             server.expect(requestTo(USER_ME_URL))
-                    .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+              .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
             assertKakaoAuthFailed();
         }
@@ -162,20 +165,20 @@ class KakaoOAuthClientTest {
         @DisplayName("네트워크 연결 실패")
         void connectionFailure() {
             server.expect(requestTo(USER_ME_URL))
-                    .andRespond(withException(new IOException("connect timed out")));
+              .andRespond(withException(new IOException("connect timed out")));
 
             assertKakaoAuthFailed();
         }
 
         private void assertKakaoAuthFailed() {
             assertThatThrownBy(() -> client.fetchUserInfo("t"))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
         }
     }
 
     private void respondWith(String json) {
         server.expect(requestTo(USER_ME_URL))
-                .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
+          .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
     }
 }

@@ -49,18 +49,21 @@ import static org.mockito.Mockito.when;
 /**
  * 팀 모집글의 생성·조회·수정·삭제.
  *
- * <p>목록 조회에서 고정할 것은 필터의 <b>배타적 우선순위</b>다: {@code myPosts} → {@code eventId}
+ * <p>
+ * 목록 조회에서 고정할 것은 필터의 <b>배타적 우선순위</b>다: {@code myPosts} → {@code eventId}
  * → {@code category}. 세 개를 동시에 보내면 앞의 것만 적용되고 뒤의 것은 조용히 무시된다.
  * 프론트가 "활동 안에서 카테고리로 다시 거르기"를 시도하면 활동 필터만 먹은 결과를 받는데,
  * 화면에는 팀이 뜨므로 잘못됐다는 신호가 없다. 게다가 {@code myPosts} 와 {@code category="전체"}
  * 를 뺀 나머지 경로는 <b>모집 중 여부를 보지 않는다</b> — 마감된 팀도 목록에 섞인다.
  *
- * <p>상세 조회에서 고정할 것은 <b>추가 쿼리를 내지 않는 것</b>이다. 팀장 정보는 이미 읽은 명단의
+ * <p>
+ * 상세 조회에서 고정할 것은 <b>추가 쿼리를 내지 않는 것</b>이다. 팀장 정보는 이미 읽은 명단의
  * LEADER 행에서 꺼낸다. 여기서 {@code userRepository} 를 한 번 더 부르면 팀 목록 화면에서
  * N+1 이 된다 — 성능 문제는 테스트가 잡아 주지 않으면 리팩터링 중에 슬그머니 돌아온다.
  * 반대로 V12 백필 이전에 만들어져 LEADER 행이 없는 팀에서는 폴백이 <b>반드시</b> 동작해야 한다.
  *
- * <p>생성에서는 세 가지가 함께 일어난다: 팀 저장, LEADER 멤버 행 생성, 임베딩 재계산 이벤트 발행.
+ * <p>
+ * 생성에서는 세 가지가 함께 일어난다: 팀 저장, LEADER 멤버 행 생성, 임베딩 재계산 이벤트 발행.
  * 두 번째가 빠지면 인원 집계가 팀장을 놓치고, 세 번째가 빠지면 그 팀은 영영 추천에 뜨지 않는다
  * (둘 다 화면에는 아무 표시가 없다).
  */
@@ -94,8 +97,8 @@ class TeamServiceCrudTest {
         eventPublisher = mock(ApplicationEventPublisher.class);
 
         service = new TeamService(teamRepository, applicationRepository, offerRepository,
-                teamMemberRepository, eventRepository, userRepository,
-                collaborationScoreRepository, mock(NotificationService.class), eventPublisher);
+          teamMemberRepository, eventRepository, userRepository,
+          collaborationScoreRepository, mock(NotificationService.class), eventPublisher);
 
         leader = user(LEADER_ID, "팀장");
         when(userRepository.findById(LEADER_ID)).thenReturn(Optional.of(leader));
@@ -257,16 +260,16 @@ class TeamServiceCrudTest {
             when(userRepository.findById(LEADER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getTeamDetail(TEAM_ID, null))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
 
         @Test
         @DisplayName("인원 수는 명단의 크기다 (따로 세지 않는다 — 숫자와 명단이 어긋날 수 없다)")
         void countIsMemberListSize() {
             givenTeamWithMembers(List.of(
-                    member(leader, TeamMemberRole.LEADER),
-                    member(user(2L, "팀원"), TeamMemberRole.MEMBER)));
+              member(leader, TeamMemberRole.LEADER),
+              member(user(2L, "팀원"), TeamMemberRole.MEMBER)));
 
             TeamDetailResponseDTO detail = service.getTeamDetail(TEAM_ID, null);
 
@@ -294,8 +297,8 @@ class TeamServiceCrudTest {
             when(userRepository.findById(2L)).thenReturn(Optional.of(applicant));
             givenTeamWithMembers(List.of(member(leader, TeamMemberRole.LEADER)));
             when(applicationRepository.findByTeamIdAndApplicantId(TEAM_ID, 2L))
-                    .thenReturn(Optional.of(TeamApplication.builder()
-                            .status(ApplicationStatus.PENDING).build()));
+              .thenReturn(Optional.of(TeamApplication.builder()
+                .status(ApplicationStatus.PENDING).build()));
 
             TeamDetailResponseDTO detail = service.getTeamDetail(TEAM_ID, 2L);
 
@@ -323,7 +326,7 @@ class TeamServiceCrudTest {
             when(collaborationScoreRepository.findById(LEADER_ID)).thenReturn(Optional.empty());
 
             assertThat(service.getTeamDetail(TEAM_ID, null).getLeaderCollaborationTemperature())
-                    .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
+              .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
         }
 
         @Test
@@ -335,7 +338,7 @@ class TeamServiceCrudTest {
             when(collaborationScoreRepository.findById(LEADER_ID)).thenReturn(Optional.of(score));
 
             assertThat(service.getTeamDetail(TEAM_ID, null).getLeaderCollaborationTemperature())
-                    .isEqualByComparingTo(new BigDecimal("42.30"));
+              .isEqualByComparingTo(new BigDecimal("42.30"));
         }
 
         @Test
@@ -344,8 +347,8 @@ class TeamServiceCrudTest {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getTeamDetail(TEAM_ID, null))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
@@ -357,11 +360,11 @@ class TeamServiceCrudTest {
         @DisplayName("학교 인증 전이면 어떤 저장보다 먼저 막힌다")
         void schoolVerificationComesFirst() {
             when(userRepository.findById(LEADER_ID))
-                    .thenReturn(Optional.of(User.builder().id(LEADER_ID).schoolVerified(false).build()));
+              .thenReturn(Optional.of(User.builder().id(LEADER_ID).schoolVerified(false).build()));
 
             assertThatThrownBy(() -> service.createTeam(request(null), LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
 
             verify(teamRepository, never()).save(any());
             verify(teamMemberRepository, never()).save(any());
@@ -410,8 +413,8 @@ class TeamServiceCrudTest {
             when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.createTeam(request(EVENT_ID), LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
 
             verify(teamRepository).save(any());
             verify(teamMemberRepository).save(any());
@@ -440,8 +443,8 @@ class TeamServiceCrudTest {
             when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "남")));
 
             assertThatThrownBy(() -> service.updateTeam(TEAM_ID, request(null), 2L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(eventPublisher, never()).publishEvent(any(Object.class));
         }
@@ -489,8 +492,8 @@ class TeamServiceCrudTest {
             when(userRepository.findById(2L)).thenReturn(Optional.of(user(2L, "남")));
 
             assertThatThrownBy(() -> service.deleteTeam(TEAM_ID, 2L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(teamRepository, never()).delete(any());
         }
@@ -502,9 +505,9 @@ class TeamServiceCrudTest {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
             when(teamMemberRepository.findActiveMemberUsers(TEAM_ID)).thenReturn(List.of());
             when(applicationRepository.findApplicantsByTeamIdAndStatus(anyLong(), any()))
-                    .thenReturn(List.of());
+              .thenReturn(List.of());
             when(offerRepository.findTargetUsersByTeamIdAndStatus(anyLong(), any()))
-                    .thenReturn(List.of());
+              .thenReturn(List.of());
 
             service.deleteTeam(TEAM_ID, LEADER_ID);
 
@@ -515,7 +518,6 @@ class TeamServiceCrudTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenTeamWithMembers(List<TeamMember> members) {
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team()));
         when(teamMemberRepository.findActiveMembersWithUser(TEAM_ID)).thenReturn(members);

@@ -33,13 +33,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 알림 API 의 응답 계약을 고정한다.
  *
- * <p>여기서 반드시 잡아야 할 건 <b>boolean 필드의 JSON 키</b>다.
+ * <p>
+ * 여기서 반드시 잡아야 할 건 <b>boolean 필드의 JSON 키</b>다.
  * {@code NotificationResponseDTO.isRead} 는 Lombok 이 만든 게터가 {@code isRead()} 라서
  * Jackson 이 접두사를 떼고 <b>{@code read}</b> 로 직렬화한다 — 필드명과 다르다.
  * 이 레포는 같은 함정을 이미 한 번 겪었고({@code UserProfileResponse.isMe} 가
  * {@code @JsonProperty} 를 붙여야 했다), 그래서 boolean 키는 DTO 마다 개별로 못박는 게 관례다.
  *
- * <p>또 하나는 구독 엔드포인트가 <b>{@code text/event-stream}</b> 으로 나가고 async 로 시작한다는
+ * <p>
+ * 또 하나는 구독 엔드포인트가 <b>{@code text/event-stream}</b> 으로 나가고 async 로 시작한다는
  * 점이다. 여기서 produces 를 빠뜨리면 브라우저 EventSource 가 연결 자체를 거부한다.
  */
 class NotificationControllerTest {
@@ -53,9 +55,9 @@ class NotificationControllerTest {
     void setUp() {
         notificationService = mock(NotificationService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new NotificationController(notificationService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+          .standaloneSetup(new NotificationController(notificationService))
+          .setControllerAdvice(new GlobalExceptionHandler())
+          .build();
     }
 
     @Test
@@ -64,9 +66,9 @@ class NotificationControllerTest {
         when(notificationService.getMyNotifications(USER_ID)).thenReturn(List.of(dto()));
 
         mockMvc.perform(get("/api/notifications").principal(auth()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].read").value(false))
-                .andExpect(jsonPath("$.data[0].isRead").doesNotExist());
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data[0].read").value(false))
+          .andExpect(jsonPath("$.data[0].isRead").doesNotExist());
     }
 
     @Test
@@ -75,12 +77,12 @@ class NotificationControllerTest {
         when(notificationService.getMyNotifications(USER_ID)).thenReturn(List.of(dto()));
 
         mockMvc.perform(get("/api/notifications").principal(auth()))
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].id").value(1))
-                .andExpect(jsonPath("$.data[0].title").value("가입 승인"))
-                .andExpect(jsonPath("$.data[0].content").value("1팀 가입이 승인되었습니다."))
-                .andExpect(jsonPath("$.data[0].type").value("APPROVE"))
-                .andExpect(jsonPath("$.data[0].createdAt").exists());
+          .andExpect(jsonPath("$.success").value(true))
+          .andExpect(jsonPath("$.data[0].id").value(1))
+          .andExpect(jsonPath("$.data[0].title").value("가입 승인"))
+          .andExpect(jsonPath("$.data[0].content").value("1팀 가입이 승인되었습니다."))
+          .andExpect(jsonPath("$.data[0].type").value("APPROVE"))
+          .andExpect(jsonPath("$.data[0].createdAt").exists());
     }
 
     @Test
@@ -89,19 +91,19 @@ class NotificationControllerTest {
         when(notificationService.getMyNotifications(USER_ID)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/notifications").principal(auth()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data").isEmpty());
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.data").isArray())
+          .andExpect(jsonPath("$.data").isEmpty());
     }
 
     @Test
     @DisplayName("없는 유저는 404 다")
     void unknownUserIs404() throws Exception {
         when(notificationService.getMyNotifications(anyLong()))
-                .thenThrow(new MateonException(ErrorCode.USER_NOT_FOUND));
+          .thenThrow(new MateonException(ErrorCode.USER_NOT_FOUND));
 
         mockMvc.perform(get("/api/notifications").principal(auth()))
-                .andExpect(status().isNotFound());
+          .andExpect(status().isNotFound());
     }
 
     @Test
@@ -113,8 +115,8 @@ class NotificationControllerTest {
         // 응답 헤더가 확정되지 않아 초기 응답에는 아직 비어 있다. produces 선언이
         // 살아 있는지는 아래 rejectsNonEventStreamAccept 가 대신 확인한다.
         mockMvc.perform(get("/api/notifications/subscribe").principal(auth()))
-                .andExpect(status().isOk())
-                .andExpect(request().asyncStarted());
+          .andExpect(status().isOk())
+          .andExpect(request().asyncStarted());
 
         verify(notificationService).subscribe(USER_ID);
     }
@@ -125,20 +127,19 @@ class NotificationControllerTest {
         when(notificationService.subscribe(USER_ID)).thenReturn(new SseEmitter(60_000L));
 
         mockMvc.perform(get("/api/notifications/subscribe")
-                        .accept(MediaType.TEXT_EVENT_STREAM)
-                        .principal(auth()))
-                .andExpect(status().isOk())
-                .andExpect(request().asyncStarted());
+          .accept(MediaType.TEXT_EVENT_STREAM)
+          .principal(auth()))
+          .andExpect(status().isOk())
+          .andExpect(request().asyncStarted());
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private NotificationResponseDTO dto() {
         Notification notification = Notification.builder()
-                .receiver(User.builder().id(USER_ID).name("김학생").build())
-                .title("가입 승인").content("1팀 가입이 승인되었습니다.")
-                .type(Notification.NotificationType.APPROVE)
-                .build();
+          .receiver(User.builder().id(USER_ID).name("김학생").build())
+          .title("가입 승인").content("1팀 가입이 승인되었습니다.")
+          .type(Notification.NotificationType.APPROVE)
+          .build();
         TestEntities.withId(notification, 1L);
         TestEntities.withField(notification, "createdAt", LocalDateTime.now());
         return new NotificationResponseDTO(notification);

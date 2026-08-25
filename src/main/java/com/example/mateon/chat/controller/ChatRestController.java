@@ -35,13 +35,14 @@ public class ChatRestController {
                     확인할 필요가 없다.
 
                     받은 roomId 로 이력을 조회하고, 실제 송수신은 STOMP(`/ws-stomp`)로 한다.""")
+    @ApiResponse(responseCode = "200", description = "그 상대와의 방. roomId 하나만 들어 있다.")
     @ApiResponse(responseCode = "400",
       description = "CANNOT_CHAT_WITH_SELF — 자기 자신과는 채팅할 수 없습니다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 상대 사용자를 찾을 수 없습니다.")
     @PostMapping("/rooms/dm")
     public BaseResponse<Map<String, Long>> createOrGetDmRoom(@Valid @RequestBody CreateDmRequest request,
-                                                             Authentication authentication) {
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         ChatRoom room = chatService.getOrCreateDmRoom(userId, request.getTargetUserId());
         return BaseResponse.success(Map.of("roomId", room.getId()));
@@ -71,6 +72,7 @@ public class ChatRestController {
                     그대로 화면에 그리면 된다.
 
                     받은 배열이 size 보다 짧으면 더 이상 과거가 없다는 뜻이다.""")
+    @ApiResponse(responseCode = "200", description = "오래된→최신 순으로 뒤집힌 메시지 배열. 그대로 그리면 된다.")
     @ApiResponse(responseCode = "400", description = """
             NOT_ROOM_MEMBER — 해당 채팅방의 참여자가 아닙니다.
             CHAT_ROOM_NOT_FOUND — 채팅방을 찾을 수 없습니다.""")
@@ -79,9 +81,9 @@ public class ChatRestController {
     @Parameter(name = "size", description = "한 번에 가져올 건수.")
     @GetMapping("/rooms/{roomId}/messages")
     public BaseResponse<List<ChatMessageResponse>> getMessages(@PathVariable Long roomId,
-                                                               @RequestParam(required = false) Long before,
-                                                               @RequestParam(defaultValue = "30") int size,
-                                                               Authentication authentication) {
+      @RequestParam(required = false) Long before,
+      @RequestParam(defaultValue = "30") int size,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         return BaseResponse.success(chatService.getMessages(userId, roomId, before, size));
     }
@@ -93,13 +95,14 @@ public class ChatRestController {
                     안 읽은 개수를 계산하는 기준이다.
 
                     보통 방을 열거나 새 메시지를 받았을 때 화면에 보인 마지막 메시지 id 로 부른다.""")
+    @ApiResponse(responseCode = "200", description = "읽음 위치를 저장했다. data 는 null 이다.")
     @ApiResponse(responseCode = "400",
       description = "NOT_ROOM_MEMBER — 해당 채팅방의 참여자가 아닙니다.")
     @Parameter(name = "roomId", description = "읽음을 표시할 방.")
     @PostMapping("/rooms/{roomId}/read")
     public BaseResponse<Void> markAsRead(@PathVariable Long roomId,
-                                         @Valid @RequestBody ReadRequest request,
-                                         Authentication authentication) {
+      @Valid @RequestBody ReadRequest request,
+      Authentication authentication) {
         Long userId = Long.valueOf(authentication.getName());
         chatService.markAsRead(userId, roomId, request.getLastReadMessageId());
         return BaseResponse.success(null);

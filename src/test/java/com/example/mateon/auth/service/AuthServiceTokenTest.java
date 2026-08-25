@@ -43,15 +43,18 @@ import static org.mockito.Mockito.when;
 /**
  * 회원가입·로그인·토큰 재발급의 규칙을 고정한다.
  *
- * <p>가장 값비싼 규칙은 <b>인증 티켓</b>이다. "이 이메일이 verified 다"라는 사실만으로 가입을
+ * <p>
+ * 가장 값비싼 규칙은 <b>인증 티켓</b>이다. "이 이메일이 verified 다"라는 사실만으로 가입을
  * 허용하면, 남이 인증을 마쳐 둔 이메일을 제3자가 가로채 그 주소로 계정을 만들 수 있다. 그래서
  * 인증을 완료한 주체에게만 준 일회용 티켓을 가입 시 다시 제출하게 하고, 티켓에는 30분 수명을
  * 둔다. 티켓 검사나 TTL 이 사라져도 정상 가입은 계속 되기 때문에 테스트 없이는 알아채기 어렵다.
  *
- * <p>다음은 <b>계정 열거 방지</b>다. 없는 이메일로 로그인하든 비밀번호가 틀리든 응답이 같아야
+ * <p>
+ * 다음은 <b>계정 열거 방지</b>다. 없는 이메일로 로그인하든 비밀번호가 틀리든 응답이 같아야
  * 한다 — {@code USER_NOT_FOUND}(404)가 새어 나가면 그것만으로 "가입된 이메일 목록"을 만들 수 있다.
  *
- * <p>마지막은 <b>리프레시 토큰이 유저당 한 행</b>이라는 것이다. delete→insert 로 바꾸면
+ * <p>
+ * 마지막은 <b>리프레시 토큰이 유저당 한 행</b>이라는 것이다. delete→insert 로 바꾸면
  * Hibernate 의 flush 순서 때문에 INSERT 가 DELETE 보다 먼저 나가 UNIQUE 제약과 충돌한다.
  */
 class AuthServiceTokenTest {
@@ -78,13 +81,13 @@ class AuthServiceTokenTest {
         jwtTokenProvider = TestJwt.provider();
 
         authService = new AuthService(
-                userRepository,
-                emailVerificationRepository,
-                refreshTokenRepository,
-                passwordEncoder,
-                eventPublisher,
-                jwtTokenProvider,
-                TestJwt.properties());
+          userRepository,
+          emailVerificationRepository,
+          refreshTokenRepository,
+          passwordEncoder,
+          eventPublisher,
+          jwtTokenProvider,
+          TestJwt.properties());
 
         // 저장 시 id 가 채워지는 IDENTITY 동작을 흉내낸다. 없으면 토큰 subject 가 "null" 이 된다.
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -127,8 +130,8 @@ class AuthServiceTokenTest {
             request.setPasswordConfirm("different12");
 
             assertThatThrownBy(() -> authService.signup(request))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
         }
 
         @Test
@@ -137,8 +140,8 @@ class AuthServiceTokenTest {
             when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
             assertThatThrownBy(() -> authService.signup(signupRequest()))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         @Test
@@ -147,8 +150,8 @@ class AuthServiceTokenTest {
             when(emailVerificationRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.signup(signupRequest()))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
         @Test
@@ -159,8 +162,8 @@ class AuthServiceTokenTest {
             request.setVerificationToken("attacker-guess");
 
             assertThatThrownBy(() -> authService.signup(request))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_VERIFICATION_TOKEN);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_VERIFICATION_TOKEN);
 
             verify(userRepository, never()).save(any());
         }
@@ -179,8 +182,8 @@ class AuthServiceTokenTest {
             givenTicketIssuedAt(LocalDateTime.now().minusMinutes(31));
 
             assertThatThrownBy(() -> authService.signup(signupRequest()))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_VERIFICATION_TOKEN);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_VERIFICATION_TOKEN);
         }
 
         @Test
@@ -219,8 +222,8 @@ class AuthServiceTokenTest {
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.login(loginRequest("password12")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
         }
 
         @Test
@@ -230,22 +233,22 @@ class AuthServiceTokenTest {
             when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
             assertThatThrownBy(() -> authService.login(loginRequest("wrong-password")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
         }
 
         @Test
         @DisplayName("비밀번호가 없는 소셜 유저는 인코더를 태우지도 않는다 (null 매칭 시 NPE 방지)")
         void socialUserWithoutPasswordShortCircuits() {
             User social = User.builder()
-                    .id(USER_ID).email(EMAIL).name("김카카오")
-                    .provider(AuthProvider.KAKAO).providerId("kakao-1")
-                    .build();
+              .id(USER_ID).email(EMAIL).name("김카카오")
+              .provider(AuthProvider.KAKAO).providerId("kakao-1")
+              .build();
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(social));
 
             assertThatThrownBy(() -> authService.login(loginRequest("anything123")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CREDENTIALS);
 
             verify(passwordEncoder, never()).matches(anyString(), any());
         }
@@ -260,7 +263,7 @@ class AuthServiceTokenTest {
         void doesNotRotateRefreshToken() {
             String refresh = jwtTokenProvider.createRefreshToken(USER_ID);
             when(refreshTokenRepository.findByToken(refresh))
-                    .thenReturn(Optional.of(storedToken(refresh, LocalDateTime.now().plusDays(7))));
+              .thenReturn(Optional.of(storedToken(refresh, LocalDateTime.now().plusDays(7))));
 
             TokenResponse response = authService.refreshToken(refreshRequest(refresh));
 
@@ -273,8 +276,8 @@ class AuthServiceTokenTest {
         @DisplayName("서명이 깨진 토큰은 DB 를 보지도 않고 INVALID_TOKEN")
         void invalidSignature() {
             assertThatThrownBy(() -> authService.refreshToken(refreshRequest("garbage")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_TOKEN);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_TOKEN);
 
             verify(refreshTokenRepository, never()).findByToken(anyString());
         }
@@ -286,8 +289,8 @@ class AuthServiceTokenTest {
             when(refreshTokenRepository.findByToken(refresh)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.refreshToken(refreshRequest(refresh)))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TOKEN_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TOKEN_NOT_FOUND);
         }
 
         @Test
@@ -298,8 +301,8 @@ class AuthServiceTokenTest {
             when(refreshTokenRepository.findByToken(refresh)).thenReturn(Optional.of(stored));
 
             assertThatThrownBy(() -> authService.refreshToken(refreshRequest(refresh)))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TOKEN_EXPIRED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TOKEN_EXPIRED);
 
             verify(refreshTokenRepository).delete(stored);
         }
@@ -364,10 +367,10 @@ class AuthServiceTokenTest {
         @Test
         @DisplayName("새 비밀번호 확인이 다르면 유저를 조회하지도 않는다")
         void confirmMismatchShortCircuits() {
-            assertThatThrownBy(() ->
-                    authService.changePassword(changeRequest("old-password", "new-password", "typo")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
+            assertThatThrownBy(()
+              -> authService.changePassword(changeRequest("old-password", "new-password", "typo")))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
 
             verify(userRepository, never()).findByEmail(anyString());
         }
@@ -378,10 +381,10 @@ class AuthServiceTokenTest {
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(localUser("old-encoded")));
             when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
-            assertThatThrownBy(() ->
-                    authService.changePassword(changeRequest("wrong", "new-password", "new-password")))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
+            assertThatThrownBy(()
+              -> authService.changePassword(changeRequest("wrong", "new-password", "new-password")))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.PASSWORD_MISMATCH);
 
             verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
         }
@@ -407,43 +410,42 @@ class AuthServiceTokenTest {
             request.setEmail(EMAIL);
 
             assertThatThrownBy(() -> authService.logout(request))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenValidTicket() {
         givenTicketIssuedAt(LocalDateTime.now().minusMinutes(1));
     }
 
     private void givenTicketIssuedAt(LocalDateTime verifiedAt) {
         EmailVerification verification = EmailVerification.builder()
-                .email(EMAIL).code("123456")
-                .expiresAt(LocalDateTime.now().plusMinutes(5))
-                .build();
+          .email(EMAIL).code("123456")
+          .expiresAt(LocalDateTime.now().plusMinutes(5))
+          .build();
         verification.verify(TICKET);
         ReflectionTestUtils.setField(verification, "verifiedAt", verifiedAt);
         when(emailVerificationRepository.findByEmail(EMAIL)).thenReturn(Optional.of(verification));
 
         // 엔티티 쪽 계산과 서비스 쪽 TTL 이 같은 기준인지도 함께 확인해 둔다.
         assertThat(verification.isTicketValid(TICKET, Duration.ofMinutes(30)))
-                .isEqualTo(verifiedAt.isAfter(LocalDateTime.now().minusMinutes(30)));
+          .isEqualTo(verifiedAt.isAfter(LocalDateTime.now().minusMinutes(30)));
     }
 
     private User localUser(String encodedPassword) {
         return User.builder()
-                .id(USER_ID).email(EMAIL).password(encodedPassword)
-                .provider(AuthProvider.LOCAL).name("김학생")
-                .schoolEmail(EMAIL).schoolVerified(true)
-                .build();
+          .id(USER_ID).email(EMAIL).password(encodedPassword)
+          .provider(AuthProvider.LOCAL).name("김학생")
+          .schoolEmail(EMAIL).schoolVerified(true)
+          .build();
     }
 
     private RefreshToken storedToken(String token, LocalDateTime expiresAt) {
         return RefreshToken.builder()
-                .id(1L).token(token).userId(USER_ID).expiresAt(expiresAt)
-                .build();
+          .id(1L).token(token).userId(USER_ID).expiresAt(expiresAt)
+          .build();
     }
 
     private SignupRequest signupRequest() {

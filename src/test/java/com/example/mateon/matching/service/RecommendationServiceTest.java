@@ -34,16 +34,19 @@ import static org.mockito.Mockito.when;
 /**
  * 유저→팀 추천 오케스트레이션.
  *
- * <p>여기서 지키는 규칙은 전부 <b>"AI 를 신뢰하지 않는다"</b>로 요약된다. AI 서버는 외부
+ * <p>
+ * 여기서 지키는 규칙은 전부 <b>"AI 를 신뢰하지 않는다"</b>로 요약된다. AI 서버는 외부
  * 프로세스라 순서를 보장하지 않고, 우리가 보낸 적 없는 id 를 돌려줄 수도 있으며, 점수를
  * 빠뜨릴 수도 있다. 그래서 응답이 오는 대로 쓰지 않고 다시 거르고 다시 정렬한다.
  * 이 필터·정렬이 사라져도 대부분의 경우 결과가 그럴듯해서, 테스트 없이는 알 수 없다.
  *
- * <p>또 하나는 <b>순서에서 오는 비용</b>이다. 표시 정보(활동·인원)는 상위 N 건을 자른 <i>뒤에</i>
+ * <p>
+ * 또 하나는 <b>순서에서 오는 비용</b>이다. 표시 정보(활동·인원)는 상위 N 건을 자른 <i>뒤에</i>
  * 조회해야 한다. 자르기를 뒤에 두면 후보 200개를 전부 조회해 10개만 쓰게 된다 — 결과는 같고
  * 쿼리만 20배가 되는, 눈에 보이지 않는 회귀다.
  *
- * <p>마지막으로 <b>기록 실패가 추천을 죽이지 않는다</b>. 추천은 이미 성공했고 사용자가 기다린
+ * <p>
+ * 마지막으로 <b>기록 실패가 추천을 죽이지 않는다</b>. 추천은 이미 성공했고 사용자가 기다린
  * LLM 호출도 끝났는데, 로그 저장이 안 됐다고 응답을 버리는 건 손해가 크다.
  */
 class RecommendationServiceTest {
@@ -90,8 +93,8 @@ class RecommendationServiceTest {
             givenDisplayInfo(10L, 11L, 12L);
 
             assertThat(service.recommendTeams(USER_ID, null, 10))
-                    .extracting(TeamRecommendationResponseDTO::getScore)
-                    .containsExactly(0.9, 0.7, 0.5);
+              .extracting(TeamRecommendationResponseDTO::getScore)
+              .containsExactly(0.9, 0.7, 0.5);
         }
 
         @Test
@@ -137,8 +140,8 @@ class RecommendationServiceTest {
             givenDisplayInfo(11L, 12L);
 
             assertThat(service.recommendTeams(USER_ID, null, 2))
-                    .extracting(TeamRecommendationResponseDTO::getScore)
-                    .containsExactly(0.9, 0.6);
+              .extracting(TeamRecommendationResponseDTO::getScore)
+              .containsExactly(0.9, 0.6);
         }
 
         @Test
@@ -180,8 +183,8 @@ class RecommendationServiceTest {
 
             service.recommendTeams(USER_ID, null, 10);
 
-            ArgumentCaptor<UserToTeamRecommendationRequest> request =
-                    ArgumentCaptor.forClass(UserToTeamRecommendationRequest.class);
+            ArgumentCaptor<UserToTeamRecommendationRequest> request
+              = ArgumentCaptor.forClass(UserToTeamRecommendationRequest.class);
             verify(client).userToTeam(request.capture());
 
             var candidate = request.getValue().getCandidates().get(0);
@@ -200,8 +203,8 @@ class RecommendationServiceTest {
 
             service.recommendTeams(USER_ID, null, 10);
 
-            ArgumentCaptor<UserToTeamRecommendationRequest> request =
-                    ArgumentCaptor.forClass(UserToTeamRecommendationRequest.class);
+            ArgumentCaptor<UserToTeamRecommendationRequest> request
+              = ArgumentCaptor.forClass(UserToTeamRecommendationRequest.class);
             verify(client).userToTeam(request.capture());
 
             assertThat(request.getValue().getQueryEmbeddingVector()).containsExactly(0.5f, 0.5f);
@@ -223,8 +226,8 @@ class RecommendationServiceTest {
 
             service.recommendTeams(USER_ID, null, 1);
 
-            ArgumentCaptor<List<RecommendationResponse.Recommendation>> ranked =
-                    ArgumentCaptor.forClass(List.class);
+            ArgumentCaptor<List<RecommendationResponse.Recommendation>> ranked
+              = ArgumentCaptor.forClass(List.class);
             verify(logService).save(anyLong(), any(), org.mockito.ArgumentMatchers.eq(3), ranked.capture());
             assertThat(ranked.getValue()).hasSize(3);
         }
@@ -236,10 +239,10 @@ class RecommendationServiceTest {
             givenAiResponse(item(10L, 0.9));
             givenDisplayInfo(10L);
             doThrow(new RuntimeException("DB 다운"))
-                    .when(logService).save(anyLong(), any(), anyInt(), anyList());
+              .when(logService).save(anyLong(), any(), anyInt(), anyList());
 
             assertThatCode(() -> assertThat(service.recommendTeams(USER_ID, null, 10)).hasSize(1))
-                    .doesNotThrowAnyException();
+              .doesNotThrowAnyException();
         }
     }
 
@@ -255,10 +258,9 @@ class RecommendationServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private void givenCandidates(Long... teamIds) {
-        List<RecommendationSnapshot.Candidate> candidates =
-                List.of(teamIds).stream().map(this::candidate).toList();
+        List<RecommendationSnapshot.Candidate> candidates
+          = List.of(teamIds).stream().map(this::candidate).toList();
         when(queryService.gather(anyLong(), any())).thenReturn(snapshot(candidates));
     }
 
@@ -278,7 +280,7 @@ class RecommendationServiceTest {
 
     private RecommendationSnapshot snapshot(List<RecommendationSnapshot.Candidate> candidates) {
         return new RecommendationSnapshot(new float[]{0.5f, 0.5f},
-                List.of("디자이너"), List.of("Figma"), "온라인", "입문", candidates);
+          List.of("디자이너"), List.of("Figma"), "온라인", "입문", candidates);
     }
 
     private RecommendationSnapshot.Candidate candidate(Long teamId) {
@@ -293,7 +295,9 @@ class RecommendationServiceTest {
         return new RecommendationSnapshot.Candidate(team, embedding);
     }
 
-    /** team_embeddings 의 정규화 값과 teams 원본이 다른 상황을 만든다. */
+    /**
+     * team_embeddings 의 정규화 값과 teams 원본이 다른 상황을 만든다.
+     */
     private RecommendationSnapshot.Candidate candidateWithMetadata(Long teamId) {
         Team team = new Team();
         team.setId(teamId);

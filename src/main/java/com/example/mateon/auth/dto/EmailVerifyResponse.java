@@ -9,6 +9,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class EmailVerifyResponse {
+
     @Schema(description = "회원가입(POST /api/auth/signup) 요청에 그대로 담아 보낼 일회용 티켓. 30분간 유효하다.")
     private String verificationToken;
 }

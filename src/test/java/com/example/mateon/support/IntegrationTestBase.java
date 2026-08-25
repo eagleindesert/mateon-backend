@@ -2,6 +2,7 @@ package com.example.mateon.support;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -30,7 +31,13 @@ import org.testcontainers.utility.DockerImageName;
  * 붙는 것 자체가 위 원칙(개발 DB 에 붙지 않는다)과 어긋나고, 자격증명이 없는 CI 에서는
  * 매번 실패 로그만 쌓인다. 한도 동작은 BucketCapacityGuardTest 가 따로 검증한다.
  */
+/*
+ * @ActiveProfiles("test"): 기본 프로필이 dev 라서 이걸 안 붙이면 통합 테스트가 로컬 개발
+ * 설정을 그대로 집는다 — SQL 전문이 로그를 덮고, 디버그 컨트롤러가 등록되고, dev 기본값을
+ * 손볼 때마다 테스트 환경이 같이 흔들린다. src/test/resources/application-test.yml 참고.
+ */
 @SpringBootTest(properties = "storage.max-bytes=0B")
+@ActiveProfiles("test")
 @Transactional
 public abstract class IntegrationTestBase {
 

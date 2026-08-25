@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 팀 활동 종료와 팀원 평가(협업 온도).
  *
- * <p>TeamController 와 경로 접두사(/api/teams)를 공유하지만 클래스를 나눴다 —
+ * <p>
+ * TeamController 와 경로 접두사(/api/teams)를 공유하지만 클래스를 나눴다 —
  * TeamController 는 이미 11개 엔드포인트로 충분히 크고, 평가는 수명주기가 다른 별도 관심사다.
  */
 @Tag(name = "활동 종료/팀원 평가", description = "활동을 종료하고 팀원 간 협업 온도를 평가하는 경로")
@@ -29,31 +30,37 @@ public class TeamReviewController {
     private final TeamCompletionService teamCompletionService;
     private final TeamReviewService teamReviewService;
 
-    /** 활동 종료 (팀장만). 이 시점부터 평가가 열린다. */
+    /**
+     * 활동 종료 (팀장만). 이 시점부터 평가가 열린다.
+     */
     @Operation(summary = "활동 종료 (팀장만)",
-            description = """
+      description = """
                     모집 마감(isRecruiting=false)과 다른 축이다 — 정원이 차도 활동은 그때부터 시작한다.
                     종료 시점부터 평가 기간이 열리고, 팀원들에게 평가 요청 알림이 나간다.
                     이미 종료된 팀이면 400 TEAM_ALREADY_ENDED.""")
+    @ApiResponse(responseCode = "200", description = "활동을 종료했다. data 는 null 이다.")
     @ApiResponse(responseCode = "400", description = """
             FORBIDDEN_ACCESS — 팀장만 종료할 수 있습니다.
             TEAM_ALREADY_ENDED — 이미 종료된 팀입니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
     @PostMapping("/{teamId}/complete")
     public ResponseEntity<BaseResponse<Void>> completeTeam(
-            @PathVariable Long teamId,
-            Authentication authentication
+      @PathVariable Long teamId,
+      Authentication authentication
     ) {
         teamCompletionService.completeByLeader(teamId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(BaseResponse.success(null));
     }
 
-    /** 내가 평가해야 할 팀원 목록 + 마감 시각. */
+    /**
+     * 내가 평가해야 할 팀원 목록 + 마감 시각.
+     */
     @Operation(summary = "평가 대상 팀원 목록",
-            description = """
+      description = """
                     자기 자신은 목록에서 빠지고, 이미 평가한 대상은 표시가 붙는다.
                     종료되지 않았으면 400 TEAM_NOT_ENDED, 평가 기간이 지났으면 400 REVIEW_PERIOD_EXPIRED,
                     팀원이 아니면 400 NOT_TEAM_MEMBER.""")
+    @ApiResponse(responseCode = "200", description = "내가 평가해야 할 팀원 목록.")
     @ApiResponse(responseCode = "400", description = """
             TEAM_NOT_ENDED — 아직 종료되지 않은 팀입니다. 활동 종료 후 평가할 수 있습니다.
             REVIEW_PERIOD_EXPIRED — 평가 기간이 종료되었습니다.
@@ -61,19 +68,22 @@ public class TeamReviewController {
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
     @GetMapping("/{teamId}/reviews/targets")
     public ResponseEntity<BaseResponse<TeamReviewTargetsResponseDTO>> getReviewTargets(
-            @PathVariable Long teamId,
-            Authentication authentication
+      @PathVariable Long teamId,
+      Authentication authentication
     ) {
-        TeamReviewTargetsResponseDTO response =
-                teamReviewService.getTargets(teamId, Long.valueOf(authentication.getName()));
+        TeamReviewTargetsResponseDTO response
+          = teamReviewService.getTargets(teamId, Long.valueOf(authentication.getName()));
         return ResponseEntity.ok(BaseResponse.success(response));
     }
 
-    /** 평가 일괄 제출. 제출 후 수정/삭제는 없다. */
+    /**
+     * 평가 일괄 제출. 제출 후 수정/삭제는 없다.
+     */
     @Operation(summary = "팀원 평가 일괄 제출",
-            description = """
+      description = """
                     하나라도 실패하면 전부 롤백된다 — 절반만 반영되면 무엇을 다시 내야 하는지 알 수 없다.
                     제출 후 수정·삭제는 없다. 점수는 1~5.""")
+    @ApiResponse(responseCode = "200", description = "평가를 저장했다. data 는 null 이다.")
     @ApiResponse(responseCode = "400", description = """
             TEAM_NOT_ENDED — 아직 종료되지 않은 팀입니다.
             REVIEW_PERIOD_EXPIRED — 평가 기간이 종료되었습니다.
@@ -83,12 +93,12 @@ public class TeamReviewController {
             INVALID_RATING — 평가 점수는 1~5 사이여야 합니다.
             RESOURCE_NOT_FOUND — 팀을 찾을 수 없습니다.""")
     @ApiResponse(responseCode = "404",
-            description = "USER_NOT_FOUND — 평가 대상 사용자를 찾을 수 없습니다.")
+      description = "USER_NOT_FOUND — 평가 대상 사용자를 찾을 수 없습니다.")
     @PostMapping("/{teamId}/reviews")
     public ResponseEntity<BaseResponse<Void>> submitReviews(
-            @PathVariable Long teamId,
-            @Valid @RequestBody TeamReviewSubmitRequestDTO request,
-            Authentication authentication
+      @PathVariable Long teamId,
+      @Valid @RequestBody TeamReviewSubmitRequestDTO request,
+      Authentication authentication
     ) {
         teamReviewService.submit(teamId, Long.valueOf(authentication.getName()), request);
         return ResponseEntity.ok(BaseResponse.success(null));

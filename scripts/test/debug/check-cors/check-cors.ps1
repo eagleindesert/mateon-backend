@@ -18,10 +18,11 @@
 # ─────────────────────────────────────────────────────────────────────────
 #
 # 1) 일반 REST API CORS (WebSocket 과 무관): SecurityConfig.corsConfigurationSource()
-# 는 debug.enabled 값에 따라
-#   - true  : 모든 오리진 허용 (AllowedOriginPatterns = "*")
-#   - false : http://localhost:3000, http://localhost:5173 만 허용
-# 으로 갈린다. 이 스크립트는 실제 서버에 OPTIONS(preflight) 요청을 보내
+# 는 cors.allowed-origins (CorsProperties) 를 AllowedOriginPatterns 로 그대로 쓴다.
+# 그 값은 프로필이 정한다:
+#   - dev  : "*" (전체 허용). CORS_ALLOWED_ORIGINS 로 좁힐 수 있다
+#   - prod : ${CORS_ALLOWED_ORIGINS} — 기본값 없음(서버 .env 필수)
+# 예전의 debug.enabled 분기는 없어졌다. 이 스크립트는 실제 서버에 OPTIONS(preflight) 요청을 보내
 # "정식으로 등록되지 않은(다른) Origin 헤더"까지 현재 허용(반영)되는지를 확인한다.
 #
 # 판단 기준: 응답의 Access-Control-Allow-Origin 헤더가
@@ -29,7 +30,7 @@
 #   - 아예 없으면 → 그 오리진은 차단된 것
 #
 # 2) (A) 네이티브 WebSocket 전송 CORS: WebSocketConfig.registerStompEndpoints() 도 동일한
-# debug.enabled 플래그로 AllowedOrigins/OriginPatterns 를 분기한다. Spring 의
+# cors.allowed-origins 를 그대로 쓴다(REST 와 항상 같은 값이다). Spring 의
 # OriginHandshakeInterceptor 는 실제 WebSocket 업그레이드보다 먼저 Origin 헤더를
 # 검사하므로, 순수 GET 요청 + Origin 헤더만으로도(완전한 업그레이드 없이) CORS
 # 통과 여부를 판별할 수 있다 (System.Net.WebSockets 가 필요 없어 PowerShell 5.1
@@ -105,7 +106,7 @@ $script:KnownOrigins = @(
     "http://localhost:5173"
 )
 
-# 정식 허용 목록에 없는 "다른" 오리진 - 이게 반영되면 CORS 가 풀린 상태(debug.enabled=true)
+# 정식 허용 목록에 없는 "다른" 오리진 - 이게 반영되면 CORS 가 풀린 상태(cors.allowed-origins = *)
 $script:OtherOrigins = @(
     "http://evil-example.com",
     "https://random-attacker.test",
@@ -178,13 +179,13 @@ $otherReflected = @($results | Where-Object { -not $_.Known -and $_.Reflected })
 Write-Host ""
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 if ($otherReflected.Count -gt 0) {
-    Write-Host "  결론: CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 허용됨 -> debug.enabled=true 추정)" -ForegroundColor Yellow
+    Write-Host "  결론: CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 허용됨 -> cors.allowed-origins 가 * 로 추정)" -ForegroundColor Yellow
 } else {
     $knownBlocked = @($results | Where-Object { $_.Known -and -not $_.Reflected })
     if ($knownBlocked.Count -gt 0) {
         Write-Host "  결론: 정식 등록된 오리진 중 일부가 차단되고 있습니다. SecurityConfig 설정을 확인하세요." -ForegroundColor Red
     } else {
-        Write-Host "  결론: CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 허용, debug.enabled=false 추정)" -ForegroundColor Green
+        Write-Host "  결론: CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 허용, cors.allowed-origins 목록대로 동작)" -ForegroundColor Green
     }
 }
 Write-Host ("=" * 70) -ForegroundColor DarkGray
@@ -260,13 +261,13 @@ $wsOtherPassed = @($wsResults | Where-Object { -not $_.Known -and -not $_.Blocke
 Write-Host ""
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 if ($wsOtherPassed.Count -gt 0) {
-    Write-Host "  결론: 네이티브 WebSocket CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 통과 -> debug.enabled=true 추정)" -ForegroundColor Yellow
+    Write-Host "  결론: 네이티브 WebSocket CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 통과 -> cors.allowed-origins 가 * 로 추정)" -ForegroundColor Yellow
 } else {
     $wsKnownBlocked = @($wsResults | Where-Object { $_.Known -and $_.Blocked })
     if ($wsKnownBlocked.Count -gt 0) {
         Write-Host "  결론: 정식 등록된 오리진 중 일부가 네이티브 WebSocket 에서 차단되고 있습니다. WebSocketConfig 설정을 확인하세요." -ForegroundColor Red
     } else {
-        Write-Host "  결론: 네이티브 WebSocket CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 통과, debug.enabled=false 추정)" -ForegroundColor Green
+        Write-Host "  결론: 네이티브 WebSocket CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 통과, cors.allowed-origins 목록대로 동작)" -ForegroundColor Green
     }
 }
 Write-Host ("=" * 70) -ForegroundColor DarkGray
@@ -341,13 +342,13 @@ $stompOtherReflected = @($stompResults | Where-Object { -not $_.Known -and $_.Re
 Write-Host ""
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 if ($stompOtherReflected.Count -gt 0) {
-    Write-Host "  결론: SockJS 폴백 CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 허용됨 -> debug.enabled=true 추정)" -ForegroundColor Yellow
+    Write-Host "  결론: SockJS 폴백 CORS 가 현재 '풀려' 있습니다 (미등록 오리진도 허용됨 -> cors.allowed-origins 가 * 로 추정)" -ForegroundColor Yellow
 } else {
     $stompKnownBlocked = @($stompResults | Where-Object { $_.Known -and -not $_.Reflected })
     if ($stompKnownBlocked.Count -gt 0) {
         Write-Host "  결론: 정식 등록된 오리진 중 일부가 SockJS 폴백에서 차단되고 있습니다. WebSocketConfig 설정을 확인하세요." -ForegroundColor Red
     } else {
-        Write-Host "  결론: SockJS 폴백 CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 허용, debug.enabled=false 추정)" -ForegroundColor Green
+        Write-Host "  결론: SockJS 폴백 CORS 가 정상적으로 제한되어 있습니다 (등록된 오리진만 허용, cors.allowed-origins 목록대로 동작)" -ForegroundColor Green
     }
 }
 Write-Host ("=" * 70) -ForegroundColor DarkGray

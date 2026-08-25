@@ -38,7 +38,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-
 @Slf4j
 @Tag(name = "활동/공모전", description = "활동 등록·검색·추천. 포스터 이미지에서 AI 로 정보를 추출한다")
 @RestController
@@ -66,6 +65,7 @@ public class EventController {
 
                     등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.""")
     @PostMapping
+    @ApiResponse(responseCode = "201", description = "등록된 활동. 팀 모집글의 eventId 로 연결할 수 있다.")
     public ResponseEntity<BaseResponse<EventResponseDTO>> createEvent(
       @Valid @RequestBody EventRequestDTO request
     ) {
@@ -77,7 +77,8 @@ public class EventController {
      * 공모전 포스터 이미지에서 활동 등록 초안을 추출한다 [인증 필수].
      * 요청은 multipart/form-data 이며 파트 이름은 {@code image} (jpg/jpeg/png, 10MB 이하).
      *
-     * <p>저장은 하지 않는다 — 프론트가 이 초안을 사용자에게 보여주고 수정을 받은 뒤
+     * <p>
+     * 저장은 하지 않는다 — 프론트가 이 초안을 사용자에게 보여주고 수정을 받은 뒤
      * POST /api/events 로 등록한다. 그래서 201 이 아니라 200 이다.
      * 인증 여부는 SecurityConfig 의 매처가 강제한다.
      */
@@ -92,6 +93,7 @@ public class EventController {
 
                     읽어 내지 못한 항목은 null 이고, category·field 는 판독이 애매하면 ETC 로 온다 —
                     빈칸 없이 다 채워질 거라고 가정하지 말 것.""")
+    @ApiResponse(responseCode = "200", description = "포스터에서 뽑은 활동 등록 초안. 저장은 하지 않는다.")
     @ApiResponse(responseCode = "400",
       description = "INVALID_IMAGE_FILE — jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다.")
     @ApiResponse(responseCode = "413",
@@ -120,7 +122,8 @@ public class EventController {
      * @param school 대상 대학교. 부분일치이며 "전체"는 필터 미적용으로 취급한다.
      * @param keyword 제목·설명·주최를 아우르는 자유 검색어. 부분일치이며 "전체"/빈값은 필터 미적용으로 취급한다.
      *
-     * <p>비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
+     * <p>
+     * 비로그인도 그대로 쓸 수 있다(permitAll). 토큰을 함께 보내면 각 활동에 내 북마크 여부가
      * {@code bookmarked} 로 실릴 뿐, 필터도 순서도 달라지지 않는다.
      */
     @Operation(summary = "활동 검색",
@@ -191,6 +194,8 @@ public class EventController {
                     호출하면 `Deprecation`/`Sunset` 응답 헤더가 붙고 서버에 경고 로그가 남는다
                     (누가 아직 쓰는지 파악해 걷어내기 위한 것). 대체 방식이 정해지기 전까지
                     동작은 그대로 둔다.""")
+    @ApiResponse(responseCode = "200",
+      description = "카테고리별 1건씩의 추천 활동. Deprecation/Sunset 헤더가 함께 붙는다.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
     @Parameter(name = "category", description = "생략하면 모든 카테고리에서 각각 1건씩 반환한다.")
@@ -221,7 +226,8 @@ public class EventController {
      * 기본 조회 (무작위 정렬). 카테고리가 섞인 표본을 size 건까지 내려준다.
      * RANDOM 정렬이라 페이지 간 순서를 보장할 수 없어 page 는 받지 않고 size 로만 응답 크기를 묶는다.
      *
-     * <p>/search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
+     * <p>
+     * /search 와 마찬가지로 토큰을 보내면 {@code bookmarked} 가 채워진다.
      */
     @Operation(summary = "활동 목록 (무작위 표본)",
       description = """
@@ -245,7 +251,8 @@ public class EventController {
     /**
      * JWT 의 subject 는 userId 다(JwtAuthenticationFilter). 비로그인이면 null 을 돌려준다.
      *
-     * <p>null 검사만으로는 부족하다. 이 컨트롤러의 조회 경로들은 SecurityConfig 에서
+     * <p>
+     * null 검사만으로는 부족하다. 이 컨트롤러의 조회 경로들은 SecurityConfig 에서
      * {@code /api/events/**} permitAll 에 걸리는데, permitAll 이라고 authentication 이 비는 게
      * 아니라 Spring Security 가 AnonymousAuthenticationToken 을 채워 넣는다. 그 getName() 은
      * "anonymousUser" 라는 문자열이라, 걸러 내지 않으면 아래 Long.valueOf 에서

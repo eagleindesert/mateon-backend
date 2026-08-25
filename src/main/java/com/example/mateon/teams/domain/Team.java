@@ -11,8 +11,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "teams")
-@Getter @Setter
+@Getter
+@Setter
 public class Team {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,22 +57,28 @@ public class Team {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @PreUpdate
-    protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     // ── 인원 계산 ────────────────────────────────────────────────────────────
     // capacity 는 "팀장을 포함한 팀 전체 정원"이고, team_members 에는 팀장도 LEADER 로 들어 있다.
     // 즉 두 값을 그대로 비교하면 된다. (예전엔 지원서 집계에 팀장이 안 잡혀 +1 보정 함수가
     // 필요했는데, V12 에서 멤버십을 실체 테이블로 올리며 그 보정이 사라졌다.)
-
-    /** 정원이 찼는지. capacity 가 없으면 마감 판단을 하지 않는다. */
+    /**
+     * 정원이 찼는지. capacity 가 없으면 마감 판단을 하지 않는다.
+     */
     public boolean isFullWith(int activeMemberCount) {
         return capacity != null && activeMemberCount >= capacity;
     }
 
     // ── 종료/평가 ────────────────────────────────────────────────────────────
-
     public boolean isEnded() {
         return endedAt != null;
     }
@@ -78,7 +86,8 @@ public class Team {
     /**
      * 지금 평가를 받을 수 있는 팀인지. 종료됐고 평가 기간이 아직 남아 있어야 한다.
      *
-     * <p>기간을 닫는 이유는 두 가지다 — 기억이 희미해진 뒤의 평가는 신호 대비 잡음이 크고,
+     * <p>
+     * 기간을 닫는 이유는 두 가지다 — 기억이 희미해진 뒤의 평가는 신호 대비 잡음이 크고,
      * 창구가 계속 열려 있으면 나중에 감정이 상했을 때 보복 평가를 하러 돌아올 수 있다.
      */
     public boolean isReviewableAt(LocalDateTime now, int reviewWindowDays) {

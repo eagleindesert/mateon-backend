@@ -15,6 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MyPageResponseDTO {
+
     // 1. 기본 프로필 정보
     private String name;
     private String college; // 단과대
@@ -42,6 +43,7 @@ public class MyPageResponseDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ActivitySummaryDTO {
+
         private Long id;
         private String title; // 활동 제목
         @Schema(description = "활동 카테고리의 한글 표기.", example = "공모전")

@@ -6,15 +6,20 @@ package com.example.mateon.teams.domain;
  */
 public enum OfferStatus {
 
-    /** 유저의 응답 대기 중. 팀장이 취소할 수 있는 유일한 상태. */
+    /**
+     * 유저의 응답 대기 중. 팀장이 취소할 수 있는 유일한 상태.
+     */
     PENDING,
-
-    /** 유저가 수락 → 그 즉시 팀원이 된 상태. */
+    /**
+     * 유저가 수락 → 그 즉시 팀원이 된 상태.
+     */
     ACCEPTED,
-
-    /** 유저가 거절. */
+    /**
+     * 유저가 거절.
+     */
     REJECTED,
-
-    /** 팀장이 회수. */
+    /**
+     * 팀장이 회수.
+     */
     CANCELED
 }

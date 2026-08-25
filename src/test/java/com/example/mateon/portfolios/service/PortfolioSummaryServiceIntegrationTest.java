@@ -30,19 +30,22 @@ import static org.mockito.Mockito.when;
 /**
  * 캐시가 실제 DB(uq_user_portfolios_pair)에 대고 동작하는지 확인한다.
  *
- * <p>목 리포지토리로는 확인할 수 없는 것들이다 — 제약이 실행되지 않고, 저장한 행이 다음 조회에
+ * <p>
+ * 목 리포지토리로는 확인할 수 없는 것들이다 — 제약이 실행되지 않고, 저장한 행이 다음 조회에
  * 실제로 잡히는지도 알 수 없다.
  *
- * <p>AI 클라이언트만 목이다. 스프링 컨텍스트에 목을 끼우는 대신(그러면 컨텍스트가 하나 더 뜬다)
+ * <p>
+ * AI 클라이언트만 목이다. 스프링 컨텍스트에 목을 끼우는 대신(그러면 컨텍스트가 하나 더 뜬다)
  * 오토와이어한 리포지토리로 서비스를 직접 조립한다 — 생성자 주입이라 그대로 된다.
  *
- * <p>목은 호출할 때마다 <b>다른 요약</b>을 준다. 같은 값을 주면 캐시가 동작하지 않아도 테스트가
+ * <p>
+ * 목은 호출할 때마다 <b>다른 요약</b>을 준다. 같은 값을 주면 캐시가 동작하지 않아도 테스트가
  * 통과해 버려서, "두 번째 응답이 첫 번째와 같다"가 캐시의 증거가 되지 못한다.
  */
 class PortfolioSummaryServiceIntegrationTest extends IntegrationTestBase {
 
-    private static final byte[] PDF_BYTES =
-            "%PDF-1.7\n포트폴리오 본문".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] PDF_BYTES
+      = "%PDF-1.7\n포트폴리오 본문".getBytes(StandardCharsets.UTF_8);
 
     @Autowired
     UserPortfolioRepository portfolioRepository;
@@ -70,9 +73,9 @@ class PortfolioSummaryServiceIntegrationTest extends IntegrationTestBase {
 
     private Long newUser() {
         return userRepository.save(User.builder()
-                .email(UUID.randomUUID() + "@test.ac.kr")
-                .name("포트폴리오 테스트 유저")
-                .build()).getId();
+          .email(UUID.randomUUID() + "@test.ac.kr")
+          .name("포트폴리오 테스트 유저")
+          .build()).getId();
     }
 
     private MultipartFile pdf(byte[] bytes) {
@@ -81,8 +84,8 @@ class PortfolioSummaryServiceIntegrationTest extends IntegrationTestBase {
 
     private List<UserPortfolio> myPortfolios(Long ownerId) {
         return portfolioRepository.findAll().stream()
-                .filter(portfolio -> portfolio.getUser().getId().equals(ownerId))
-                .toList();
+          .filter(portfolio -> portfolio.getUser().getId().equals(ownerId))
+          .toList();
     }
 
     @Test
@@ -127,7 +130,7 @@ class PortfolioSummaryServiceIntegrationTest extends IntegrationTestBase {
         service.summarize(userId, pdf(PDF_BYTES));
 
         assertThat(myPortfolios(userId))
-                .singleElement()
-                .satisfies(portfolio -> assertThat(portfolio.getPdfId()).matches("[0-9a-f]{64}"));
+          .singleElement()
+          .satisfies(portfolio -> assertThat(portfolio.getPdfId()).matches("[0-9a-f]{64}"));
     }
 }

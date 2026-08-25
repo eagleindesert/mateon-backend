@@ -24,7 +24,8 @@ import java.util.stream.Collectors;
 /**
  * 역제안(팀→유저) 추천 흐름의 오케스트레이터. {@link RecommendationService} 의 거울상이다.
  *
- * <p>클래스 레벨 @Transactional 이 없는 게 여기서도 핵심이다 — FastAPI read-timeout 이 60 초라
+ * <p>
+ * 클래스 레벨 @Transactional 이 없는 게 여기서도 핵심이다 — FastAPI read-timeout 이 60 초라
  * TX 안에서 호출하면 커넥션 풀이 마른다. 조회는 RecommendationQueryService(readOnly),
  * 저장은 RecommendationLogService(@Transactional) 가 맡고 그 사이에서 AI 를 호출한다.
  * 빈이 나뉜 것도 필수다 — 같은 빈 안에서 호출하면 프록시를 타지 않아 @Transactional 이 무시된다.
@@ -44,7 +45,7 @@ public class TeamToUserRecommendationService {
      * @param limit 프론트에 내려줄 상위 건수.
      */
     public List<UserRecommendationResponseDTO> recommendUsers(Long teamId, Long leaderUserId,
-        int limit) {
+      int limit) {
         // ① [TX1] 팀 벡터/메타데이터 + 후보 유저 벡터/슬롯을 스냅샷으로 → 커밋
         //    (팀장 검증과 팀 임베딩 준비 여부 확인도 여기서 한다)
         UserRecommendationSnapshot snapshot = queryService.gatherForTeam(teamId, leaderUserId);
@@ -59,22 +60,22 @@ public class TeamToUserRecommendationService {
 
         // ③ 응답 정리: 우리가 보낸 후보만, 점수 내림차순
         Map<Long, UserRecommendationSnapshot.Candidate> candidatesById = snapshot.getCandidates()
-            .stream()
-            .collect(Collectors.toMap(candidate -> candidate.getUser().getId(),
-                Function.identity()));
+          .stream()
+          .collect(Collectors.toMap(candidate -> candidate.getUser().getId(),
+            Function.identity()));
 
         List<Recommendation> ranked = ai.getRecommendations().stream()
-            // 외부 서버는 신뢰할 수 없는 입력원이다 — 보낸 적 없는 candidate_id 나 점수 누락은
-            // 조용히 버린다 (여기서 예외를 던지면 나머지 멀쩡한 추천까지 같이 죽는다).
-            .filter(r -> r.getCandidateId() != null && r.getScore() != null)
-            .filter(r -> candidatesById.containsKey(r.getCandidateId()))
-            .sorted(Comparator.comparingDouble(Recommendation::getScore).reversed())
-            .toList();
+          // 외부 서버는 신뢰할 수 없는 입력원이다 — 보낸 적 없는 candidate_id 나 점수 누락은
+          // 조용히 버린다 (여기서 예외를 던지면 나머지 멀쩡한 추천까지 같이 죽는다).
+          .filter(r -> r.getCandidateId() != null && r.getScore() != null)
+          .filter(r -> candidatesById.containsKey(r.getCandidateId()))
+          .sorted(Comparator.comparingDouble(Recommendation::getScore).reversed())
+          .toList();
 
         int dropped = ai.getRecommendations().size() - ranked.size();
         if (dropped > 0) {
             log.warn("AI 역제안 추천 응답에서 {}건을 버렸습니다 (알 수 없는 candidate_id 또는 점수 누락). teamId={}",
-                dropped, teamId);
+              dropped, teamId);
         }
 
         // limit 은 AI 가 점수화해 준 건수를 넘을 수 없다 — 유저→팀 방향과 같은 제약이다
@@ -82,8 +83,8 @@ public class TeamToUserRecommendationService {
         int candidateCount = snapshot.getCandidates().size();
         if (ranked.size() < candidateCount && ranked.size() < limit) {
             log.warn("요청한 limit={} 를 채우지 못했습니다 - AI 가 후보 {}건 중 {}건만 점수화했습니다. "
-                + "AI 서버의 top_k 상한을 확인하세요 (백엔드 limit 으로는 늘릴 수 없습니다). teamId={}",
-                limit, candidateCount, ranked.size(), teamId);
+              + "AI 서버의 top_k 상한을 확인하세요 (백엔드 limit 으로는 늘릴 수 없습니다). teamId={}",
+              limit, candidateCount, ranked.size(), teamId);
         }
 
         // ④ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
@@ -99,36 +100,36 @@ public class TeamToUserRecommendationService {
 
         List<Long> topUserIds = top.stream().map(Recommendation::getCandidateId).toList();
         Map<Long, User> usersById = topUserIds.stream()
-            .collect(Collectors.toMap(Function.identity(),
-                userId -> candidatesById.get(userId).getUser()));
+          .collect(Collectors.toMap(Function.identity(),
+            userId -> candidatesById.get(userId).getUser()));
         Map<Long, UserDisplayInfo> displayInfo
-            = queryService.loadUserDisplayInfo(topUserIds, usersById);
+          = queryService.loadUserDisplayInfo(topUserIds, usersById);
 
         return top.stream().map(r -> {
             UserRecommendationSnapshot.Candidate candidate = candidatesById.get(r.getCandidateId());
             UserDisplayInfo info = displayInfo.get(r.getCandidateId());
             return new UserRecommendationResponseDTO(candidate.getUser(), candidate.getSlot(),
-                info.getCollaborationTemperature(), r.getScore(), r.getLabel());
+              info.getCollaborationTemperature(), r.getScore(), r.getLabel());
         }).toList();
     }
 
     private TeamToUserRecommendationRequest buildRequest(UserRecommendationSnapshot snapshot) {
         List<TeamToUserRecommendationRequest.Candidate> candidates = snapshot.getCandidates()
-            .stream()
-            .map(candidate -> {
-                MatchingIntentSlot slot = candidate.getSlot();
-                return new TeamToUserRecommendationRequest.Candidate(
-                    candidate.getUser().getId(),
-                    candidate.getEmbedding(),
-                    new UserMetadata(slot.getDesiredRoles(), slot.getSkills(),
-                        slot.getExperienceLevel(), slot.getActivityStyle()));
-            })
-            .toList();
+          .stream()
+          .map(candidate -> {
+              MatchingIntentSlot slot = candidate.getSlot();
+              return new TeamToUserRecommendationRequest.Candidate(
+                candidate.getUser().getId(),
+                candidate.getEmbedding(),
+                new UserMetadata(slot.getDesiredRoles(), slot.getSkills(),
+                  slot.getExperienceLevel(), slot.getActivityStyle()));
+          })
+          .toList();
 
         // 질의 메타데이터는 팀의 team_embeddings 정규화 값 — 2번(embedding:refresh) 응답 그대로다.
         return new TeamToUserRecommendationRequest(snapshot.getQueryEmbedding(),
-            new TeamMetadata(snapshot.getRecruitingRoles(), snapshot.getRequiredSkills(),
-                snapshot.getActivityStyle(), snapshot.getBeginnerFriendly()),
-            candidates);
+          new TeamMetadata(snapshot.getRecruitingRoles(), snapshot.getRequiredSkills(),
+            snapshot.getActivityStyle(), snapshot.getBeginnerFriendly()),
+          candidates);
     }
 }

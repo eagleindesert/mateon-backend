@@ -5,8 +5,10 @@
 #   예: ./scripts/docker/deploy-dockerhub.ps1 -Tag v1.0.0 -Platform linux/arm64)
 #
 # 사용법 (배포 서버에서):
-#   1) 이 파일과 .env 를 서버로 복사한다. (.env 에는 MAIL/JWT/AI 시크릿 포함)
-#   2) DOCKERHUB_USERNAME / APP_IMAGE_TAG 를 .env 또는 셸 환경변수로 지정한다.
+#   1) 이 파일과 .env, .env.secret 을 서버로 복사한다.
+#      (.env = 포트·오리진·이미지 태그·DB 계정 / .env.secret = MAIL·JWT·AI·OCI 시크릿)
+#      .env.secret 이 없으면 아래 up 이 통째로 실패하므로 먼저 올린다.
+#   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
 #   3) docker compose -f docker-compose-deployment.yml up -d
 #
 # 종료:  docker compose -f docker-compose-deployment.yml down
@@ -22,10 +24,50 @@ services:
     platform: linux/arm64
     container_name: mateon-app
     restart: unless-stopped
-    # 애플리케이션 시크릿(MAIL/JWT/AI 등)은 .env 파일에서 주입
+    # dev 프로필로 도는 서버라 로그가 DEBUG 다. json-file 드라이버 기본값은 무제한이라
+    # 그대로 두면 디스크가 찬다(Always Free 급 인스턴스에서는 실제로 찬다).
+    #
+    # 총량은 max-size × max-file = 1GB 다. 여유 20GB 중 5% 인데, 나머지는 이미지 태그와
+    # postgres 볼륨이 계속 먹으므로 로그에 더 주지 않는다. 반대로 이보다 짜게 잡으면
+    # (예: 10m×3=30MB) DEBUG 로그가 몇 시간 만에 밀려나 정작 장애 때 볼 게 없다.
+    #
+    # 파일을 잘게 쪼개는 건 회전이 지워 버리는 단위가 곧 max-size 라서다 — 1000m×1 이면
+    # 한 번 넘칠 때 1GB 가 통째로 사라진다.
+    #
+    # 실제 증가 속도를 보고 조정한다(서버에서):
+    #   du -h $(docker inspect --format='{{.LogPath}}' mateon-app)
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+    # 설정은 .env, 시크릿은 .env.secret 에서 주입한다. 뒤에 온 파일이 이긴다.
+    #
+    # .env.secret 을 app 에만 물리는 게 이 분리의 요점이다 — 아래 postgres/pgadmin 에는
+    # 붙이지 않는다. 한 파일로 두면 DB·pgAdmin 컨테이너 안에서도 OPENAI_API_KEY 와
+    # JWT_SECRET 이 env 로 보인다.
+    #
+    # 파일이 없으면 up 이 통째로 실패한다(required 기본값). 앱은 어차피 시크릿 없이
+    # 못 뜨므로, 부팅 중간에 죽는 것보다 여기서 먼저 걸리는 편이 낫다.
     env_file:
       - .env
+      - .env.secret
     environment:
+      # 운영 환경이 아직 없다. 이 서버는 "배포된 개발 서버"이고, prod 프로필은 만들어만 뒀지
+      # 켜는 곳이 없다. 그러니 여기서 prod 를 주면 실제와 다른 소리를 하는 셈이라 dev 로 둔다.
+      # (spring.profiles.default 가 dev 라 이 줄이 없어도 결과는 같지만, 배포 파일을 열었을 때
+      #  어느 프로필로 도는지 바로 보이도록 남긴다.)
+      #
+      # dev 로 돈다는 게 서버에서 뜻하는 것 — 운영으로 승격할 때 이 목록을 되짚는다:
+      #   - CORS 기본값이 "*" 다. 좁히려면 .env 에 CORS_ALLOWED_ORIGINS 를 준다(그쪽이 이긴다).
+      #     prod 와 달리 설정 누락을 부팅으로 잡아 주지 않으니 오타는 조용히 전체 허용이 된다.
+      #   - /debug/oauth 가 열린다(DEBUG_OAUTH_ENABLED 기본 true). 서버에서 카카오 인가코드를
+      #     받으려면 필요하고, 닫으려면 .env 에 false 를 준다.
+      #   - 앱 로그가 DEBUG 다(prod 는 INFO). 조용히 시키려면 .env 에 LOG_LEVEL_APP=INFO.
+      #     SQL 로그는 dev 도 기본이 꺼짐이라 그대로 두면 안 나온다 — 서버에서 잠깐 봐야 하면
+      #     .env 에 JPA_SHOW_SQL=true 와 LOG_LEVEL_SQL=DEBUG 를 세트로 주고 끝나면 되돌린다.
+      #   - 커넥션 풀이 10 이다(prod 는 20). 늘리려면 .env 의 DB_POOL_SIZE.
+      SPRING_PROFILES_ACTIVE: dev
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
@@ -41,6 +83,13 @@ services:
     image: pgvector/pgvector:pg16
     container_name: mateon-postgres
     restart: unless-stopped
+    # 체크포인트·연결 로그 정도라 app 만큼 나오지는 않는다. 다만 무제한으로 두면 서버가
+    # 오래 살아 있는 만큼 계속 쌓이므로 상한만 걸어 둔다 (총 30MB).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_DB: mateon_db
       POSTGRES_USER: ${POSTGRES_USER:-admin}
@@ -61,6 +110,13 @@ services:
     image: dpage/pgadmin4:latest
     container_name: mateon-pgadmin
     restart: unless-stopped
+    # gunicorn 액세스 로그를 요청마다 찍는다. 여기서 볼 게 사실상 없어서 상한도 짜게 준다
+    # (총 30MB). pgAdmin 을 안 쓰는 동안에도 헬스체크성 요청이 계속 남는다.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       # 접속 계정/비밀번호는 .env 로 오버라이드 권장 (기본값은 개발용).
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}

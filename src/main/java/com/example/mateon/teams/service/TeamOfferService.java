@@ -32,11 +32,13 @@ import java.util.stream.Collectors;
 /**
  * 역제안(팀→유저) 처리.
  *
- * <p>{@link TeamService} 의 지원서 흐름과 방향이 반대다 — 저쪽은 유저가 요청하고 팀장이
+ * <p>
+ * {@link TeamService} 의 지원서 흐름과 방향이 반대다 — 저쪽은 유저가 요청하고 팀장이
  * 승인하지만, 이쪽은 팀장이 요청하고 유저가 승인한다. 수락되면 팀장의 재승인 없이 곧바로
  * 팀원이 된다.
  *
- * <p>팀 합류가 실제로 일어나는 지점이므로 정원 마감 처리는 TeamService.processApplication 과
+ * <p>
+ * 팀 합류가 실제로 일어나는 지점이므로 정원 마감 처리는 TeamService.processApplication 과
  * 완전히 같은 순서를 따른다 (멤버 저장 → flush → 인원 집계 → isFullWith). 두 경로가 서로 다른
  * 방식으로 세면 정원을 넘겨 받는 팀이 생긴다.
  */
@@ -55,16 +57,16 @@ public class TeamOfferService {
     private final NotificationService notificationService;
 
     // ── 팀장: 제안 발송 / 조회 / 취소 ────────────────────────────────────────
-
     /**
      * 팀장이 유저에게 제안을 보낸다.
      *
-     * <p>AI 점수/근거는 요청 본문이 아니라 team_to_user_recommendation_items 에서 서버가 찾아
+     * <p>
+     * AI 점수/근거는 요청 본문이 아니라 team_to_user_recommendation_items 에서 서버가 찾아
      * 넣는다 — 프론트가 되보낸 값은 신뢰할 수 없기 때문이다. 추천을 거치지 않고 보낸 제안이면
      * 둘 다 null 로 남고, 그건 정상이다.
      */
     public TeamOfferResponseDTO createOffer(Long teamId, Long targetUserId, String message,
-                                            Long leaderId) {
+      Long leaderId) {
         User leader = getUserById(leaderId);
         requireSchoolVerified(leader);
 
@@ -80,17 +82,17 @@ public class TeamOfferService {
         // 이미 팀원이거나 지원서를 낸 사람에게 제안할 이유가 없다 (추천에서도 빠져 있지만,
         // userId 를 직접 넣어 호출할 수 있으므로 여기서도 막는다).
         if (teamMemberRepository.existsByTeamIdAndUserIdAndLeftAtIsNull(teamId, targetUserId)
-                || applicationRepository.findByTeamIdAndApplicantId(teamId, targetUserId).isPresent()
-                || offerRepository.existsByTeamIdAndTargetUserId(teamId, targetUserId)) {
+          || applicationRepository.findByTeamIdAndApplicantId(teamId, targetUserId).isPresent()
+          || offerRepository.existsByTeamIdAndTargetUserId(teamId, targetUserId)) {
             throw new MateonException(ErrorCode.DUPLICATE_RESOURCE);
         }
 
-        Optional<TeamToUserRecommendationItem> recommended =
-                recommendationLogRepository.findLatestItem(teamId, targetUserId);
+        Optional<TeamToUserRecommendationItem> recommended
+          = recommendationLogRepository.findLatestItem(teamId, targetUserId);
 
         TeamOffer offer = new TeamOffer(team, targetUser, message,
-                recommended.map(TeamToUserRecommendationItem::getScore).orElse(null),
-                recommended.map(TeamToUserRecommendationItem::getLabel).orElse(null));
+          recommended.map(TeamToUserRecommendationItem::getScore).orElse(null),
+          recommended.map(TeamToUserRecommendationItem::getLabel).orElse(null));
 
         try {
             offerRepository.saveAndFlush(offer);
@@ -100,8 +102,8 @@ public class TeamOfferService {
         }
 
         notificationService.send(targetUser, "팀 제안 도착",
-                String.format("[%s] 팀에서 함께하자는 제안이 왔습니다.", team.getTitle()),
-                Notification.NotificationType.INFO);
+          String.format("[%s] 팀에서 함께하자는 제안이 왔습니다.", team.getTitle()),
+          Notification.NotificationType.INFO);
 
         return TeamOfferResponseDTO.from(offer, leader);
     }
@@ -113,14 +115,15 @@ public class TeamOfferService {
 
         User leader = getUserById(leaderId);
         return offerRepository.findByTeamIdOrderByCreatedAtDesc(teamId).stream()
-                .map(offer -> TeamOfferResponseDTO.from(offer, leader))
-                .toList();
+          .map(offer -> TeamOfferResponseDTO.from(offer, leader))
+          .toList();
     }
 
     /**
      * 팀장이 아직 응답받지 않은 제안을 회수한다.
      *
-     * <p>유저 쪽에는 "제안 도착" 알림이 이미 가 있으므로 회수도 알려야 한다 — 안 그러면 목록에
+     * <p>
+     * 유저 쪽에는 "제안 도착" 알림이 이미 가 있으므로 회수도 알려야 한다 — 안 그러면 목록에
      * 들어가 CANCELED 를 보고서야 알게 된다.
      */
     public void cancelOffer(Long offerId, Long leaderId) {
@@ -132,33 +135,33 @@ public class TeamOfferService {
 
         // 반드시 cancel() 뒤다. 앞에 두면 이미 수락/거절된 제안에도 취소 알림이 나간다.
         notificationService.send(offer.getTargetUser(), "제안 취소",
-                String.format("[%s] 팀의 제안이 취소되었습니다.", team.getTitle()),
-                Notification.NotificationType.INFO);
+          String.format("[%s] 팀의 제안이 취소되었습니다.", team.getTitle()),
+          Notification.NotificationType.INFO);
     }
 
     // ── 유저: 받은 제안 조회 / 응답 ──────────────────────────────────────────
-
     @Transactional(readOnly = true)
     public List<TeamOfferResponseDTO> getMyOffers(Long userId) {
         List<TeamOffer> offers = offerRepository.findByTargetUserIdOrderByCreatedAtDesc(userId);
 
         // 팀장 이름은 팀마다 하나뿐이므로 한 번에 모아 온다 (제안마다 조회하면 N+1).
         Map<Long, User> leadersById = userRepository.findAllById(
-                        offers.stream().map(offer -> offer.getTeam().getLeaderUserId()).distinct().toList())
-                .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
+          offers.stream().map(offer -> offer.getTeam().getLeaderUserId()).distinct().toList())
+          .stream()
+          .collect(Collectors.toMap(User::getId, Function.identity()));
 
         return offers.stream()
-                // 팀장 계정이 사라졌으면 이름만 비고 나머지는 정상 표시된다.
-                .map(offer -> TeamOfferResponseDTO.from(offer,
-                        leadersById.get(offer.getTeam().getLeaderUserId())))
-                .toList();
+          // 팀장 계정이 사라졌으면 이름만 비고 나머지는 정상 표시된다.
+          .map(offer -> TeamOfferResponseDTO.from(offer,
+          leadersById.get(offer.getTeam().getLeaderUserId())))
+          .toList();
     }
 
     /**
      * 제안을 받은 유저가 수락/거절한다. 수락하면 그 자리에서 팀원이 된다.
      *
-     * <p>수락 시점에 팀 상태를 다시 확인하는 게 중요하다 — 제안을 보낸 뒤 유저가 응답하기까지
+     * <p>
+     * 수락 시점에 팀 상태를 다시 확인하는 게 중요하다 — 제안을 보낸 뒤 유저가 응답하기까지
      * 얼마든지 시간이 흐를 수 있고, 그 사이에 정원이 차거나 활동이 끝났을 수 있다.
      */
     public TeamOfferResponseDTO respond(Long offerId, boolean accepted, Long userId) {
@@ -175,8 +178,8 @@ public class TeamOfferService {
             offer.reject();
             if (leader != null) {
                 notificationService.send(leader, "제안 거절",
-                        String.format("[%s] 팀 제안이 거절되었습니다.", team.getTitle()),
-                        Notification.NotificationType.REJECT);
+                  String.format("[%s] 팀 제안이 거절되었습니다.", team.getTitle()),
+                  Notification.NotificationType.REJECT);
             }
             return TeamOfferResponseDTO.from(offer, leader);
         }
@@ -191,10 +194,10 @@ public class TeamOfferService {
         // 지원서 승인(TeamService.processApplication)과 같은 처리다. 거절 후 재가입 같은
         // 경로로 이미 행이 있을 수 있어 재활성화도 처리한다.
         teamMemberRepository.findByTeamIdAndUserId(team.getId(), applicant.getId())
-                .ifPresentOrElse(
-                        member -> member.setLeftAt(null),
-                        () -> teamMemberRepository.save(
-                                TeamMember.of(team, applicant, TeamMemberRole.MEMBER)));
+          .ifPresentOrElse(
+            member -> member.setLeftAt(null),
+            () -> teamMemberRepository.save(
+              TeamMember.of(team, applicant, TeamMemberRole.MEMBER)));
 
         // 방금 저장한 멤버 행까지 세려면 flush 가 필요하다 (save 는 아직 INSERT 전일 수 있다).
         teamMemberRepository.flush();
@@ -205,29 +208,28 @@ public class TeamOfferService {
 
         if (leader != null) {
             notificationService.send(leader, "제안 수락",
-                    String.format("[%s] 팀 제안을 %s 님이 수락했습니다.",
-                            team.getTitle(), applicant.getName()),
-                    Notification.NotificationType.APPROVE);
+              String.format("[%s] 팀 제안을 %s 님이 수락했습니다.",
+                team.getTitle(), applicant.getName()),
+              Notification.NotificationType.APPROVE);
         }
 
         return TeamOfferResponseDTO.from(offer, leader);
     }
 
     // ── 공통 ─────────────────────────────────────────────────────────────────
-
     private TeamOffer getOfferById(Long offerId) {
         return offerRepository.findById(offerId)
-                .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     private Team getTeamById(Long teamId) {
         return teamRepository.findById(teamId)
-                .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
     }
 
     private void requireLeader(Team team, Long userId) {
@@ -236,7 +238,9 @@ public class TeamOfferService {
         }
     }
 
-    /** 사람을 더 받을 수 있는 팀인지. 모집 마감과 활동 종료는 다른 축이라 둘 다 본다. */
+    /**
+     * 사람을 더 받을 수 있는 팀인지. 모집 마감과 활동 종료는 다른 축이라 둘 다 본다.
+     */
     private void requireOpenForJoining(Team team) {
         if (Boolean.FALSE.equals(team.getIsRecruiting()) || team.isEnded()) {
             throw new MateonException(ErrorCode.TEAM_RECRUITMENT_CLOSED);

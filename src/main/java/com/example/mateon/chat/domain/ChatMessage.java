@@ -12,14 +12,15 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chat_messages", indexes = {
-        @Index(name = "idx_chat_messages_room_id", columnList = "room_id, id")
+    @Index(name = "idx_chat_messages_room_id", columnList = "room_id, id")
 })
 @Getter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class ChatMessage {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

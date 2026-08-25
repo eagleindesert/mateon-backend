@@ -49,19 +49,19 @@ public class ChatService {
         }
 
         User me = userRepository.findById(userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
 
         // 기존 DM 방이 있으면 그대로 반환
         return chatRoomRepository.findDmRoom(RoomType.DM, userId, targetUserId)
-                .orElseGet(() -> {
-                    ChatRoom room = chatRoomRepository.save(
-                            ChatRoom.builder().type(RoomType.DM).build());
-                    chatRoomMemberRepository.save(ChatRoomMember.builder().room(room).user(me).build());
-                    chatRoomMemberRepository.save(ChatRoomMember.builder().room(room).user(target).build());
-                    return room;
-                });
+          .orElseGet(() -> {
+              ChatRoom room = chatRoomRepository.save(
+                ChatRoom.builder().type(RoomType.DM).build());
+              chatRoomMemberRepository.save(ChatRoomMember.builder().room(room).user(me).build());
+              chatRoomMemberRepository.save(ChatRoomMember.builder().room(room).user(target).build());
+              return room;
+          });
     }
 
     // -------------------------------------------------------------------------
@@ -74,14 +74,14 @@ public class ChatService {
         }
 
         ChatRoomMember senderMembership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, senderId)
-                .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
+          .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
 
         ChatRoom room = senderMembership.getRoom();
         User sender = senderMembership.getUser();
 
         // A. DB 저장
         ChatMessage message = chatMessageRepository.save(
-                ChatMessage.builder().room(room).sender(sender).content(content).build());
+          ChatMessage.builder().room(room).sender(sender).content(content).build());
 
         // 발신자는 자기 메시지를 곧바로 읽은 것으로 처리 + 방 최신순 정렬 갱신
         senderMembership.updateLastReadMessageId(message.getId());
@@ -99,10 +99,10 @@ public class ChatService {
                 continue;
             }
             notificationService.send(
-                    member.getUser(),
-                    sender.getName() + "님의 메시지",
-                    preview,
-                    Notification.NotificationType.INFO);
+              member.getUser(),
+              sender.getName() + "님의 메시지",
+              preview,
+              Notification.NotificationType.INFO);
         }
 
         return response;
@@ -123,8 +123,8 @@ public class ChatService {
 
             // 안읽음 수
             long unread = (membership.getLastReadMessageId() == null)
-                    ? chatMessageRepository.countByRoomId(room.getId())
-                    : chatMessageRepository.countByRoomIdAndIdGreaterThan(room.getId(), membership.getLastReadMessageId());
+              ? chatMessageRepository.countByRoomId(room.getId())
+              : chatMessageRepository.countByRoomIdAndIdGreaterThan(room.getId(), membership.getLastReadMessageId());
 
             // DM 이면 상대방 정보로 title/partnerId 채우기
             String title = room.getTitle();
@@ -140,13 +140,13 @@ public class ChatService {
             }
 
             result.add(ChatRoomResponse.builder()
-                    .room(room)
-                    .title(title)
-                    .partnerId(partnerId)
-                    .lastMessage(last.map(ChatMessage::getContent).orElse(null))
-                    .lastMessageAt(last.map(ChatMessage::getCreatedAt).orElse(room.getUpdatedAt()))
-                    .unreadCount(unread)
-                    .build());
+              .room(room)
+              .title(title)
+              .partnerId(partnerId)
+              .lastMessage(last.map(ChatMessage::getContent).orElse(null))
+              .lastMessageAt(last.map(ChatMessage::getCreatedAt).orElse(room.getUpdatedAt()))
+              .unreadCount(unread)
+              .build());
         }
 
         // 최신 대화순 정렬 (lastMessageAt desc)
@@ -163,8 +163,8 @@ public class ChatService {
 
         PageRequest pageable = PageRequest.of(0, size);
         List<ChatMessage> messages = (beforeId == null)
-                ? chatMessageRepository.findByRoomIdOrderByIdDesc(roomId, pageable)
-                : chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(roomId, beforeId, pageable);
+          ? chatMessageRepository.findByRoomIdOrderByIdDesc(roomId, pageable)
+          : chatMessageRepository.findByRoomIdAndIdLessThanOrderByIdDesc(roomId, beforeId, pageable);
 
         // 조회는 최신순(desc)이지만 화면 표시는 오래된→최신이 자연스러우므로 뒤집어 반환
         List<ChatMessageResponse> result = new ArrayList<>();
@@ -180,7 +180,7 @@ public class ChatService {
     @Transactional
     public void markAsRead(Long userId, Long roomId, Long lastReadMessageId) {
         ChatRoomMember membership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, userId)
-                .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
+          .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
         membership.updateLastReadMessageId(lastReadMessageId);
     }
 

@@ -28,17 +28,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 평가 제출 전 과정을 실제 DB 에 대고 확인한다 — 검증 순서, 집계 증분, UNIQUE 제약까지.
  *
- * <p>DB 는 {@link IntegrationTestBase} 가 띄우는 일회용 컨테이너이고, @Transactional 이라
+ * <p>
+ * DB 는 {@link IntegrationTestBase} 가 띄우는 일회용 컨테이너이고, @Transactional 이라
  * 테스트가 끝나면 전부 롤백된다.
  */
 class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
 
-    @Autowired TeamReviewService teamReviewService;
-    @Autowired TeamCompletionService teamCompletionService;
-    @Autowired TeamRepository teamRepository;
-    @Autowired TeamMemberRepository teamMemberRepository;
-    @Autowired UserRepository userRepository;
-    @Autowired UserCollaborationScoreRepository scoreRepository;
+    @Autowired
+    TeamReviewService teamReviewService;
+    @Autowired
+    TeamCompletionService teamCompletionService;
+    @Autowired
+    TeamRepository teamRepository;
+    @Autowired
+    TeamMemberRepository teamMemberRepository;
+    @Autowired
+    UserRepository userRepository;
+    @Autowired
+    UserCollaborationScoreRepository scoreRepository;
 
     private User leader;
     private User memberA;
@@ -64,10 +71,10 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
 
     private User createUser(String name) {
         return userRepository.save(User.builder()
-                .email(UUID.randomUUID() + "@test.ac.kr")
-                .name(name)
-                .schoolVerified(true)
-                .build());
+          .email(UUID.randomUUID() + "@test.ac.kr")
+          .name(name)
+          .schoolVerified(true)
+          .build());
     }
 
     private TeamReviewSubmitRequestDTO request(Long revieweeId, int rating) {
@@ -88,8 +95,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
     @DisplayName("종료 전에는 평가할 수 없다")
     void cannotReviewBeforeCompletion() {
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), request(memberA.getId(), 5)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TEAM_NOT_ENDED);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TEAM_NOT_ENDED);
     }
 
     @Test
@@ -108,16 +115,16 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         endTeam();
 
         assertThatThrownBy(() -> teamCompletionService.completeByLeader(team.getId(), leader.getId()))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TEAM_ALREADY_ENDED);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TEAM_ALREADY_ENDED);
     }
 
     @Test
     @DisplayName("팀장이 아니면 종료할 수 없다")
     void onlyLeaderCanComplete() {
         assertThatThrownBy(() -> teamCompletionService.completeByLeader(team.getId(), memberA.getId()))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN_ACCESS);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN_ACCESS);
     }
 
     @Test
@@ -129,7 +136,7 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
 
         assertThat(targets.getTargets()).hasSize(2);
         assertThat(targets.getTargets()).extracting(TeamReviewTargetsResponseDTO.Target::getUserId)
-                .containsExactlyInAnyOrder(memberA.getId(), memberB.getId());
+          .containsExactlyInAnyOrder(memberA.getId(), memberB.getId());
         assertThat(targets.getTargets()).allMatch(t -> !t.isAlreadyReviewed());
     }
 
@@ -163,8 +170,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         teamReviewService.submit(team.getId(), leader.getId(), request(memberA.getId(), 5));
 
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), request(memberA.getId(), 4)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REVIEWED);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REVIEWED);
     }
 
     @Test
@@ -173,8 +180,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         endTeam();
 
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), request(leader.getId(), 5)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CANNOT_REVIEW_SELF);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CANNOT_REVIEW_SELF);
     }
 
     @Test
@@ -184,8 +191,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         User outsider = createUser("외부인");
 
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), outsider.getId(), request(memberA.getId(), 5)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_TEAM_MEMBER);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_TEAM_MEMBER);
     }
 
     @Test
@@ -195,8 +202,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         User outsider = createUser("외부인");
 
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), request(outsider.getId(), 5)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_TEAM_MEMBER);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_TEAM_MEMBER);
     }
 
     @Test
@@ -208,8 +215,8 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         reloaded.setEndedAt(LocalDateTime.now().minusDays(15));
 
         assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), request(memberA.getId(), 5)))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_PERIOD_EXPIRED);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_PERIOD_EXPIRED);
     }
 
     @Test
@@ -221,10 +228,10 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
         TeamReviewTargetsResponseDTO targets = teamReviewService.getTargets(team.getId(), leader.getId());
 
         assertThat(targets.getTargets())
-                .filteredOn(t -> t.getUserId().equals(memberA.getId()))
-                .allMatch(TeamReviewTargetsResponseDTO.Target::isAlreadyReviewed);
+          .filteredOn(t -> t.getUserId().equals(memberA.getId()))
+          .allMatch(TeamReviewTargetsResponseDTO.Target::isAlreadyReviewed);
         assertThat(targets.getTargets())
-                .filteredOn(t -> t.getUserId().equals(memberB.getId()))
-                .allMatch(t -> !t.isAlreadyReviewed());
+          .filteredOn(t -> t.getUserId().equals(memberB.getId()))
+          .allMatch(t -> !t.isAlreadyReviewed());
     }
 }

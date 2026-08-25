@@ -18,13 +18,15 @@ import java.util.List;
 /**
  * 팀 활동 종료. 협업 온도 평가가 열리는 유일한 관문이다.
  *
- * <p>종료 경로는 둘이다.
+ * <p>
+ * 종료 경로는 둘이다.
  * <ul>
- *   <li>팀장 수동 종료 — 자율 프로젝트(eventId=null)에는 이 방법뿐이다. 종료 기준 날짜가 없다.
- *   <li>공모전 마감일 경과 자동 종료 — 팀장이 버튼을 안 눌러도 평가가 열리게 하는 폴백.
+ * <li>팀장 수동 종료 — 자율 프로젝트(eventId=null)에는 이 방법뿐이다. 종료 기준 날짜가 없다.
+ * <li>공모전 마감일 경과 자동 종료 — 팀장이 버튼을 안 눌러도 평가가 열리게 하는 폴백.
  * </ul>
  *
- * <p>둘 다 {@link #complete}로 모인다. 종료를 한 곳에서만 하면 "종료됐는데 이벤트가 안 나갔다"가
+ * <p>
+ * 둘 다 {@link #complete}로 모인다. 종료를 한 곳에서만 하면 "종료됐는데 이벤트가 안 나갔다"가
  * 생길 수 없다.
  */
 @Slf4j
@@ -35,11 +37,13 @@ public class TeamCompletionService {
     private final TeamRepository teamRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    /** 팀장의 수동 종료. */
+    /**
+     * 팀장의 수동 종료.
+     */
     @Transactional
     public void completeByLeader(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (!team.getLeaderUserId().equals(userId)) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);

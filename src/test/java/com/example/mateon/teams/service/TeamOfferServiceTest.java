@@ -46,22 +46,25 @@ import static org.mockito.Mockito.when;
  * 역제안 발송과 응답 — 지원서 흐름의 거울이지만 <b>승인 주체가 반대</b>다. 팀장이 보내고
  * 유저가 수락하며, 수락되면 팀장의 재승인 없이 그 자리에서 팀원이 된다.
  *
- * <p>그래서 여기가 실제로 사람이 팀에 들어오는 지점이다. 정원 마감 절차는
+ * <p>
+ * 그래서 여기가 실제로 사람이 팀에 들어오는 지점이다. 정원 마감 절차는
  * {@code TeamService.processApplication} 과 <b>글자 그대로 같은 순서</b>여야 한다
  * (멤버 저장 → flush → 집계 → isFullWith). 한쪽만 고치면 두 경로가 다르게 세고, 그 결과는
  * "정원 4명 팀에 5명이 들어와 있다" 로 나타난다. 두 파일 어디를 봐도 버그가 안 보인다 —
  * 각각은 맞기 때문이다.
  *
- * <p>이쪽만의 위험이 둘 더 있다:
+ * <p>
+ * 이쪽만의 위험이 둘 더 있다:
  * <ul>
- *   <li><b>시간이 흐른다.</b> 제안을 보낸 뒤 유저가 수락하기까지 며칠이 지날 수 있고, 그 사이에
- *       정원이 차거나 활동이 끝난다. 수락 시점에 팀 상태를 다시 보지 않으면 마감된 팀에
- *       사람이 들어간다.</li>
- *   <li><b>AI 점수의 출처.</b> 프론트가 되보낸 값이 아니라 서버가 추천 이력에서 찾아 넣는다.
- *       요청 본문에서 읽도록 "간소화" 하면 팀장이 아무 점수나 박아 넣을 수 있다.</li>
+ * <li><b>시간이 흐른다.</b> 제안을 보낸 뒤 유저가 수락하기까지 며칠이 지날 수 있고, 그 사이에
+ * 정원이 차거나 활동이 끝난다. 수락 시점에 팀 상태를 다시 보지 않으면 마감된 팀에
+ * 사람이 들어간다.</li>
+ * <li><b>AI 점수의 출처.</b> 프론트가 되보낸 값이 아니라 서버가 추천 이력에서 찾아 넣는다.
+ * 요청 본문에서 읽도록 "간소화" 하면 팀장이 아무 점수나 박아 넣을 수 있다.</li>
  * </ul>
  *
- * <p>취소 알림은 {@code TeamOfferServiceNotificationTest} 가 맡는다. 여기서는 상태 전이와
+ * <p>
+ * 취소 알림은 {@code TeamOfferServiceNotificationTest} 가 맡는다. 여기서는 상태 전이와
  * 가드, 순서를 본다.
  */
 class TeamOfferServiceTest {
@@ -95,8 +98,8 @@ class TeamOfferServiceTest {
         notificationService = mock(NotificationService.class);
 
         service = new TeamOfferService(offerRepository, teamRepository, teamMemberRepository,
-                applicationRepository, recommendationLogRepository, userRepository,
-                notificationService);
+          applicationRepository, recommendationLogRepository, userRepository,
+          notificationService);
 
         leader = user(LEADER_ID, "팀장");
         target = user(TARGET_ID, "대상유저");
@@ -115,11 +118,11 @@ class TeamOfferServiceTest {
         @DisplayName("학교 인증 전 팀장은 제안을 보낼 수 없다")
         void requiresSchoolVerification() {
             when(userRepository.findById(LEADER_ID)).thenReturn(
-                    Optional.of(User.builder().id(LEADER_ID).schoolVerified(false).build()));
+              Optional.of(User.builder().id(LEADER_ID).schoolVerified(false).build()));
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
 
             verify(offerRepository, never()).saveAndFlush(any());
         }
@@ -130,8 +133,8 @@ class TeamOfferServiceTest {
             when(userRepository.findById(9L)).thenReturn(Optional.of(user(9L, "남")));
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", 9L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
         }
 
         @Test
@@ -140,45 +143,45 @@ class TeamOfferServiceTest {
             team.setIsRecruiting(false);
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
 
             team.setIsRecruiting(true);
             team.setEndedAt(LocalDateTime.now());
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
         }
 
         @Test
         @DisplayName("자기 자신에게는 제안할 수 없다")
         void cannotOfferSelf() {
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, LEADER_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
         }
 
         @Test
         @DisplayName("이미 팀원인 사람에게는 제안하지 않는다 (userId 를 직접 넣는 호출도 막는다)")
         void alreadyMember() {
             when(teamMemberRepository.existsByTeamIdAndUserIdAndLeftAtIsNull(TEAM_ID, TARGET_ID))
-                    .thenReturn(true);
+              .thenReturn(true);
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         @Test
         @DisplayName("이미 지원서를 낸 사람에게도 제안하지 않는다")
         void alreadyApplied() {
             when(applicationRepository.findByTeamIdAndApplicantId(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.of(TeamApplication.builder().build()));
+              .thenReturn(Optional.of(TeamApplication.builder().build()));
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         @Test
@@ -187,8 +190,8 @@ class TeamOfferServiceTest {
             when(offerRepository.existsByTeamIdAndTargetUserId(TEAM_ID, TARGET_ID)).thenReturn(true);
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
         }
 
         /**
@@ -200,11 +203,11 @@ class TeamOfferServiceTest {
         @DisplayName("경합으로 유니크 위반이 나도 500 이 아니라 DUPLICATE_RESOURCE 다")
         void raceConditionBecomesDuplicate() {
             when(offerRepository.saveAndFlush(any()))
-                    .thenThrow(new DataIntegrityViolationException("uq_team_offers_pair"));
+              .thenThrow(new DataIntegrityViolationException("uq_team_offers_pair"));
 
             assertThatThrownBy(() -> service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
 
             verify(notificationService, never()).send(any(), any(), any(), any());
         }
@@ -218,7 +221,7 @@ class TeamOfferServiceTest {
         @DisplayName("점수와 근거는 서버가 추천 이력에서 찾아 넣는다 (프론트가 보낸 값이 아니다)")
         void comesFromRecommendationLog() {
             when(recommendationLogRepository.findLatestItem(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.of(recommendationItem(0.91, "역할이 맞습니다")));
+              .thenReturn(Optional.of(recommendationItem(0.91, "역할이 맞습니다")));
 
             service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID);
 
@@ -231,7 +234,7 @@ class TeamOfferServiceTest {
         @DisplayName("추천을 거치지 않은 제안은 점수·근거가 null 이고, 그건 정상이다")
         void nullWhenNotRecommended() {
             when(recommendationLogRepository.findLatestItem(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             service.createOffer(TEAM_ID, TARGET_ID, "함께해요", LEADER_ID);
 
@@ -262,7 +265,7 @@ class TeamOfferServiceTest {
         void createsMemberRow() {
             TeamOffer offer = givenPendingOffer();
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             service.respond(OFFER_ID, true, TARGET_ID);
 
@@ -282,7 +285,7 @@ class TeamOfferServiceTest {
             TeamMember left = TeamMember.of(team, target, TeamMemberRole.MEMBER);
             left.setLeftAt(LocalDateTime.now().minusDays(3));
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.of(left));
+              .thenReturn(Optional.of(left));
 
             service.respond(OFFER_ID, true, TARGET_ID);
 
@@ -299,7 +302,7 @@ class TeamOfferServiceTest {
         void flushBeforeCount() {
             givenPendingOffer();
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(4);
 
             service.respond(OFFER_ID, true, TARGET_ID);
@@ -315,7 +318,7 @@ class TeamOfferServiceTest {
         void closesRecruitingWhenFull() {
             givenPendingOffer();
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, TARGET_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(4);
 
             service.respond(OFFER_ID, true, TARGET_ID);
@@ -334,8 +337,8 @@ class TeamOfferServiceTest {
             team.setIsRecruiting(false);
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, TARGET_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
 
             assertThat(offer.getStatus()).isEqualTo(OfferStatus.PENDING);
             verify(teamMemberRepository, never()).save(any());
@@ -348,8 +351,8 @@ class TeamOfferServiceTest {
             team.setEndedAt(LocalDateTime.now());
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, TARGET_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.TEAM_RECRUITMENT_CLOSED);
         }
 
         @Test
@@ -359,8 +362,8 @@ class TeamOfferServiceTest {
             givenPendingOffer(unverified);
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, TARGET_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
 
             verify(teamMemberRepository, never()).save(any());
         }
@@ -371,10 +374,10 @@ class TeamOfferServiceTest {
             TeamOffer offer = givenPendingOffer();
             offer.reject();
             when(teamMemberRepository.findByTeamIdAndUserId(anyLong(), anyLong()))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, TARGET_ID))
-                    .isInstanceOf(MateonException.class);
+              .isInstanceOf(MateonException.class);
 
             assertThat(offer.getStatus()).isEqualTo(OfferStatus.REJECTED);
             verify(teamMemberRepository, never()).save(any());
@@ -421,8 +424,8 @@ class TeamOfferServiceTest {
             TeamOffer offer = givenPendingOffer();
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, 9L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             assertThat(offer.getStatus()).isEqualTo(OfferStatus.PENDING);
         }
@@ -433,16 +436,16 @@ class TeamOfferServiceTest {
             when(offerRepository.findById(OFFER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.respond(OFFER_ID, true, TARGET_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
         @Test
         @DisplayName("팀의 제안 목록은 팀장만 볼 수 있다")
         void teamOffersRequireLeader() {
             assertThatThrownBy(() -> service.getTeamOffers(TEAM_ID, TARGET_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(offerRepository, never()).findByTeamIdOrderByCreatedAtDesc(anyLong());
         }
@@ -460,14 +463,14 @@ class TeamOfferServiceTest {
             otherTeam.setLeaderUserId(3L);
 
             when(offerRepository.findByTargetUserIdOrderByCreatedAtDesc(TARGET_ID))
-                    .thenReturn(List.of(offer(team, target), offer(otherTeam, target)));
+              .thenReturn(List.of(offer(team, target), offer(otherTeam, target)));
             when(userRepository.findAllById(any()))
-                    .thenReturn(List.of(leader, user(3L, "다른팀장")));
+              .thenReturn(List.of(leader, user(3L, "다른팀장")));
 
             List<TeamOfferResponseDTO> offers = service.getMyOffers(TARGET_ID);
 
             assertThat(offers).extracting(TeamOfferResponseDTO::getLeaderName)
-                    .containsExactly("팀장", "다른팀장");
+              .containsExactly("팀장", "다른팀장");
             verify(userRepository, times(1)).findAllById(any());
             verify(userRepository, never()).findById(anyLong());
         }
@@ -476,7 +479,7 @@ class TeamOfferServiceTest {
         @DisplayName("팀장 계정이 사라진 제안은 이름만 비고 나머지는 정상 표시된다")
         void missingLeaderLeavesNameNull() {
             when(offerRepository.findByTargetUserIdOrderByCreatedAtDesc(TARGET_ID))
-                    .thenReturn(List.of(offer(team, target)));
+              .thenReturn(List.of(offer(team, target)));
             when(userRepository.findAllById(any())).thenReturn(List.of());
 
             List<TeamOfferResponseDTO> offers = service.getMyOffers(TARGET_ID);
@@ -488,7 +491,6 @@ class TeamOfferServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private TeamOffer givenPendingOffer() {
         return givenPendingOffer(target);
     }

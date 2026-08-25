@@ -12,13 +12,15 @@ import java.util.function.BiConsumer;
 /**
  * 추천 상세 이유(lazy) 흐름의 오케스트레이터.
  *
- * <p>클래스 레벨 @Transactional 이 없는 게 여기서도 핵심이다 — {@link RecommendationService} /
+ * <p>
+ * 클래스 레벨 @Transactional 이 없는 게 여기서도 핵심이다 — {@link RecommendationService} /
  * {@link TeamToUserRecommendationService} 와 똑같은 이유다 (FastAPI read-timeout 이 60 초라
  * TX 안에서 호출하면 커넥션 풀이 마른다). 조회는 RecommendationQueryService(readOnly), 저장은
  * RecommendationLogService(@Transactional) 가 맡고 그 사이에서 AI 를 호출한다. 빈이 나뉜 것도
  * 필수다 — 같은 빈 안에서 호출하면 프록시를 타지 않아 @Transactional 이 무시된다.
  *
- * <p>다른 두 오케스트레이터와 다른 점은 <b>캐시 단계가 있다</b>는 것뿐이다. 이유는 LLM 이
+ * <p>
+ * 다른 두 오케스트레이터와 다른 점은 <b>캐시 단계가 있다</b>는 것뿐이다. 이유는 LLM 이
  * 생성하는 긴 문장이라 느리고 비싼데, 같은 카드를 다시 여는 건 흔한 동작이다.
  */
 @Slf4j
@@ -37,7 +39,7 @@ public class RecommendationReasonService {
      */
     public String explainTeam(Long userId, Long teamId) {
         return explain(queryService.gatherReasonForUserToTeam(userId, teamId),
-                logService::saveUserToTeamReason);
+          logService::saveUserToTeamReason);
     }
 
     /**
@@ -47,7 +49,7 @@ public class RecommendationReasonService {
      */
     public String explainUser(Long teamId, Long targetUserId, Long leaderUserId) {
         return explain(queryService.gatherReasonForTeamToUser(teamId, targetUserId, leaderUserId),
-                logService::saveTeamToUserReason);
+          logService::saveTeamToUserReason);
     }
 
     /**
@@ -62,9 +64,9 @@ public class RecommendationReasonService {
 
         // ② [TX 밖] FastAPI 호출. 수십 초가 걸려도 DB 커넥션을 잡고 있지 않다.
         String reason = client.reason(new RecommendationReasonRequest(
-                snapshot.getCandidateSummary(),
-                snapshot.getTargetSummary(),
-                snapshot.getScoreContext()));
+          snapshot.getCandidateSummary(),
+          snapshot.getTargetSummary(),
+          snapshot.getScoreContext()));
 
         // ③ [TX2] 캐시. 실패해도 이유는 이미 만들어졌으므로 응답을 막지 않는다
         //    (추천 결과 기록과 같은 규약 — 다음 조회 때 AI 를 한 번 더 부를 뿐이다).

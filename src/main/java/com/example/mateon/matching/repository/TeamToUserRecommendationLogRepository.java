@@ -10,13 +10,14 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface TeamToUserRecommendationLogRepository
-        extends JpaRepository<TeamToUserRecommendationLog, Long> {
+  extends JpaRepository<TeamToUserRecommendationLog, Long> {
 
     /**
      * 이 팀이 이 유저를 추천받은 가장 최근 결과 1건. 제안을 보낼 때 점수/근거 문구를
      * 스냅샷으로 복사하는 데 쓴다 (프론트가 보낸 값을 믿지 않기 위해서다).
      *
-     * <p>추천을 거치지 않고 보낸 제안도 허용하므로 없을 수 있다 → Optional.
+     * <p>
+     * 추천을 거치지 않고 보낸 제안도 허용하므로 없을 수 있다 → Optional.
      */
     @Query("""
             SELECT i FROM TeamToUserRecommendationItem i
@@ -25,7 +26,7 @@ public interface TeamToUserRecommendationLogRepository
             LIMIT 1
             """)
     Optional<TeamToUserRecommendationItem> findLatestItem(@Param("teamId") Long teamId,
-                                                          @Param("userId") Long userId);
+      @Param("userId") Long userId);
 
     /**
      * 생성된 상세 이유를 캐시한다. 정방향과 같은 규약이다 —

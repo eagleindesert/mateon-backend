@@ -73,13 +73,13 @@ class EventQueryBehaviorTest {
         // 별도 스텁 없이 둔다 — bookmarked 자체의 동작은 BookmarkServiceIntegrationTest 의 몫이다.
         bookmarkRepository = mock(EventBookmarkRepository.class);
 
-        EventService eventService =
-                new EventService(eventRepository, matchingService, userRepository, bookmarkRepository);
+        EventService eventService
+          = new EventService(eventRepository, matchingService, userRepository, bookmarkRepository);
         mockMvc = MockMvcBuilders
-                // 이미지 추출은 조회 동작과 무관하다 (이 테스트는 /search, /recommended 만 친다).
-                .standaloneSetup(new EventController(eventService, null))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+          // 이미지 추출은 조회 동작과 무관하다 (이 테스트는 /search, /recommended 만 친다).
+          .standaloneSetup(new EventController(eventService, null))
+          .setControllerAdvice(new GlobalExceptionHandler())
+          .build();
 
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         // 별도로 지정하지 않은 활동의 기본 점수
@@ -102,24 +102,24 @@ class EventQueryBehaviorTest {
             event.setOrganizer("업스테이지");
             campus(event, "죽전");
             when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of(event)));
+              .thenReturn(new PageImpl<>(List.of(event)));
 
             mockMvc.perform(get("/api/events/search"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].organizer").value("업스테이지"))
-                    .andExpect(jsonPath("$.data[0].targetSchool").value("단국대학교"))
-                    // 아래 넷은 폐기 예정이지만 프론트가 아직 읽는다. 응답에서 사라지면 안 된다.
-                    .andExpect(jsonPath("$.data[0].campusScope").value("죽전"))
-                    .andExpect(jsonPath("$.data[0].targetColleges").value("SW융합대학"))
-                    .andExpect(jsonPath("$.data[0].field").value("PLANNING_IDEA"))
-                    .andExpect(jsonPath("$.data[0].fieldLabel").value("기획/아이디어"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data[0].organizer").value("업스테이지"))
+              .andExpect(jsonPath("$.data[0].targetSchool").value("단국대학교"))
+              // 아래 넷은 폐기 예정이지만 프론트가 아직 읽는다. 응답에서 사라지면 안 된다.
+              .andExpect(jsonPath("$.data[0].campusScope").value("죽전"))
+              .andExpect(jsonPath("$.data[0].targetColleges").value("SW융합대학"))
+              .andExpect(jsonPath("$.data[0].field").value("PLANNING_IDEA"))
+              .andExpect(jsonPath("$.data[0].fieldLabel").value("기획/아이디어"));
         }
 
         @Test
         @DisplayName("시작일 최신순 정렬을 DB 에 맡긴다 (Pageable 에 실어 보낸다)")
         void delegatesSortingToDatabase() throws Exception {
             when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of()));
+              .thenReturn(new PageImpl<>(List.of()));
 
             mockMvc.perform(get("/api/events/search")).andExpect(status().isOk());
 
@@ -133,10 +133,10 @@ class EventQueryBehaviorTest {
         @DisplayName("요청한 page/size 를 그대로 DB 조회에 넘긴다")
         void passesRequestedPageAndSizeToDatabase() throws Exception {
             when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of()));
+              .thenReturn(new PageImpl<>(List.of()));
 
             mockMvc.perform(get("/api/events/search").param("page", "2").param("size", "5"))
-                    .andExpect(status().isOk());
+              .andExpect(status().isOk());
 
             ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
             verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
@@ -148,10 +148,10 @@ class EventQueryBehaviorTest {
         @DisplayName("size 가 상한을 넘으면 상한(100)으로 잘라 조회한다 — 과부하 방지가 목적이므로")
         void capsPageSizeToMax() throws Exception {
             when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
-                    .thenReturn(new PageImpl<>(List.of()));
+              .thenReturn(new PageImpl<>(List.of()));
 
             mockMvc.perform(get("/api/events/search").param("size", "100000"))
-                    .andExpect(status().isOk());
+              .andExpect(status().isOk());
 
             ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
             verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
@@ -201,11 +201,11 @@ class EventQueryBehaviorTest {
             score(external, 20);
 
             mockMvc.perform(get("/api/events/recommended").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.length()").value(2))
-                    // 카테고리별 대표끼리도 점수 높은 순으로 줄 세운다
-                    .andExpect(jsonPath("$.data[0].id").value(2))
-                    .andExpect(jsonPath("$.data[1].id").value(3));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.length()").value(2))
+              // 카테고리별 대표끼리도 점수 높은 순으로 줄 세운다
+              .andExpect(jsonPath("$.data[0].id").value(2))
+              .andExpect(jsonPath("$.data[1].id").value(3));
         }
 
         @Test
@@ -218,19 +218,19 @@ class EventQueryBehaviorTest {
             score(high, 30);
 
             mockMvc.perform(get("/api/events/recommended")
-                            .param("category", "CONTEST")
-                            .principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.length()").value(1))
-                    .andExpect(jsonPath("$.data[0].id").value(2));
+              .param("category", "CONTEST")
+              .principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.length()").value(1))
+              .andExpect(jsonPath("$.data[0].id").value(2));
         }
 
         @Test
         @DisplayName("비로그인이면 거부한다")
         void rejectsAnonymous() throws Exception {
             mockMvc.perform(get("/api/events/recommended"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false));
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.success").value(false));
         }
 
         @Test
@@ -239,14 +239,13 @@ class EventQueryBehaviorTest {
             when(eventRepository.findAll()).thenReturn(List.of(event(1L, Category.CONTEST, null)));
 
             mockMvc.perform(get("/api/events/recommended").principal(auth()))
-                    .andExpect(status().isOk())
-                    .andExpect(header().string("Deprecation", "true"))
-                    .andExpect(header().exists("Sunset"));
+              .andExpect(status().isOk())
+              .andExpect(header().string("Deprecation", "true"))
+              .andExpect(header().exists("Sunset"));
         }
     }
 
     // --- 헬퍼 ---
-
     private Authentication auth() {
         return new UsernamePasswordAuthenticationToken(String.valueOf(USER_ID), null, List.of());
     }

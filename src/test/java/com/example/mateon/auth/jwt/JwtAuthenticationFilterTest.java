@@ -20,12 +20,14 @@ import static org.mockito.Mockito.verify;
 /**
  * 인증 필터가 SecurityContext 에 무엇을 넣는지 고정한다.
  *
- * <p>핵심은 <b>principal 이 Long 이 아니라 userId 문자열</b>이라는 점이다. 컨트롤러들은 전부
+ * <p>
+ * 핵심은 <b>principal 이 Long 이 아니라 userId 문자열</b>이라는 점이다. 컨트롤러들은 전부
  * {@code Long.parseLong(authentication.getName())} 으로 되받는데, 여기서 principal 을 Long
  * 객체나 UserDetails 로 바꾸면 {@code getName()} 결과가 달라져 모든 인증 API 가 한꺼번에
  * 깨진다. 그래서 타입까지 못박는다.
  *
- * <p>두 번째는 <b>인증 실패가 곧 요청 실패가 아니라는 것</b>이다. 토큰이 없거나 잘못돼도 필터는
+ * <p>
+ * 두 번째는 <b>인증 실패가 곧 요청 실패가 아니라는 것</b>이다. 토큰이 없거나 잘못돼도 필터는
  * 컨텍스트를 비운 채 체인을 계속 진행시켜야 한다 — 공개 엔드포인트(GET /api/events,
  * GET /api/teams)가 만료된 토큰을 들고 온 브라우저에게도 열려 있어야 하기 때문이다.
  * 여기서 예외를 던지거나 응답을 끊으면 그 공개 API 들이 통째로 막힌다.
@@ -63,8 +65,8 @@ class JwtAuthenticationFilterTest {
             doFilter(request("Bearer " + tokenProvider.createAccessToken(7L)));
 
             assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
-                    .extracting(GrantedAuthority::getAuthority)
-                    .containsExactly("ROLE_USER");
+              .extracting(GrantedAuthority::getAuthority)
+              .containsExactly("ROLE_USER");
         }
 
         @Test
@@ -140,8 +142,8 @@ class JwtAuthenticationFilterTest {
             filter.doFilter(request, new MockHttpServletResponse(), chain);
 
             assertThat(chain.getRequest())
-                    .as("Authorization=%s 일 때 체인이 진행되어야 한다", header)
-                    .isSameAs(request);
+              .as("Authorization=%s 일 때 체인이 진행되어야 한다", header)
+              .isSameAs(request);
         }
     }
 

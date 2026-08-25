@@ -38,10 +38,10 @@ public class KakaoOAuthClient {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
             ResponseEntity<Map> response = restTemplate.exchange(
-                    KAKAO_USER_ME_URL,
-                    HttpMethod.POST,
-                    new HttpEntity<>(headers),
-                    Map.class
+              KAKAO_USER_ME_URL,
+              HttpMethod.POST,
+              new HttpEntity<>(headers),
+              Map.class
             );
 
             Map<String, Object> body = response.getBody();
@@ -80,7 +80,7 @@ public class KakaoOAuthClient {
         } catch (RestClientResponseException e) {
             // 카카오가 4xx/5xx 로 응답(토큰 만료·위조 등) → 실제 상태/본문을 로그로 남긴다.
             log.warn("카카오 user/me 호출 실패: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString());
+              e.getStatusCode(), e.getResponseBodyAsString());
             throw new MateonException(ErrorCode.KAKAO_AUTH_FAILED);
         } catch (Exception e) {
             // 네트워크/파싱 등 기타 오류

@@ -45,87 +45,87 @@ class EventControllerValidationTest {
     void setUp() {
         extractionService = mock(EventExtractionService.class);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new EventController(null, extractionService))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+          .standaloneSetup(new EventController(null, extractionService))
+          .setControllerAdvice(new GlobalExceptionHandler())
+          .build();
     }
 
     @Test
     @DisplayName("등록 시 category 가 enum 에 없는 값이면 400 과 허용 값 안내를 준다")
     void createRejectsUnknownCategory() throws Exception {
         mockMvc.perform(post("/api/events")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"category\":\"공모전\",\"title\":\"잘못된 카테고리\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.data.category").value(
-                        org.hamcrest.Matchers.containsString("CONTEST, EXTERNAL, SCHOOL")));
+          .contentType(APPLICATION_JSON)
+          .content("{\"category\":\"공모전\",\"title\":\"잘못된 카테고리\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.success").value(false))
+          .andExpect(jsonPath("$.data.category").value(
+            org.hamcrest.Matchers.containsString("CONTEST, EXTERNAL, SCHOOL")));
     }
 
     @Test
     @DisplayName("등록 시 category 대소문자가 다르면 400 (enum 매칭은 대소문자를 구분한다)")
     void createRejectsLowercaseCategory() throws Exception {
         mockMvc.perform(post("/api/events")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"category\":\"contest\",\"title\":\"소문자\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.category").exists());
+          .contentType(APPLICATION_JSON)
+          .content("{\"category\":\"contest\",\"title\":\"소문자\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.data.category").exists());
     }
 
     @Test
     @DisplayName("검색 시 category 쿼리 파라미터가 enum 에 없는 값이면 400")
     void searchRejectsUnknownCategory() throws Exception {
         mockMvc.perform(get("/api/events/search").param("category", "FOO"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.category").value(
-                        org.hamcrest.Matchers.containsString("CONTEST, EXTERNAL, SCHOOL")));
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.data.category").value(
+            org.hamcrest.Matchers.containsString("CONTEST, EXTERNAL, SCHOOL")));
     }
 
     @Test
     @DisplayName("등록 시 field 가 분야 목록에 없는 값이면 400")
     void createRejectsUnknownField() throws Exception {
         mockMvc.perform(post("/api/events")
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"category\":\"CONTEST\",\"title\":\"분야 오타\",\"field\":\"IT\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.field").value(
-                        org.hamcrest.Matchers.containsString("SCIENCE_ENGINEERING_TECH_IT")));
+          .contentType(APPLICATION_JSON)
+          .content("{\"category\":\"CONTEST\",\"title\":\"분야 오타\",\"field\":\"IT\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.data.field").value(
+            org.hamcrest.Matchers.containsString("SCIENCE_ENGINEERING_TECH_IT")));
     }
 
     @Test
     @DisplayName("검색 시 field 쿼리 파라미터가 분야 목록에 없는 값이면 400")
     void searchRejectsUnknownField() throws Exception {
         mockMvc.perform(get("/api/events/search").param("field", "TRAVEL"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.field").exists());
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.data.field").exists());
     }
 
     @Test
     @DisplayName("이미지 추출은 추출 결과를 200 으로 그대로 돌려준다 (저장은 프론트가 별도로 한다)")
     void extractImageReturnsDraft() throws Exception {
         when(extractionService.extractFromImage(any())).thenReturn(
-                EventExtractionResponseDTO.builder()
-                        .category(Category.CONTEST)
-                        .field(Field.PLANNING_IDEA)
-                        .title("51초 영화 공모전")
-                        .imageUrl("https://objectstorage.example/o/contest-images/2026/07/x.png")
-                        .build());
+          EventExtractionResponseDTO.builder()
+            .category(Category.CONTEST)
+            .field(Field.PLANNING_IDEA)
+            .title("51초 영화 공모전")
+            .imageUrl("https://objectstorage.example/o/contest-images/2026/07/x.png")
+            .build());
 
         mockMvc.perform(multipart("/api/events/extract-image")
-                        .file(new MockMultipartFile("image", "poster.png", "image/png", new byte[]{1, 2, 3})))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.category").value("CONTEST"))
-                .andExpect(jsonPath("$.data.imageUrl")
-                        .value("https://objectstorage.example/o/contest-images/2026/07/x.png"));
+          .file(new MockMultipartFile("image", "poster.png", "image/png", new byte[]{1, 2, 3})))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.success").value(true))
+          .andExpect(jsonPath("$.data.category").value("CONTEST"))
+          .andExpect(jsonPath("$.data.imageUrl")
+            .value("https://objectstorage.example/o/contest-images/2026/07/x.png"));
     }
 
     @Test
     @DisplayName("이미지 추출에 파일 파트가 없으면 400 (핸들러가 없으면 500 이 된다)")
     void extractImageRejectsMissingPart() throws Exception {
         mockMvc.perform(multipart("/api/events/extract-image")
-                        .file(new MockMultipartFile("file", "poster.png", "image/png", new byte[]{1})))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+          .file(new MockMultipartFile("file", "poster.png", "image/png", new byte[]{1})))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.success").value(false));
     }
 }

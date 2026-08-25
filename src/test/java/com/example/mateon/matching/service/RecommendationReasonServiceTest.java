@@ -24,13 +24,15 @@ import static org.mockito.Mockito.when;
 /**
  * 상세 이유 생성의 캐시 규약과 <b>방향별 저장 위치</b>를 고정한다.
  *
- * <p>여기서 제일 위험한 건 두 방향이 {@code BiConsumer} 메서드 참조로만 갈린다는 점이다 —
+ * <p>
+ * 여기서 제일 위험한 건 두 방향이 {@code BiConsumer} 메서드 참조로만 갈린다는 점이다 —
  * {@code logService::saveUserToTeamReason} 과 {@code logService::saveTeamToUserReason} 은
  * 시그니처가 같아서 서로 바꿔 써도 컴파일된다. 바뀌면 유저→팀 이유가 역제안 테이블에 저장되고,
  * 사용자는 "이유를 만들 때마다 매번 새로 생성된다"(캐시가 영원히 안 맞는다)는 증상만 겪는다.
  * LLM 호출이 매번 나가므로 비용도 계속 샌다.
  *
- * <p>두 번째는 <b>캐시 hit 시 AI 를 부르지 않는 것</b>. 이 조기 반환이 사라져도 결과 문자열은
+ * <p>
+ * 두 번째는 <b>캐시 hit 시 AI 를 부르지 않는 것</b>. 이 조기 반환이 사라져도 결과 문자열은
  * 같기 때문에 눈으로는 알 수 없고 요금으로만 드러난다.
  */
 class RecommendationReasonServiceTest {
@@ -61,7 +63,7 @@ class RecommendationReasonServiceTest {
         @DisplayName("캐시가 있으면 AI 를 부르지도, 다시 저장하지도 않는다")
         void cacheHitSkipsAiAndWrite() {
             when(queryService.gatherReasonForUserToTeam(USER_ID, TEAM_ID))
-                    .thenReturn(cached("이미 만들어 둔 이유"));
+              .thenReturn(cached("이미 만들어 둔 이유"));
 
             assertThat(service.explainTeam(USER_ID, TEAM_ID)).isEqualTo("이미 만들어 둔 이유");
 
@@ -85,11 +87,11 @@ class RecommendationReasonServiceTest {
             when(queryService.gatherReasonForUserToTeam(USER_ID, TEAM_ID)).thenReturn(fresh());
             when(client.reason(any())).thenReturn("새로 만든 이유");
             doThrow(new RuntimeException("DB 다운"))
-                    .when(logService).saveUserToTeamReason(anyLong(), anyString());
+              .when(logService).saveUserToTeamReason(anyLong(), anyString());
 
             assertThatCode(() -> assertThat(service.explainTeam(USER_ID, TEAM_ID))
-                    .isEqualTo("새로 만든 이유"))
-                    .doesNotThrowAnyException();
+              .isEqualTo("새로 만든 이유"))
+              .doesNotThrowAnyException();
         }
     }
 
@@ -113,7 +115,7 @@ class RecommendationReasonServiceTest {
         @DisplayName("팀→유저 이유는 team_to_user 쪽에만 캐시한다")
         void teamToUserWritesToItsOwnTable() {
             when(queryService.gatherReasonForTeamToUser(TEAM_ID, TARGET_USER_ID, USER_ID))
-                    .thenReturn(fresh());
+              .thenReturn(fresh());
             when(client.reason(any())).thenReturn("이유");
 
             service.explainUser(TEAM_ID, TARGET_USER_ID, USER_ID);
@@ -126,7 +128,7 @@ class RecommendationReasonServiceTest {
         @DisplayName("팀→유저 조회에는 요청자(팀장) id 가 함께 넘어간다 (권한 검사의 근거)")
         void teamToUserPassesRequesterForAuthorization() {
             when(queryService.gatherReasonForTeamToUser(TEAM_ID, TARGET_USER_ID, USER_ID))
-                    .thenReturn(cached("이유"));
+              .thenReturn(cached("이유"));
 
             service.explainUser(TEAM_ID, TARGET_USER_ID, USER_ID);
 
@@ -142,8 +144,8 @@ class RecommendationReasonServiceTest {
 
         service.explainTeam(USER_ID, TEAM_ID);
 
-        ArgumentCaptor<RecommendationReasonRequest> request =
-                ArgumentCaptor.forClass(RecommendationReasonRequest.class);
+        ArgumentCaptor<RecommendationReasonRequest> request
+          = ArgumentCaptor.forClass(RecommendationReasonRequest.class);
         verify(client).reason(request.capture());
 
         assertThat(request.getValue().getCandidateSummary()).isEqualTo("후보 요약");
@@ -152,7 +154,6 @@ class RecommendationReasonServiceTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private ReasonSnapshot cached(String reason) {
         return new ReasonSnapshot(ITEM_ID, null, null, null, reason);
     }

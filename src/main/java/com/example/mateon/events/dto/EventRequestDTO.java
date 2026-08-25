@@ -12,7 +12,8 @@ import lombok.Setter;
 import java.time.LocalDate;
 
 @Schema(description = "활동 등록 요청. category·title·field 만 필수이고 나머지는 선택이다.")
-@Getter @Setter
+@Getter
+@Setter
 public class EventRequestDTO {
 
     @Schema(description = "활동 종류. 분야(field)와는 다른 축이다.")
@@ -49,7 +50,7 @@ public class EventRequestDTO {
      * 대상 학교/캠퍼스. 비우면 전국 대상(ALL)으로 저장한다.
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 클라이언트 호환을 위해
-     *             계속 받지만, 새 등록 경로에서는 쓰지 않는다.
+     * 계속 받지만, 새 등록 경로에서는 쓰지 않는다.
      */
     @Schema(deprecated = true, description = "[폐기 예정] 대상 범위는 targetSchool 로 일원화한다. 새 등록 경로에서는 쓰지 않는다.")
     @Deprecated
@@ -59,7 +60,7 @@ public class EventRequestDTO {
      * 대상 단과대학. 검색이 LIKE 부분일치라 형식 제약은 없다.
      *
      * @deprecated 대상 범위는 {@link #targetSchool} 로 일원화한다. 기존 클라이언트 호환을 위해
-     *             계속 받지만, 새 등록 경로에서는 쓰지 않는다.
+     * 계속 받지만, 새 등록 경로에서는 쓰지 않는다.
      */
     @Schema(deprecated = true, description = "[폐기 예정] 대상 범위는 targetSchool 로 일원화한다. 새 등록 경로에서는 쓰지 않는다.")
     @Deprecated

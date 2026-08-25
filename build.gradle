@@ -65,6 +65,13 @@ dependencies {
 	// 인증되어 ~/.oci/config 와 개인키 PEM 을 컨테이너에 배포할 필요가 없다.
 	implementation platform('software.amazon.awssdk:bom:2.32.4')
 	implementation 'software.amazon.awssdk:s3'
+	// AI 게이트웨이(도메인 분류)용 LLM 호출. 이 프로젝트의 다른 AI 작업은 전부 외부 FastAPI 가
+	// 하지만, 라우팅 판단만은 Spring 이 직접 한다 — FastAPI 에 붙기 전에 결정해야 하는 일이다.
+	//
+	// 버전 라인을 Spring Boot 에 맞춰야 한다 — Spring AI 1.x 는 Boot 3 전용이고 2.0 부터가
+	// Boot 4(Spring Framework 7 + Jackson 3) 라인이다.
+	implementation platform('org.springframework.ai:spring-ai-bom:2.0.0')
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	// 로컬 개발 시 bootRun 하면 docker compose 를 자동 기동 (배포 JAR 에는 미포함)
 	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 }

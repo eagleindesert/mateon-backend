@@ -17,9 +17,9 @@ public class RoleListConverter implements AttributeConverter<List<String>, Strin
         }
         // List -> String (예: "데이터 분석, 기획")
         return attribute.stream()
-                .filter(s -> s != null && !s.trim().isEmpty())
-                .map(String::trim)
-                .collect(Collectors.joining(","));
+          .filter(s -> s != null && !s.trim().isEmpty())
+          .map(String::trim)
+          .collect(Collectors.joining(","));
     }
 
     @Override
@@ -29,8 +29,8 @@ public class RoleListConverter implements AttributeConverter<List<String>, Strin
         }
         // String -> List (예: ["데이터 분석", "기획"])
         return Arrays.stream(dbData.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .collect(Collectors.toList());
     }
 }

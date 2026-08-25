@@ -40,11 +40,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 유저 프로필 3종(GET /api/users/{userId}, GET·PUT /api/users/me)이 밖으로 내보이는 계약을 고정한다.
  *
- * <p>서비스를 목으로 두지 않고 리포지토리만 목으로 둔 채 진짜 {@link UserService} 를 조립한다
+ * <p>
+ * 서비스를 목으로 두지 않고 리포지토리만 목으로 둔 채 진짜 {@link UserService} 를 조립한다
  * (EventQueryBehaviorTest 와 같은 방식). 이 API 에서 정작 검증해야 할 건 "슬롯이 없을 때",
  * "평가가 모자랄 때" 같은 조립 규칙인데, 서비스를 목으로 두면 그게 전부 사라진다.
  *
- * <p>가장 중요한 테스트는 {@code 이메일이_응답에_없다} 다. 이 엔드포인트는 로그인만 하면 누구나
+ * <p>
+ * 가장 중요한 테스트는 {@code 이메일이_응답에_없다} 다. 이 엔드포인트는 로그인만 하면 누구나
  * 부를 수 있어서, 여기에 이메일이 실리는 순간 userId 를 훑는 것만으로 전교생 연락처가 수집된다.
  */
 class UserProfileControllerTest {
@@ -68,18 +70,18 @@ class UserProfileControllerTest {
         slotRepository = mock(MatchingIntentSlotRepository.class);
 
         UserService userService = new UserService(
-                userRepository,
-                teamMemberRepository,
-                collaborationScoreRepository,
-                eventRepository,
-                slotRepository,
-                mock(PasswordEncoder.class),
-                mock(RefreshTokenRepository.class));
+          userRepository,
+          teamMemberRepository,
+          collaborationScoreRepository,
+          eventRepository,
+          slotRepository,
+          mock(PasswordEncoder.class),
+          mock(RefreshTokenRepository.class));
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new UserController(userService, mock(ProfileImageService.class)))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+          .standaloneSetup(new UserController(userService, mock(ProfileImageService.class)))
+          .setControllerAdvice(new GlobalExceptionHandler())
+          .build();
 
         // 기본값: 대상 유저는 존재하고, 슬롯·온도·활동은 아직 없다 (가입 직후 상태).
         when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(targetUser()));
@@ -96,46 +98,46 @@ class UserProfileControllerTest {
         @DisplayName("공개 프로필 필드가 응답에 실린다")
         void returnsPublicFields() throws Exception {
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.userId").value(TARGET_ID))
-                    .andExpect(jsonPath("$.data.name").value("김루미"))
-                    .andExpect(jsonPath("$.data.school").value("단국대학교"))
-                    .andExpect(jsonPath("$.data.campus").value("죽전"))
-                    .andExpect(jsonPath("$.data.college").value("SW융합대학"))
-                    .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
-                    .andExpect(jsonPath("$.data.grade").value("3학년"))
-                    .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
-                    // 포트폴리오는 본인이 보여주려고 쓴 소개글이라 연락처와 달리 남에게도 보인다.
-                    .andExpect(jsonPath("$.data.portfolio")
-                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
-                    .andExpect(jsonPath("$.data.schoolVerified").value(true))
-                    .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.userId").value(TARGET_ID))
+              .andExpect(jsonPath("$.data.name").value("김루미"))
+              .andExpect(jsonPath("$.data.school").value("단국대학교"))
+              .andExpect(jsonPath("$.data.campus").value("죽전"))
+              .andExpect(jsonPath("$.data.college").value("SW융합대학"))
+              .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
+              .andExpect(jsonPath("$.data.grade").value("3학년"))
+              .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
+              // 포트폴리오는 본인이 보여주려고 쓴 소개글이라 연락처와 달리 남에게도 보인다.
+              .andExpect(jsonPath("$.data.portfolio")
+                .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
+              .andExpect(jsonPath("$.data.schoolVerified").value(true))
+              .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
         }
 
         @Test
         @DisplayName("이메일이 응답에 없다 - 로그인만 하면 누구나 부를 수 있는 API 이므로")
         void doesNotExposeEmail() throws Exception {
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.email").doesNotExist())
-                    .andExpect(jsonPath("$.data.schoolEmail").doesNotExist())
-                    .andExpect(jsonPath("$.data.password").doesNotExist())
-                    .andExpect(jsonPath("$.data.provider").doesNotExist())
-                    .andExpect(jsonPath("$.data.providerId").doesNotExist());
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.email").doesNotExist())
+              .andExpect(jsonPath("$.data.schoolEmail").doesNotExist())
+              .andExpect(jsonPath("$.data.password").doesNotExist())
+              .andExpect(jsonPath("$.data.provider").doesNotExist())
+              .andExpect(jsonPath("$.data.providerId").doesNotExist());
         }
 
         @Test
         @DisplayName("의도 추출을 안 한 유저는 역할/스킬이 null 이 아니라 빈 배열이다")
         void slotlessUserGetsEmptyListsNotNull() throws Exception {
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.desiredRoles").isArray())
-                    .andExpect(jsonPath("$.data.desiredRoles").isEmpty())
-                    .andExpect(jsonPath("$.data.skills").isArray())
-                    .andExpect(jsonPath("$.data.skills").isEmpty())
-                    .andExpect(jsonPath("$.data.experienceLevel").doesNotExist())
-                    .andExpect(jsonPath("$.data.activityStyle").doesNotExist());
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.desiredRoles").isArray())
+              .andExpect(jsonPath("$.data.desiredRoles").isEmpty())
+              .andExpect(jsonPath("$.data.skills").isArray())
+              .andExpect(jsonPath("$.data.skills").isEmpty())
+              .andExpect(jsonPath("$.data.experienceLevel").doesNotExist())
+              .andExpect(jsonPath("$.data.activityStyle").doesNotExist());
         }
 
         @Test
@@ -143,16 +145,16 @@ class UserProfileControllerTest {
         void exposesSlotValues() throws Exception {
             MatchingIntentSlot slot = new MatchingIntentSlot(targetUser());
             slot.update(null, List.of("BE"), List.of("Spring", "PostgreSQL"), List.of("교육"),
-                    "포트폴리오 만들기", "주 2회 온라인", "beginner", "임베딩 원문");
+              "포트폴리오 만들기", "주 2회 온라인", "beginner", "임베딩 원문");
             when(slotRepository.findByUserId(TARGET_ID)).thenReturn(Optional.of(slot));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.desiredRoles[0]").value("BE"))
-                    .andExpect(jsonPath("$.data.skills[0]").value("Spring"))
-                    .andExpect(jsonPath("$.data.skills[1]").value("PostgreSQL"))
-                    .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
-                    .andExpect(jsonPath("$.data.activityStyle").value("주 2회 온라인"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.desiredRoles[0]").value("BE"))
+              .andExpect(jsonPath("$.data.skills[0]").value("Spring"))
+              .andExpect(jsonPath("$.data.skills[1]").value("PostgreSQL"))
+              .andExpect(jsonPath("$.data.experienceLevel").value("beginner"))
+              .andExpect(jsonPath("$.data.activityStyle").value("주 2회 온라인"));
         }
 
         @Test
@@ -163,9 +165,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
         }
 
         @Test
@@ -174,9 +176,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.empty());
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
         }
 
         @Test
@@ -188,9 +190,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").isNumber())
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(2));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").isNumber())
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(2));
         }
 
         @Test
@@ -198,15 +200,15 @@ class UserProfileControllerTest {
         void exposesParticipatedActivities() throws Exception {
             Team team = team(11L, "교내 해커톤 팀", 99L);
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(TARGET_ID))
-                    .thenReturn(List.of(TeamMember.builder().team(team).build()));
+              .thenReturn(List.of(TeamMember.builder().team(team).build()));
             when(eventRepository.findAllById(any()))
-                    .thenReturn(List.of(event(99L, Event.Category.SCHOOL)));
+              .thenReturn(List.of(event(99L, Event.Category.SCHOOL)));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.participatedActivities[0].id").value(11))
-                    .andExpect(jsonPath("$.data.participatedActivities[0].title").value("교내 해커톤 팀"))
-                    .andExpect(jsonPath("$.data.participatedActivities[0].category").value("교내"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.participatedActivities[0].id").value(11))
+              .andExpect(jsonPath("$.data.participatedActivities[0].title").value("교내 해커톤 팀"))
+              .andExpect(jsonPath("$.data.participatedActivities[0].category").value("교내"));
         }
 
         @Test
@@ -214,27 +216,27 @@ class UserProfileControllerTest {
         void teamWithoutEventFallsBackToEtc() throws Exception {
             Team team = team(12L, "자체 스터디", null);
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(TARGET_ID))
-                    .thenReturn(List.of(TeamMember.builder().team(team).build()));
+              .thenReturn(List.of(TeamMember.builder().team(team).build()));
 
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.participatedActivities[0].category").value("기타"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.participatedActivities[0].category").value("기타"));
         }
 
         @Test
         @DisplayName("남의 프로필이면 isMe=false")
         void isMeIsFalseForOthers() throws Exception {
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.isMe").value(false));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.isMe").value(false));
         }
 
         @Test
         @DisplayName("자기 id 로 조회하면 isMe=true")
         void isMeIsTrueForSelf() throws Exception {
             mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.isMe").value(true));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.isMe").value(true));
         }
 
         @Test
@@ -243,9 +245,9 @@ class UserProfileControllerTest {
             when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
             mockMvc.perform(get("/api/users/{userId}", 999L).principal(auth(VIEWER_ID)))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."));
+              .andExpect(status().isNotFound())
+              .andExpect(jsonPath("$.success").value(false))
+              .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."));
         }
     }
 
@@ -271,9 +273,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").isNumber())
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(2));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").isNumber())
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(2));
         }
 
         @Test
@@ -284,9 +286,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.of(score));
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").value(37.0))
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(1));
         }
 
         @Test
@@ -295,9 +297,9 @@ class UserProfileControllerTest {
             when(collaborationScoreRepository.findById(TARGET_ID)).thenReturn(Optional.empty());
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
-                    .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(0));
         }
 
         @Test
@@ -305,47 +307,47 @@ class UserProfileControllerTest {
         void exposesParticipatedActivities() throws Exception {
             Team team = team(11L, "교내 해커톤 팀", 99L);
             when(teamMemberRepository.findByUserIdAndLeftAtIsNull(TARGET_ID))
-                    .thenReturn(List.of(TeamMember.builder().team(team).build()));
+              .thenReturn(List.of(TeamMember.builder().team(team).build()));
             when(eventRepository.findAllById(any()))
-                    .thenReturn(List.of(event(99L, Event.Category.SCHOOL)));
+              .thenReturn(List.of(event(99L, Event.Category.SCHOOL)));
 
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.participatedActivities[0].id").value(11))
-                    .andExpect(jsonPath("$.data.participatedActivities[0].title").value("교내 해커톤 팀"))
-                    .andExpect(jsonPath("$.data.participatedActivities[0].category").value("교내"));
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.participatedActivities[0].id").value(11))
+              .andExpect(jsonPath("$.data.participatedActivities[0].title").value("교내 해커톤 팀"))
+              .andExpect(jsonPath("$.data.participatedActivities[0].category").value("교내"));
         }
 
         @Test
         @DisplayName("참여한 팀이 없으면 null 이 아니라 빈 배열이다")
         void emptyActivitiesIsArrayNotNull() throws Exception {
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.participatedActivities").isArray())
-                    .andExpect(jsonPath("$.data.participatedActivities").isEmpty());
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.participatedActivities").isArray())
+              .andExpect(jsonPath("$.data.participatedActivities").isEmpty());
         }
 
         @Test
         @DisplayName("기존 키는 그대로 남아 있다 - 필드는 더하기만 했다")
         void keepsExistingSchema() throws Exception {
             mockMvc.perform(get("/api/users/me").principal(auth(TARGET_ID)))
-                    .andExpect(status().isOk())
-                    // 내 프로필이므로 이메일 2종은 계속 실린다 (남의 프로필과 다른 점이다).
-                    .andExpect(jsonPath("$.data.email").value("rumi@dankook.ac.kr"))
-                    .andExpect(jsonPath("$.data.schoolEmail").value("rumi@dankook.ac.kr"))
-                    // 남의 프로필은 userId 인데 이쪽은 id 다 — 통일하려다 프론트를 깨뜨리지 않도록 고정한다.
-                    .andExpect(jsonPath("$.data.id").value(TARGET_ID))
-                    .andExpect(jsonPath("$.data.name").value("김루미"))
-                    .andExpect(jsonPath("$.data.school").value("단국대학교"))
-                    .andExpect(jsonPath("$.data.campus").value("죽전"))
-                    .andExpect(jsonPath("$.data.college").value("SW융합대학"))
-                    .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
-                    .andExpect(jsonPath("$.data.grade").value("3학년"))
-                    .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
-                    .andExpect(jsonPath("$.data.portfolio")
-                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
-                    .andExpect(jsonPath("$.data.schoolVerified").value(true))
-                    .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
+              .andExpect(status().isOk())
+              // 내 프로필이므로 이메일 2종은 계속 실린다 (남의 프로필과 다른 점이다).
+              .andExpect(jsonPath("$.data.email").value("rumi@dankook.ac.kr"))
+              .andExpect(jsonPath("$.data.schoolEmail").value("rumi@dankook.ac.kr"))
+              // 남의 프로필은 userId 인데 이쪽은 id 다 — 통일하려다 프론트를 깨뜨리지 않도록 고정한다.
+              .andExpect(jsonPath("$.data.id").value(TARGET_ID))
+              .andExpect(jsonPath("$.data.name").value("김루미"))
+              .andExpect(jsonPath("$.data.school").value("단국대학교"))
+              .andExpect(jsonPath("$.data.campus").value("죽전"))
+              .andExpect(jsonPath("$.data.college").value("SW융합대학"))
+              .andExpect(jsonPath("$.data.major").value("소프트웨어학과"))
+              .andExpect(jsonPath("$.data.grade").value("3학년"))
+              .andExpect(jsonPath("$.data.tagline").value("백엔드 하고 싶어요"))
+              .andExpect(jsonPath("$.data.portfolio")
+                .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
+              .andExpect(jsonPath("$.data.schoolVerified").value(true))
+              .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
         }
     }
 
@@ -370,25 +372,25 @@ class UserProfileControllerTest {
         @DisplayName("포트폴리오를 보내면 응답에 새 값이 실린다")
         void updatesPortfolio() throws Exception {
             mockMvc.perform(put("/api/users/me")
-                            .principal(auth(TARGET_ID))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"portfolio\":\"새로 쓴 포트폴리오\"}"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.portfolio").value("새로 쓴 포트폴리오"));
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"portfolio\":\"새로 쓴 포트폴리오\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.portfolio").value("새로 쓴 포트폴리오"));
         }
 
         @Test
         @DisplayName("포트폴리오를 빼고 보내면 기존 값이 지워지지 않는다")
         void omittedPortfolioIsLeftAlone() throws Exception {
             mockMvc.perform(put("/api/users/me")
-                            .principal(auth(TARGET_ID))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"tagline\":\"프론트도 해보고 싶어요\"}"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.tagline").value("프론트도 해보고 싶어요"))
-                    .andExpect(jsonPath("$.data.portfolio")
-                            .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"));
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"tagline\":\"프론트도 해보고 싶어요\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.tagline").value("프론트도 해보고 싶어요"))
+              .andExpect(jsonPath("$.data.portfolio")
+                .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"));
         }
 
         @Test
@@ -397,39 +399,38 @@ class UserProfileControllerTest {
             String tooLong = "가".repeat(5001);
 
             mockMvc.perform(put("/api/users/me")
-                            .principal(auth(TARGET_ID))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"portfolio\":\"" + tooLong + "\"}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.data.portfolio").value("포트폴리오는 5000자 이하여야 합니다."));
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"portfolio\":\"" + tooLong + "\"}"))
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.success").value(false))
+              .andExpect(jsonPath("$.data.portfolio").value("포트폴리오는 5000자 이하여야 합니다."));
         }
     }
 
     // --- 헬퍼 ---
-
     private Authentication auth(long userId) {
         return new UsernamePasswordAuthenticationToken(String.valueOf(userId), null, List.of());
     }
 
     private User targetUser() {
         return User.builder()
-                .id(TARGET_ID)
-                .email("rumi@dankook.ac.kr")
-                .schoolEmail("rumi@dankook.ac.kr")
-                .password("encoded-secret")
-                .providerId("kakao-1234")
-                .schoolVerified(true)
-                .name("김루미")
-                .school("단국대학교")
-                .campus("죽전")
-                .college("SW융합대학")
-                .major("소프트웨어학과")
-                .grade("3학년")
-                .interestJobPrimary("백엔드 개발자")
-                .tagline("백엔드 하고 싶어요")
-                .portfolio("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드")
-                .build();
+          .id(TARGET_ID)
+          .email("rumi@dankook.ac.kr")
+          .schoolEmail("rumi@dankook.ac.kr")
+          .password("encoded-secret")
+          .providerId("kakao-1234")
+          .schoolVerified(true)
+          .name("김루미")
+          .school("단국대학교")
+          .campus("죽전")
+          .college("SW융합대학")
+          .major("소프트웨어학과")
+          .grade("3학년")
+          .interestJobPrimary("백엔드 개발자")
+          .tagline("백엔드 하고 싶어요")
+          .portfolio("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드")
+          .build();
     }
 
     private Team team(Long id, String title, Long eventId) {

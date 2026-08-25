@@ -14,13 +14,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * {@code teams.role}/{@code required_skills} 의 CSV ↔ List 변환.
  *
- * <p>여기서 고정할 것은 값 하나하나가 아니라 <b>비대칭성</b>이다. 쓸 때는 빈 리스트가
+ * <p>
+ * 여기서 고정할 것은 값 하나하나가 아니라 <b>비대칭성</b>이다. 쓸 때는 빈 리스트가
  * {@code null} 컬럼이 되고, 읽을 때는 {@code null} 컬럼이 <b>빈 리스트</b>가 된다
  * ({@code null} 이 아니다). 이 비대칭이 팀 카드가 {@code team.getRole().stream()} 을 바로
  * 부를 수 있는 근거다 — 읽기 쪽이 {@code null} 을 돌려주도록 "대칭적으로" 고치면 팀 목록
  * 전체가 NPE 로 죽는다.
  *
- * <p>또 하나는 <b>원소 안의 콤마</b>다. 왕복이 깨지는 걸 알면서 허용한 한계라, 고장이 아니라
+ * <p>
+ * 또 하나는 <b>원소 안의 콤마</b>다. 왕복이 깨지는 걸 알면서 허용한 한계라, 고장이 아니라
  * 계약이라는 걸 테스트로 남긴다 — 나중에 자유 입력 필드에 이 컨버터를 붙이려는 사람이 여기서
  * 걸린다.
  */
@@ -41,7 +43,7 @@ class RoleListConverterTest {
         @DisplayName("콤마로 join 한다 (공백 없이)")
         void joinsWithComma() {
             assertThat(converter.convertToDatabaseColumn(List.of("데이터 분석", "기획")))
-                    .isEqualTo("데이터 분석,기획");
+              .isEqualTo("데이터 분석,기획");
         }
 
         @Test
@@ -55,7 +57,7 @@ class RoleListConverterTest {
         @DisplayName("원소의 앞뒤 공백은 잘라내고, 비어 있는 원소는 버린다")
         void trimsAndDropsBlanks() {
             assertThat(converter.convertToDatabaseColumn(Arrays.asList("  백엔드 ", "", "   ", "기획")))
-                    .isEqualTo("백엔드,기획");
+              .isEqualTo("백엔드,기획");
         }
 
         @Test
@@ -90,7 +92,7 @@ class RoleListConverterTest {
         @DisplayName("콤마로 나누고 각 원소를 트림한다")
         void splitsAndTrims() {
             assertThat(converter.convertToEntityAttribute(" 백엔드 , 기획 "))
-                    .containsExactly("백엔드", "기획");
+              .containsExactly("백엔드", "기획");
         }
 
         @Test
@@ -105,7 +107,7 @@ class RoleListConverterTest {
         @DisplayName("연속된 콤마로 생긴 빈 조각은 버린다")
         void dropsEmptySegments() {
             assertThat(converter.convertToEntityAttribute("a,, ,b,"))
-                    .containsExactly("a", "b");
+              .containsExactly("a", "b");
         }
     }
 
@@ -115,7 +117,7 @@ class RoleListConverterTest {
         List<String> original = List.of("백엔드", "프론트엔드", "데이터 분석");
 
         assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(original)))
-                .isEqualTo(original);
+          .isEqualTo(original);
     }
 
     /**
@@ -129,6 +131,6 @@ class RoleListConverterTest {
         List<String> original = List.of("기획, 마케팅");
 
         assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(original)))
-                .containsExactly("기획", "마케팅");
+          .containsExactly("기획", "마케팅");
     }
 }

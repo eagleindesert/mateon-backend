@@ -46,4 +46,3 @@ public class RefreshToken {
         this.expiresAt = expiresAt;
     }
 }
-

@@ -20,7 +20,9 @@ public class ContestImageExtractionClient {
 
     private static final String PATH = "/contests/extract-image";
 
-    /** AI 명세가 지정한 파트 이름. 다르면 FastAPI 가 422 를 낸다. */
+    /**
+     * AI 명세가 지정한 파트 이름. 다르면 FastAPI 가 422 를 낸다.
+     */
     private static final String FILE_PART_NAME = "img_file";
 
     private final AiCallTemplate aiCallTemplate;

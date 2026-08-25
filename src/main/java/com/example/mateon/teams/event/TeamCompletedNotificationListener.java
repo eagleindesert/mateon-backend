@@ -22,7 +22,8 @@ import java.util.List;
 /**
  * 팀 종료 후 팀원 전원에게 "평가를 남겨달라"고 알린다.
  *
- * <p>TeamEmbeddingRefreshListener 와 같은 패턴이다 — AFTER_COMMIT 이라 종료가 롤백되면
+ * <p>
+ * TeamEmbeddingRefreshListener 와 같은 패턴이다 — AFTER_COMMIT 이라 종료가 롤백되면
  * 알림도 안 나가고, @Async 라 알림 발송이 종료 API 응답을 붙잡지 않는다.
  */
 @Slf4j
@@ -62,12 +63,12 @@ public class TeamCompletedNotificationListener {
             }
 
             String content = String.format(
-                    "[%s] 활동이 종료되었습니다. %d일 안에 팀원 평가를 남겨주세요.",
-                    team.getTitle(), properties.getReviewWindowDays());
+              "[%s] 활동이 종료되었습니다. %d일 안에 팀원 평가를 남겨주세요.",
+              team.getTitle(), properties.getReviewWindowDays());
 
             for (TeamMember member : members) {
                 notificationService.send(member.getUser(), "팀원 평가 요청", content,
-                        Notification.NotificationType.INFO);
+                  Notification.NotificationType.INFO);
             }
         } catch (Exception e) {
             // 알림 실패가 종료 처리를 되돌리게 두지 않는다 (이미 커밋됐고, 평가는 알림 없이도 가능하다).
@@ -78,14 +79,15 @@ public class TeamCompletedNotificationListener {
     /**
      * 스케줄러가 닫은 1인 팀의 팀장에게만 보낸다.
      *
-     * <p>멤버 명단으로 팀장을 찾지 않고 조회하는 이유: V12 백필 이전에 만들어진 팀은 LEADER 행이
+     * <p>
+     * 멤버 명단으로 팀장을 찾지 않고 조회하는 이유: V12 백필 이전에 만들어진 팀은 LEADER 행이
      * 아예 없을 수 있다 (그 경우 members 가 비어 위 분기로 들어온다).
      */
     private void notifyAutoCompleted(Team team) {
-        userRepository.findById(team.getLeaderUserId()).ifPresent(leader ->
-                notificationService.send(leader, "활동 자동 종료",
-                        String.format("[%s] 공모전 마감일이 지나 활동이 자동으로 종료되었습니다.",
-                                team.getTitle()),
-                        Notification.NotificationType.INFO));
+        userRepository.findById(team.getLeaderUserId()).ifPresent(leader
+          -> notificationService.send(leader, "활동 자동 종료",
+            String.format("[%s] 공모전 마감일이 지나 활동이 자동으로 종료되었습니다.",
+              team.getTitle()),
+            Notification.NotificationType.INFO));
     }
 }

@@ -2,21 +2,33 @@ spring:
   application:
     name: mateon
 
-  # 로컬 개발 시 .env 파일에서 값을 읽어옵니다 (없으면 무시).
+  # 프로필은 "환경"만 가른다 — dev(로컬)와 prod(배포) 둘뿐이다. 디버그 기능은 프로필이 아니라
+  # debug.* 스위치가 맡는데, 운영에서 잠깐 디버그를 켜자고 프로필을 바꾸면 CORS·로그·커넥션 풀까지
+  # 통째로 딸려 오기 때문이다. 두 축은 서로 직교한다.
+  #
+  # 아무것도 주지 않으면 dev 다 — bootRun/IDE 실행이 무설정으로 돌아야 한다.
+  #
+  # prod 는 아직 쓰는 환경이 없다. 운영 서버가 없어서 미리 만들어만 둔 프로필이고,
+  # 지금 배포돼 있는 서버(docker-compose-deployment.yml)도 dev 로 돈다.
+  # 그래서 "dev = 로컬" 이 아니라 "dev = 아직 운영이 아닌 전부" 로 읽어야 한다.
+  profiles:
+    default: dev
+
+  # 로컬 개발 시 .env / .env.secret 에서 값을 읽어옵니다 (없으면 무시).
   # Docker 환경에서는 docker-compose 의 env_file/environment 로 주입됩니다.
   # 대괄호가 YAML 의 flow 시퀀스로 해석되지 않도록 따옴표로 감싼다.
+  #
+  # 두 파일로 나뉜 이유는 .env 헤더에 적어 뒀다(요약: .env 는 compose 치환도 겸하고,
+  # .env.secret 은 app 컨테이너에만 주입된다). bootRun 은 compose 를 거치지 않으므로
+  # 여기 두 줄이 로컬에서 시크릿을 받는 유일한 통로다 — 아래를 지우면 JWT_SECRET 이
+  # 없어 부팅이 실패한다.
   config:
-    import: "optional:file:.env[.properties]"
+    import:
+      - "optional:file:.env[.properties]"
+      - "optional:file:.env.secret[.properties]"
 
-  # Docker Compose 지원 (로컬 개발용 인프라 자동 기동)
-  # bootRun 시 docker-compose.yml 의 postgres/pgadmin 을 자동으로 up 하고,
-  # datasource 접속 정보는 postgres 서비스에서 자동 연결됩니다.
-  # 파일 경로는 지정하지 않는다 — docker-compose.yml 은 Boot 이 작업 디렉터리에서
-  # 자동 탐지하는 기본 이름이다. 같은 파일의 app 서비스는 "app" 프로파일에 묶여 있어
-  # 여기서 함께 뜨지 않는다(앱은 Gradle 이 실행하므로 포트가 겹친다).
-  docker:
-    compose:
-      lifecycle-management: start_and_stop
+  # Docker Compose 지원(로컬 인프라 자동 기동)은 application-dev.yml 로 옮겼다.
+  # spring-boot-docker-compose 가 developmentOnly 의존성이라 배포 JAR 에는 아예 없다.
 
   datasource:
     driver-class-name: org.postgresql.Driver
@@ -24,17 +36,17 @@ spring:
     username: "${SPRING_DATASOURCE_USERNAME:admin}"
     password: "${SPRING_DATASOURCE_PASSWORD:admin}"
 
-    # 커넥션 풀 (HikariCP)
-    # leak-detection-threshold: 이 시간 넘게 반납되지 않은 커넥션이 있으면 "빌려간 지점의 스택트레이스"를
-    #   경고 로그로 찍는다. 커넥션 누수는 증상(풀 고갈)만으로는 범인을 못 찾기 때문에 반드시 켜 둔다.
-    #   운영 중 커넥션을 실제로 오래 쓰는 정상 작업이 없으므로 오탐 부담도 없다.
-    hikari:
-      leak-detection-threshold: "${DB_LEAK_DETECTION_MS:20000}"
-      maximum-pool-size: "${DB_POOL_SIZE:20}"
+    # 커넥션 풀(HikariCP) 설정은 프로필별로 나뉜다 — application-dev.yml / application-prod.yml.
+    # 풀 크기가 환경마다 다르고(로컬은 Postgres 컨테이너 하나), 그 옆에 붙는 누수 감지 주석도
+    # 같이 옮겨 뒀다.
 
   # JPA 설정
+  # show-sql / format_sql 은 프로필이 기본값만 정하고(dev·prod 모두 false), 실제 on/off 는
+  # .env 의 JPA_SHOW_SQL 이 쥔다. 배포된 서버가 dev 프로필로 도는 동안 프로필을 갈아끼우지
+  # 않고 SQL 로그를 여닫기 위한 것이다. 같은 이유로 로그 레벨에는 LOG_LEVEL_APP /
+  # LOG_LEVEL_SQL 이 있다 — JPA_SHOW_SQL 과 LOG_LEVEL_SQL 은 같이 움직인다(한쪽만 켜면
+  # System.out 이나 로거 중 한 곳만 열린다).
   jpa:
-    show-sql: false
     # open-in-view=false 는 필수다. true(기본값)면 EntityManager 가 요청이 끝날 때까지 살아 있는데,
     # SSE 구독(/api/notifications/subscribe)은 최대 notification.sse-timeout(기본 1시간)짜리
     # async 요청이라 그동안 DB 커넥션이
@@ -46,9 +58,6 @@ spring:
       # 스키마는 Flyway 가 관리한다. Hibernate 는 엔티티↔실제 스키마 불일치를
       # 부팅 시 검증만 하고(validate), 절대 스키마를 변경하지 않는다.
       ddl-auto: validate
-    properties:
-      hibernate:
-        format_sql: true
 
   # Flyway (DB 마이그레이션)
   # baseline-on-migrate: 기존 데이터가 있는 DB(클라우드)는 V1 을 "이미 적용됨"으로
@@ -89,6 +98,44 @@ spring:
       max-file-size: "${MULTIPART_MAX_FILE_SIZE:20MB}"
       max-request-size: "${MULTIPART_MAX_REQUEST_SIZE:24MB}"
 
+  # --- Spring AI (AI 게이트웨이의 도메인 분류 전용) ---
+  # 이 프로젝트의 다른 AI 작업(의도 추출/임베딩/요약)은 전부 외부 FastAPI 가 한다. 여기만
+  # Spring 이 직접 LLM 을 부르는 이유는 "어느 도메인이냐"를 FastAPI 에 붙기 전에 정해야 해서다.
+  ai:
+    openai:
+      # 키가 없어도 앱은 떠야 한다 — 라우터는 실패 시 기존 동작(매칭으로 통과)으로 폴백하도록
+      # 설계돼 있고, 키 없는 로컬/CI 에서 부팅이 막히면 그 폴백을 시험할 수조차 없다.
+      # 그래서 AiServerProperties 처럼 @PostConstruct 로 막지 않고 빈 기본값을 준다.
+      api-key: "${OPENAI_API_KEY:}"
+      chat:
+        model: "${AI_ROUTER_MODEL:gpt-5-mini}"
+        # temperature 를 일부러 안 준다. 분류는 매번 같은 답이 나와야 하니 0 을 주고 싶지만,
+        # gpt-5 계열은 Chat Completions 에서 기본값(1) 외의 값을 거부한다:
+        #   400 Unsupported value: 'temperature' does not support 0 with this model.
+        # 그리고 이 400 은 재시도 대상이 아니라서 AiRouterClient 가 조용히 폴백한다 —
+        # 라우터가 켜져 있는데도 모든 발화가 매칭으로 가고, 로그는 키가 없을 때(401)와
+        # 똑같이 찍혀서 설정 오류를 알아챌 단서가 없다. 그래서 안 보내는 게 맞다.
+        #
+        # 프로퍼티가 @Nullable Double 이고 기본값이 없어서, 이 줄을 지우면 요청 본문에
+        # temperature 자체가 실리지 않는다. 결정성은 RouteDecision 스키마 강제와
+        # 시스템 프롬프트가 맡고, enum 밖의 값이 오면 어차피 폴백한다.
+        # temperature 를 꼭 고정해야 하면 AI_ROUTER_MODEL 로 gpt-4.1-mini 등을 쓴다.
+    retry:
+      # Spring AI 기본값이 max-attempts=10, backoff 최대 3분이다. 이건 요청 경로 위에 있는
+      # 분류 한 번이고 그 뒤에 FastAPI 호출이 또 있어서, 그대로 두면 사용자가 몇 분을 기다린다.
+      # 어차피 실패하면 폴백이라 빨리 포기하는 편이 낫다.
+      #
+      # 다만 Spring AI 2.0 의 OpenAI 연동은 이 값을 쓰지 않는다 — RetryTemplate 을 거치지 않고
+      # 공식 OpenAI Java SDK 가 자체 재시도를 한다. 실제 노브는 spring.ai.openai.max-retries
+      # (기본 3) 이고, 401/400 처럼 재시도해도 소용없는 응답은 SDK 가 알아서 한 번에 포기한다.
+      max-attempts: 2
+
+# --- AI 게이트웨이 (도메인 라우터) ---
+airouter:
+  # 끄면 분류를 건너뛰고 곧장 매칭 의도 추출로 통과시킨다 (= 게이트웨이 도입 전 동작).
+  # OPENAI_API_KEY 가 없는 환경에서 켜 두어도 결과는 같다 — 라우터가 폴백할 뿐이다.
+  enabled: "${AI_ROUTER_ENABLED:true}"
+
 # JWT 설정
 jwt:
   secret: "${JWT_SECRET}"
@@ -113,7 +160,10 @@ ai:
   # 이 시간 넘게 방치된 의도 추출 대화는 만료 처리하고 새로 시작한다.
   session-ttl: "${AI_SESSION_TTL:24h}"
   # user_embeddings.embedding 이 vector(1536) 이므로 반드시 일치해야 한다.
-  embedding-dimension: "${AI_EMBEDDING_DIMENSION:1536}"
+  # 환경변수로 뚫어 두지 않는다 — 컬럼 차원이 V6__add_vector_embeddings_tables.sql 에
+  # 리터럴로 박혀 있어서, .env 로 이 값만 바꾸면 앱은 멀쩡히 뜨고 임베딩을 넣는 시점에
+  # 가서 터진다. 바꾸려면 마이그레이션과 함께 바꿔야 하므로 코드에 둔다.
+  embedding-dimension: 1536
 
 # --- OCI Object Storage (S3 호환 API) ---
 # Customer Secret Key 방식. 엔드포인트는 S3ClientConfig 가 namespace/region 으로 조립한다.
@@ -156,9 +206,9 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
-    # UI 노출은 환경변수로 끌 수 있다. 운영에서 닫으려면 SWAGGER_UI_ENABLED=false 를 준다
-    # (/v3/api-docs 자체는 살아 있어 프론트가 스키마를 계속 받아볼 수 있다).
-    enabled: "${SWAGGER_UI_ENABLED:true}"
+    # UI 노출 여부(enabled)는 프로필별로 나뉜다 — application-dev.yml / application-prod.yml.
+    # 어느 쪽이든 SWAGGER_UI_ENABLED 로 덮을 수 있고, /v3/api-docs 자체는 이 값과 무관하게
+    # 계속 살아 있어 프론트가 스키마를 받아볼 수 있다.
   # 스키마 안에서 필드 순서를 DTO 선언 순서가 아닌 알파벳순으로 고정 — diff 가 안정된다.
   writer-with-order-by-keys: true
 

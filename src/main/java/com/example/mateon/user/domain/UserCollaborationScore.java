@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
  * 유저별 협업 온도 집계 캐시. users 와 1:1 이지만 테이블을 분리했다 —
  * users 는 인증 핫패스에서 매번 읽히고 평판은 쓰기 패턴이 전혀 다르다 (user_embeddings 와 같은 전례).
  *
- * <p>reviewCount/ratingSum 을 함께 들고 있어서 평가 1건 추가가 O(1) 증분 갱신이 된다.
+ * <p>
+ * reviewCount/ratingSum 을 함께 들고 있어서 평가 1건 추가가 O(1) 증분 갱신이 된다.
  * team_reviews 를 통째로 다시 세는 건 공식 계수를 바꿀 때뿐이다.
  */
 @Entity
@@ -32,7 +33,9 @@ public class UserCollaborationScore {
     @Column(name = "rating_sum", nullable = false)
     private int ratingSum;
 
-    /** 항상 값이 있다. 평가가 0건이면 기준점(36.5)이고, 표본이 적다는 이유로 비우지 않는다. */
+    /**
+     * 항상 값이 있다. 평가가 0건이면 기준점(36.5)이고, 표본이 적다는 이유로 비우지 않는다.
+     */
     @Column(nullable = false, precision = 4, scale = 1)
     private BigDecimal temperature;
 
@@ -49,7 +52,9 @@ public class UserCollaborationScore {
         return score;
     }
 
-    /** 평가 1건 반영. 온도는 여기서만 갱신되므로 집계와 온도가 어긋날 수 없다. */
+    /**
+     * 평가 1건 반영. 온도는 여기서만 갱신되므로 집계와 온도가 어긋날 수 없다.
+     */
     public void addRating(int rating) {
         this.reviewCount += 1;
         this.ratingSum += rating;

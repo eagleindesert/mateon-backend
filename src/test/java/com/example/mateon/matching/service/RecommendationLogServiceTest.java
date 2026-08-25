@@ -26,13 +26,16 @@ import static org.mockito.Mockito.when;
 /**
  * 추천 이력 기록.
  *
- * <p>단순한 저장처럼 보이지만 두 가지가 걸려 있다.
+ * <p>
+ * 단순한 저장처럼 보이지만 두 가지가 걸려 있다.
  *
- * <p><b>하나, 순위는 여기서 매긴다.</b> AI 가 준 배열 순서가 아니라 호출자가 정렬해 넘긴 순서로
+ * <p>
+ * <b>하나, 순위는 여기서 매긴다.</b> AI 가 준 배열 순서가 아니라 호출자가 정렬해 넘긴 순서로
  * 1 부터 채운다. 이 순위는 나중에 상세 이유의 {@code score_context} 로 쓰이고, 역제안에서는
  * 제안 발송 시 {@code team_offers} 에 스냅샷으로 복사된다 — 즉 화면 밖으로도 흘러간다.
  *
- * <p><b>둘, 이유 캐시 대상이 사라져도 예외가 아니다.</b> 로그 헤더가 지워지면 아이템도 cascade
+ * <p>
+ * <b>둘, 이유 캐시 대상이 사라져도 예외가 아니다.</b> 로그 헤더가 지워지면 아이템도 cascade
  * 로 함께 사라진다. 그때 이유는 이미 생성돼 응답으로 나가는 중이라, 여기서 터지면 사용자는
  * 멀쩡히 만들어진 이유를 못 받는다.
  */
@@ -93,8 +96,8 @@ class RecommendationLogServiceTest {
         void ranksAndStoresRequester() {
             service.saveTeamToUser(100L, 1L, 30, List.of(item(2L, 0.9), item(3L, 0.5)));
 
-            ArgumentCaptor<TeamToUserRecommendationLog> captor =
-                    ArgumentCaptor.forClass(TeamToUserRecommendationLog.class);
+            ArgumentCaptor<TeamToUserRecommendationLog> captor
+              = ArgumentCaptor.forClass(TeamToUserRecommendationLog.class);
             verify(teamToUserLogRepository).save(captor.capture());
 
             TeamToUserRecommendationLog saved = captor.getValue();
@@ -153,10 +156,9 @@ class RecommendationLogServiceTest {
     }
 
     // --- 헬퍼 ---------------------------------------------------------------
-
     private UserToTeamRecommendationLog captureUserToTeamLog() {
-        ArgumentCaptor<UserToTeamRecommendationLog> captor =
-                ArgumentCaptor.forClass(UserToTeamRecommendationLog.class);
+        ArgumentCaptor<UserToTeamRecommendationLog> captor
+          = ArgumentCaptor.forClass(UserToTeamRecommendationLog.class);
         verify(logRepository).save(captor.capture());
         return captor.getValue();
     }
@@ -168,14 +170,14 @@ class RecommendationLogServiceTest {
 
     private List<Integer> rankNos(Object log) {
         return items(log).stream()
-                .map(item -> (Integer) ReflectionTestUtils.getField(item, "rankNo"))
-                .toList();
+          .map(item -> (Integer) ReflectionTestUtils.getField(item, "rankNo"))
+          .toList();
     }
 
     private List<Long> teamIds(Object log) {
         return items(log).stream()
-                .map(item -> (Long) ReflectionTestUtils.getField(item, "teamId"))
-                .toList();
+          .map(item -> (Long) ReflectionTestUtils.getField(item, "teamId"))
+          .toList();
     }
 
     private Recommendation item(Long candidateId, Double score) {

@@ -4,7 +4,7 @@
 #  [!] 과금 주의 - 이 스크립트는 실제 LLM / 임베딩을 호출합니다. 이 폴더에서 가장 많이 씁니다.
 #      예상 호출 7회:
 #        - 팀 생성 2회  -> 비동기 임베딩 갱신 (LLM 추출 + 임베딩)
-#        - 의도 추출 2회 -> POST /intents/messages (LLM + 임베딩)
+#        - 의도 추출 최대 2회 -> POST /intents/messages (LLM + 임베딩. 1턴에 완료되면 1회)
 #        - 추천 점수화 3회 -> limit=5 / limit=200 / limit=1 각각 AI 호출
 #      ※ 후보가 0건인 요청(13.9 없는 eventId)과 의도 미완료 차단(13.3)은 AI 를 호출하지 않습니다.
 #      ※ 추천은 의도 추출과 달리 AI 호출이 동기입니다 — 느리면 AI 서버 응답을 기다리는 중입니다.
@@ -141,12 +141,24 @@ Use-Token $tokenA
 
 Invoke-Api -Method POST -Path "/api/matching/intents/session/restart" -Auth -Title "13.4 (A) 의도 세션 초기화" | Out-Null
 
-Invoke-Api -Method POST -Path "/api/matching/intents/messages" -Auth -Title "13.5 (A) 의도 추출 1턴" -Body @{
+$intent1 = Invoke-Api -Method POST -Path "/api/matching/intents/messages" -Auth -PassThru -Title "13.5 (A) 의도 추출 1턴" -Body @{
     message = "백엔드 공부하려고 포트폴리오용 프로젝트 팀을 찾고 있어요."
-} | Out-Null
+}
 
-$intent2 = Invoke-Api -Method POST -Path "/api/matching/intents/messages" -Auth -PassThru -Title "13.6 (A) 의도 추출 2턴 (완료 기대)" -Body @{
-    message = "아직 입문 수준이고, 주 2회 정도 오프라인으로 만나고 싶어요."
+# 몇 턴에 끝날지는 AI 가 정한다. 실서버는 이 한 문장만으로 슬롯을 다 채우기도 한다.
+# 그때 2턴째를 그대로 보내면 안 된다 — 완료된 세션은 작업이 닫히므로(MatchingIntentSessionService)
+# 다음 메시지가 빈 세션을 새로 열고, 그 한 문장에는 desiredRoles 가 없어 completed=false 로 돌아온다.
+# 추출이 실패한 게 아니라 이미 끝난 뒤에 한 턴을 더 보낸 것이라, 여기서 2턴을 건너뛴다.
+if ($intent1.data.completed) {
+    # -WarnOnly: 실패가 아니다. 스텁(2턴 완료) 기준으로 쓰인 시나리오라 실서버에서 1턴에 끝나면
+    # 준비해 둔 2턴째 발화가 검증에 안 쓰인다는 사실만 사람이 보게 남긴다.
+    Assert-Test -Title "13.6 (A) 1턴 만에 완료 - 2턴 생략" -Condition $false -WarnOnly `
+        -Detail "AI 가 첫 발화로 슬롯을 다 채웠습니다 (스텁 기준 2턴). 2턴째 발화는 보내지 않습니다." | Out-Null
+    $intent2 = $intent1
+} else {
+    $intent2 = Invoke-Api -Method POST -Path "/api/matching/intents/messages" -Auth -PassThru -Title "13.6 (A) 의도 추출 2턴 (완료 기대)" -Body @{
+        message = "아직 입문 수준이고, 주 2회 정도 오프라인으로 만나고 싶어요."
+    }
 }
 Assert-Test -Title "13.6a 의도 추출 완료 (슬롯 + 임베딩 생성)" `
     -Condition ([bool]$intent2.data.completed) `

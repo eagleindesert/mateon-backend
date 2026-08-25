@@ -44,9 +44,27 @@ if (-not (Get-AccessToken)) {
     return
 }
 
+# 연결할 활동은 04_00_event_init 이 남긴 .event-ids.json 에서 고른다.
+# id 를 박아두면 DB 가 갈릴 때마다 그 id 가 없어 400(RESOURCE_NOT_FOUND)이 난다 —
+# 팀 생성이 깨진 게 아니라 활동이 없는 것인데 실패로 보여 헷갈린다.
+# 파일이 없으면 eventId 없이(자율 팀) 만든다. 이 스크립트의 검증 대상은 임베딩이지 활동 연결이 아니다.
+$linkedEventId = $null
+$stateFile = Join-Path $PSScriptRoot ".event-ids.json"
+if (Test-Path $stateFile) {
+    $loaded = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
+    foreach ($p in $loaded.PSObject.Properties) {
+        if ($p.Name -ne "__runTag") { $linkedEventId = $p.Value; break }
+    }
+}
+if ($linkedEventId) {
+    Write-Host "  (i) 연결할 활동 eventId=$linkedEventId (.event-ids.json)" -ForegroundColor DarkCyan
+} else {
+    Write-Host "  (i) .event-ids.json 이 없어 자율 팀(eventId=null)으로 만듭니다. (먼저 .\04_00_event_init.ps1 실행)" -ForegroundColor Yellow
+}
+
 # ── 12.1 requiredSkills 포함 생성 ──────────────────────────────────────────
 $created = Invoke-Api -Method POST -Path "/api/teams" -Auth -PassThru -Title "12.1 팀 생성 (requiredSkills 포함)" -Body @{
-    eventId              = 25
+    eventId              = $linkedEventId
     title                = "임베딩테스트 팀 $((Get-Random -Maximum 9999))"
     promotionText        = "커머스 플랫폼을 만드는 팀입니다. 현재 FE 2명, Design 1명으로 구성돼 있습니다. 매주 화, 목요일 저녁 오프라인으로 모이고, 초보자도 편하게 참여할 수 있는 분위기를 지향합니다. 이번 학기 교내 공모전 수상이 목표입니다."
     role                 = @("BE")

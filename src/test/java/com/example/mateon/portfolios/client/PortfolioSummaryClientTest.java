@@ -25,7 +25,8 @@ import static org.mockito.Mockito.when;
 /**
  * AI 로 나가는 멀티파트의 모양을 고정한다.
  *
- * <p>여기서 어긋나는 실수는 전부 런타임 422 로만 드러나고(FastAPI 가 파트를 UploadFile 로 인식하지
+ * <p>
+ * 여기서 어긋나는 실수는 전부 런타임 422 로만 드러나고(FastAPI 가 파트를 UploadFile 로 인식하지
  * 못한다), 로그만 봐서는 원인을 짚기 어렵다. 파트 이름과 파일명은 그래서 테스트로 못박는다.
  */
 class PortfolioSummaryClientTest {
@@ -78,9 +79,9 @@ class PortfolioSummaryClientTest {
         when(aiCallTemplate.postMultipart(any(), any(), any())).thenReturn(response("   "));
 
         assertThatThrownBy(() -> client.summarize(PDF_BYTES, "portfolio.pdf"))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.AI_SERVER_ERROR);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.AI_SERVER_ERROR);
     }
 
     @Test
@@ -89,8 +90,8 @@ class PortfolioSummaryClientTest {
         when(aiCallTemplate.postMultipart(any(), any(), any())).thenReturn(response(null));
 
         assertThatThrownBy(() -> client.summarize(PDF_BYTES, "portfolio.pdf"))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.AI_SERVER_ERROR);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.AI_SERVER_ERROR);
     }
 }

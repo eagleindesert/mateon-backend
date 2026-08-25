@@ -33,14 +33,15 @@ import static org.mockito.Mockito.when;
 /**
  * 포스터 이미지 → 등록 초안의 규약을 고정한다.
  *
- * <p>특히 두 가지가 중요하다. (1) 형식이 어긋난 파일은 AI 를 호출하기 전에 걸러진다 —
+ * <p>
+ * 특히 두 가지가 중요하다. (1) 형식이 어긋난 파일은 AI 를 호출하기 전에 걸러진다 —
  * 그러지 않으면 매 요청이 LLM 비용으로 이어진다. (2) AI 추출이 실패하면 업로드를 하지 않는다 —
  * 초안을 못 받은 사용자는 다시 올릴 테니, 순서가 뒤집히면 버킷에 아무도 안 쓰는 이미지가 쌓인다.
  */
 class EventExtractionServiceTest {
 
-    private static final String UPLOADED_URL =
-            "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/ns/b/bucket/o/contest-images/2026/07/x.png";
+    private static final String UPLOADED_URL
+      = "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/ns/b/bucket/o/contest-images/2026/07/x.png";
 
     private ContestImageExtractionClient extractionClient;
     private ObjectStorageService objectStorageService;
@@ -52,7 +53,7 @@ class EventExtractionServiceTest {
         objectStorageService = mock(ObjectStorageService.class);
         // 용량 가드는 기본 mock 이라 항상 통과한다. 한도 동작 자체는 BucketCapacityGuardTest 가 본다.
         service = new EventExtractionService(
-                extractionClient, objectStorageService, mock(BucketCapacityGuard.class));
+          extractionClient, objectStorageService, mock(BucketCapacityGuard.class));
     }
 
     private MultipartFile image(String filename) {
@@ -112,16 +113,16 @@ class EventExtractionServiceTest {
         // content-type 은 업로드 파일이 주장한 값이 아니라 확장자에서 정한다.
         verify(objectStorageService).upload(key.capture(), any(), eq("image/jpeg"));
         assertThat(key.getValue()).matches(
-                "contest-images/\\d{4}/\\d{2}/[0-9a-f-]{36}\\.jpg");
+          "contest-images/\\d{4}/\\d{2}/[0-9a-f-]{36}\\.jpg");
     }
 
     @Test
     @DisplayName("허용하지 않는 확장자는 AI 를 부르기 전에 400 으로 막는다")
     void rejectsUnsupportedExtension() {
         assertThatThrownBy(() -> service.extractFromImage(image("poster.gif")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
 
         verifyNoInteractions(extractionClient, objectStorageService);
     }
@@ -130,9 +131,9 @@ class EventExtractionServiceTest {
     @DisplayName("확장자가 아예 없어도 400")
     void rejectsMissingExtension() {
         assertThatThrownBy(() -> service.extractFromImage(image("poster")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test
@@ -141,9 +142,9 @@ class EventExtractionServiceTest {
         MultipartFile empty = new MockMultipartFile("image", "poster.png", "image/png", new byte[0]);
 
         assertThatThrownBy(() -> service.extractFromImage(empty))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
 
         verifyNoInteractions(extractionClient);
     }
@@ -152,12 +153,12 @@ class EventExtractionServiceTest {
     @DisplayName("10MB 를 넘으면 413")
     void rejectsOversizedFile() {
         MultipartFile huge = new MockMultipartFile(
-                "image", "poster.png", "image/png", new byte[10 * 1024 * 1024 + 1]);
+          "image", "poster.png", "image/png", new byte[10 * 1024 * 1024 + 1]);
 
         assertThatThrownBy(() -> service.extractFromImage(huge))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
 
         verifyNoInteractions(extractionClient);
     }
@@ -166,12 +167,12 @@ class EventExtractionServiceTest {
     @DisplayName("AI 추출이 실패하면 이미지를 올리지 않는다 (버킷에 고아 객체를 남기지 않는다)")
     void doesNotUploadWhenExtractionFails() {
         doThrow(new MateonException(ErrorCode.AI_SERVER_UNAVAILABLE))
-                .when(extractionClient).extract(any(), anyString(), anyString());
+          .when(extractionClient).extract(any(), anyString(), anyString());
 
         assertThatThrownBy(() -> service.extractFromImage(image("poster.png")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.AI_SERVER_UNAVAILABLE);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.AI_SERVER_UNAVAILABLE);
 
         verify(objectStorageService, never()).upload(anyString(), any(), anyString());
     }
@@ -181,12 +182,12 @@ class EventExtractionServiceTest {
     void failsWhenUploadFails() {
         when(extractionClient.extract(any(), anyString(), anyString())).thenReturn(fullResponse());
         doThrow(new MateonException(ErrorCode.IMAGE_UPLOAD_FAILED))
-                .when(objectStorageService).upload(anyString(), any(), anyString());
+          .when(objectStorageService).upload(anyString(), any(), anyString());
 
         assertThatThrownBy(() -> service.extractFromImage(image("poster.png")))
-                .isInstanceOf(MateonException.class)
-                .extracting(e -> ((MateonException) e).getErrorCode())
-                .isEqualTo(ErrorCode.IMAGE_UPLOAD_FAILED);
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.IMAGE_UPLOAD_FAILED);
     }
 
     @Test

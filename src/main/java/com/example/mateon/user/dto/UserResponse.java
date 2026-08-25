@@ -16,23 +16,27 @@ import java.util.List;
 /**
  * 내 프로필 ({@code GET /api/users/me}, {@code PUT /api/users/me}).
  *
- * <p>마이페이지 화면이 필요한 값은 전부 여기에 담긴다. {@code /mypage}({@link MyPageResponseDTO})
+ * <p>
+ * 마이페이지 화면이 필요한 값은 전부 여기에 담긴다. {@code /mypage}({@link MyPageResponseDTO})
  * 가 같은 값을 주지만 그쪽은 프론트가 쓰지 않는 중복 API 이고, 폐기 예정이다. 값을 옮길 때
  * <b>기존 키는 건드리지 않고 필드만 더했다</b>: 이 DTO 를 이미 읽고 있는 화면들이 있으므로 키
  * 구성이 바뀌면 그쪽이 깨진다.
  *
- * <p>협업 온도 2종과 참여 활동은 <b>모든 응답에 담기지 않는다</b>. {@link #ofBasic(User)} 로 만든
+ * <p>
+ * 협업 온도 2종과 참여 활동은 <b>모든 응답에 담기지 않는다</b>. {@link #ofBasic(User)} 로 만든
  * 응답은 세 값이 모두 null 이고, 이는 "비공개"나 "없음"이 아니라 <b>"이 응답은 그 값을 싣지
  * 않는다"</b>는 뜻이다. 지원서 응답의 {@code applicant} 필드가 이 DTO 를 재사용하기 때문에 생기는
  * 구분이며 ({@link com.example.mateon.teams.dto.response.TeamApplicationResponseDTO#applicant}),
  * 실어야 하는 쪽은 {@link #ofFull(User, UserCollaborationScore, List)} 를 쓴다.
  *
- * <p>두 팩터리 이름을 {@code from} 오버로딩으로 두지 않은 이유가 여기 있다. 인자 개수만 다를 뿐
+ * <p>
+ * 두 팩터리 이름을 {@code from} 오버로딩으로 두지 않은 이유가 여기 있다. 인자 개수만 다를 뿐
  * <b>만들어 내는 응답의 계약이 서로 다르므로</b>, 같은 이름이면 호출부에서 어느 쪽 계약인지 읽히지
  * 않는다. 이름을 갈라 두면 {@code ofBasic} 이라고 쓴 자리에서 "여긴 온도를 안 싣는다"가 그대로 보이고,
  * 온도만 싣고 활동은 빠뜨리는 어중간한 조합도 애초에 만들어지지 않는다.
  *
- * <p>그래서 {@code collaborationReviewCount} 를 {@code int} 가 아니라 {@link Integer} 로 뒀다.
+ * <p>
+ * 그래서 {@code collaborationReviewCount} 를 {@code int} 가 아니라 {@link Integer} 로 뒀다.
  * 온도를 싣는 응답에서는 건수가 0 이라도 온도가 함께 오므로, 건수가 null 인지 여부가 "이 API 는
  * 온도를 안 준다"를 가르는 유일한 신호다. {@code int} 였다면 온도를 싣지 않은 응답도 건수 0 으로
  * 나가 "평가를 아직 못 받은 유저"와 똑같이 보인다. {@code participatedActivities} 의 null 과 빈
@@ -46,6 +50,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserResponse {
+
     private Long id;
     @Schema(description = "로그인 이메일. 자체 가입 계정은 학교 이메일과 같다.")
     private String email;
@@ -63,32 +68,40 @@ public class UserResponse {
     private String interestJobSecondary;
     private String interestJobTertiary;
     private String tagline;
-    /** 사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null. */
+    /**
+     * 사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null.
+     */
     @Schema(description = "사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null.")
     private String portfolio;
-    /** 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null. */
+    /**
+     * 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null.
+     */
     @Schema(description = "프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null "
-            + "(업로드는 비동기라 200 을 받은 직후에도 잠시 null 일 수 있다).")
+      + "(업로드는 비동기라 200 을 받은 직후에도 잠시 null 일 수 있다).")
     private String profileImageUrl;
 
     /**
      * 협업 온도. 평가 건수와 무관하게 항상 값이 있고, 0건이면 기준점 36.5 다.
      *
-     * <p>온도를 싣지 않는 경로에서만 null 이다. 구분은 {@link #collaborationReviewCount} 로 한다
+     * <p>
+     * 온도를 싣지 않는 경로에서만 null 이다. 구분은 {@link #collaborationReviewCount} 로 한다
      * (클래스 주석 참고).
      */
     @Schema(description = "협업 온도. 평가 0건이면 기준점 36.5 다 — 이 값을 싣는 응답에서는 항상 값이 있다.")
     private BigDecimal collaborationTemperature;
-    /** 받은 평가 건수. 온도를 싣지 않는 응답에서는 0 이 아니라 null 이다 (클래스 주석 참고). */
+    /**
+     * 받은 평가 건수. 온도를 싣지 않는 응답에서는 0 이 아니라 null 이다 (클래스 주석 참고).
+     */
     @Schema(description = "받은 평가 건수. **null 이면 '이 응답은 온도를 싣지 않는다'는 뜻**이고, "
-            + "0 이면 '아직 평가를 못 받았다'는 뜻이다.")
+      + "0 이면 '아직 평가를 못 받았다'는 뜻이다.")
     private Integer collaborationReviewCount;
 
     /**
      * 참여했던 활동 이력. 참여한 팀이 없으면 빈 배열이고, <b>이 값을 싣지 않는 응답에서는 null</b>
      * 이다 — 협업 온도와 같은 구분이다 (클래스 주석 참고).
      *
-     * <p>{@code /mypage} 와 {@code /api/users/{userId}} 가 쓰는 것과 같은 타입을 그대로 쓴다.
+     * <p>
+     * {@code /mypage} 와 {@code /api/users/{userId}} 가 쓰는 것과 같은 타입을 그대로 쓴다.
      * 세 응답의 활동 항목이 프론트에서 같은 컴포넌트로 렌더링되므로 키 구성이 갈릴 이유가 없다.
      */
     @Schema(description = "참여했던 활동 이력. 참여한 팀이 없으면 빈 배열이고, 이 값을 싣지 않는 응답에서는 null 이다.")
@@ -109,47 +122,47 @@ public class UserResponse {
     /**
      * 마이페이지 화면용 전체 조립 ({@code GET /api/users/me}, {@code PUT /api/users/me}).
      *
-     * <p>얇은 {@link #ofBasic(User)} 와 갈라 둔 이유는 지원서 응답 쪽 제약이다 — 거기서는 엔티티만
+     * <p>
+     * 얇은 {@link #ofBasic(User)} 와 갈라 둔 이유는 지원서 응답 쪽 제약이다 — 거기서는 엔티티만
      * 들고 있어 온도·활동을 읽을 수 없고, 지원자마다 활동을 읽으면 목록 조회가 N+1 이 된다.
      *
-     * @param score      협업 온도 집계. 평가를 한 번도 안 받은 유저는 행 자체가 없어 null 이다 —
-     *                   에러가 아니며, 기준점 온도 + 건수 0 으로 내려간다.
+     * @param score 협업 온도 집계. 평가를 한 번도 안 받은 유저는 행 자체가 없어 null 이다 —
+     * 에러가 아니며, 기준점 온도 + 건수 0 으로 내려간다.
      * @param activities 참여했던 활동 이력. 참여한 팀이 없으면 빈 리스트다 (null 이 아니다).
-     *                   여기에 null 을 넘기면 안 된다 — 온도는 실렸는데 활동만 "안 실음"인,
-     *                   프론트가 해석할 수 없는 반쪽 응답이 된다.
+     * 여기에 null 을 넘기면 안 된다 — 온도는 실렸는데 활동만 "안 실음"인,
+     * 프론트가 해석할 수 없는 반쪽 응답이 된다.
      */
     public static UserResponse ofFull(User user,
-                                      UserCollaborationScore score,
-                                      List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
+      UserCollaborationScore score,
+      List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
         return baseOf(user)
-                .collaborationTemperature(score != null
-                        ? score.getTemperature()
-                        : CollaborationTemperatureCalculator.INITIAL)
-                .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
-                .participatedActivities(activities)
-                .build();
+          .collaborationTemperature(score != null
+            ? score.getTemperature()
+            : CollaborationTemperatureCalculator.INITIAL)
+          .collaborationReviewCount(score != null ? score.getReviewCount() : 0)
+          .participatedActivities(activities)
+          .build();
     }
 
     private static UserResponseBuilder baseOf(User user) {
         return UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .schoolEmail(user.getSchoolEmail())
-                .schoolVerified(user.isSchoolVerified())
-                .name(user.getName())
-                .school(user.getSchool())
-                .campus(user.getCampus())
-                .college(user.getCollege())
-                .major(user.getMajor())
-                .grade(user.getGrade())
-                .interestJobPrimary(user.getInterestJobPrimary())
-                .interestJobSecondary(user.getInterestJobSecondary())
-                .interestJobTertiary(user.getInterestJobTertiary())
-                .tagline(user.getTagline())
-                .portfolio(user.getPortfolio())
-                .profileImageUrl(user.getProfileImageUrl())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt());
+          .id(user.getId())
+          .email(user.getEmail())
+          .schoolEmail(user.getSchoolEmail())
+          .schoolVerified(user.isSchoolVerified())
+          .name(user.getName())
+          .school(user.getSchool())
+          .campus(user.getCampus())
+          .college(user.getCollege())
+          .major(user.getMajor())
+          .grade(user.getGrade())
+          .interestJobPrimary(user.getInterestJobPrimary())
+          .interestJobSecondary(user.getInterestJobSecondary())
+          .interestJobTertiary(user.getInterestJobTertiary())
+          .tagline(user.getTagline())
+          .portfolio(user.getPortfolio())
+          .profileImageUrl(user.getProfileImageUrl())
+          .createdAt(user.getCreatedAt())
+          .updatedAt(user.getUpdatedAt());
     }
 }
-

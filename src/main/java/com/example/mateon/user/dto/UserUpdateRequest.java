@@ -6,10 +6,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Schema(description = "프로필 수정 요청. **보낸 필드만 바뀐다** — 생략하거나 null 로 둔 항목은 기존 값이 유지되므로 "
-        + "값을 비우는 용도로는 쓸 수 없다.")
+  + "값을 비우는 용도로는 쓸 수 없다.")
 @Getter
 @Setter
 public class UserUpdateRequest {
+
     @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
     private String name;
 
@@ -43,7 +44,8 @@ public class UserUpdateRequest {
     /**
      * 포트폴리오 서술.
      *
-     * <p>위 필드들의 {@code @Size} 는 컬럼 길이를 그대로 옮긴 값이지만 이건 다르다 —
+     * <p>
+     * 위 필드들의 {@code @Size} 는 컬럼 길이를 그대로 옮긴 값이지만 이건 다르다 —
      * {@code users.portfolio} 는 {@code text} 라 무제한이고, 5000 은 요청 본문 상한일 뿐이다.
      * 그래서 이 숫자는 마이그레이션 없이 조정할 수 있다. 대신 DB 가 대신 막아주지 않으므로
      * 이 검증이 유일한 방어선이다.
@@ -52,4 +54,3 @@ public class UserUpdateRequest {
     @Size(max = 5000, message = "포트폴리오는 5000자 이하여야 합니다.")
     private String portfolio;
 }
-

@@ -12,17 +12,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 객체 저장소 설정의 fail-fast 검사.
  *
- * <p>여기서 가장 중요한 건 <b>{@code "${OCI_BUCKET}"} 같은 미치환 플레이스홀더를 값으로
+ * <p>
+ * 여기서 가장 중요한 건 <b>{@code "${OCI_BUCKET}"} 같은 미치환 플레이스홀더를 값으로
  * 치지 않는 것</b>이다. {@code .env} 에 키가 없으면 스프링이 {@code ${...}} 문자열을 그대로
  * 주입하는데, 문자열로는 비어 있지 않아 평범한 null/공백 검사를 통과한다. 그러면 앱은 정상
  * 기동하고, 몇 시간 뒤 사용자가 이미지를 올리는 순간 {@code "${OCI_BUCKET}"} 이라는 이름의
  * 버킷을 찾다가 실패한다 — 그때의 에러 메시지는 설정 누락과 아무 관련 없어 보인다.
  *
- * <p>{@code @PostConstruct} 라 앱 기동 시 터지게 하는 것이 목적이고, 메시지에 <b>어떤 키가
+ * <p>
+ * {@code @PostConstruct} 라 앱 기동 시 터지게 하는 것이 목적이고, 메시지에 <b>어떤 키가
  * 빠졌는지</b>가 나와야 그 자리에서 고칠 수 있다. 그래서 "터진다"가 아니라 "무엇이 빠졌다고
  * 말하는가"까지 단언한다.
  *
- * <p>{@code AiServerProperties.validateInternalSecret()} 과 같은 판단이다 — 두 곳뿐인 진짜
+ * <p>
+ * {@code AiServerProperties.validateInternalSecret()} 과 같은 판단이다 — 두 곳뿐인 진짜
  * fail-fast 로직이라 설정 클래스 중 이 둘만 테스트를 둔다.
  */
 class ObjectStoragePropertiesTest {
@@ -51,9 +54,9 @@ class ObjectStoragePropertiesTest {
         properties.setBucket(null);
 
         assertThatThrownBy(this::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("OCI_BUCKET")
-                .hasMessageContaining(".env");
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("OCI_BUCKET")
+          .hasMessageContaining(".env");
     }
 
     @Test
@@ -62,8 +65,8 @@ class ObjectStoragePropertiesTest {
         properties.setAccessKey("   ");
 
         assertThatThrownBy(this::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("OCI_S3_ACCESS_KEY");
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("OCI_S3_ACCESS_KEY");
     }
 
     /**
@@ -76,8 +79,8 @@ class ObjectStoragePropertiesTest {
         properties.setNamespace("${OCI_NAMESPACE}");
 
         assertThatThrownBy(this::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("OCI_NAMESPACE");
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("OCI_NAMESPACE");
     }
 
     @Test
@@ -87,9 +90,9 @@ class ObjectStoragePropertiesTest {
         properties.setSecretKey("");
 
         assertThatThrownBy(this::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("OCI_REGION")
-                .hasMessageContaining("OCI_S3_SECRET_KEY");
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("OCI_REGION")
+          .hasMessageContaining("OCI_S3_SECRET_KEY");
     }
 
     @Test
@@ -100,7 +103,9 @@ class ObjectStoragePropertiesTest {
         assertThatCode(this::validate).doesNotThrowAnyException();
     }
 
-    /** {@code @PostConstruct} 메서드가 package-private 이라 직접 부른다. */
+    /**
+     * {@code @PostConstruct} 메서드가 package-private 이라 직접 부른다.
+     */
     private void validate() {
         ReflectionTestUtils.invokeMethod(properties, "validate");
     }

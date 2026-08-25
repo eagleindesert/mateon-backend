@@ -11,7 +11,9 @@ import java.time.Duration;
 @Configuration
 public class RestTemplateConfig {
 
-    /** 카카오는 대화형 로그인 경로라 사용자가 기다린다 — 죽은 서버를 오래 물고 있을 이유가 없다. */
+    /**
+     * 카카오는 대화형 로그인 경로라 사용자가 기다린다 — 죽은 서버를 오래 물고 있을 이유가 없다.
+     */
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 

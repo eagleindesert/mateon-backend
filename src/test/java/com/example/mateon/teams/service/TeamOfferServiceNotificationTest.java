@@ -35,10 +35,12 @@ import static org.mockito.Mockito.when;
 /**
  * 역제안 회수(cancelOffer)가 대상 유저에게 알려지는지, 그리고 <b>언제 알리지 않는지</b>를 고정한다.
  *
- * <p>제안을 받은 유저에게는 "팀 제안 도착" 알림이 이미 가 있다. 그런데 팀장이 회수하면 예전에는
+ * <p>
+ * 제안을 받은 유저에게는 "팀 제안 도착" 알림이 이미 가 있다. 그런데 팀장이 회수하면 예전에는
  * 아무 신호도 가지 않아, 유저는 목록에 다시 들어가 CANCELED 를 보고서야 알 수 있었다.
  *
- * <p>더 중요한 건 발송 <b>시점</b>이다. send 를 offer.cancel() 앞에 두면 이미 수락하거나 거절한
+ * <p>
+ * 더 중요한 건 발송 <b>시점</b>이다. send 를 offer.cancel() 앞에 두면 이미 수락하거나 거절한
  * 제안에도 "취소되었습니다" 가 나간다 — 예외로 트랜잭션이 롤백되면 알림 저장도 함께 되돌아가지만,
  * 그건 우연히 맞는 것이지 규칙이 아니다. 아래 두 번째 테스트가 그 순서를 잠근다.
  */
@@ -63,9 +65,9 @@ class TeamOfferServiceNotificationTest {
         notificationService = mock(NotificationService.class);
 
         service = new TeamOfferService(offerRepository, mock(TeamRepository.class),
-                mock(TeamMemberRepository.class), mock(TeamApplicationRepository.class),
-                mock(TeamToUserRecommendationLogRepository.class), mock(UserRepository.class),
-                notificationService);
+          mock(TeamMemberRepository.class), mock(TeamApplicationRepository.class),
+          mock(TeamToUserRecommendationLogRepository.class), mock(UserRepository.class),
+          notificationService);
 
         team = new Team();
         team.setId(TEAM_ID);
@@ -84,7 +86,7 @@ class TeamOfferServiceNotificationTest {
 
         ArgumentCaptor<User> receiver = ArgumentCaptor.forClass(User.class);
         verify(notificationService).send(receiver.capture(), eq("제안 취소"),
-                contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
+          contains(TEAM_TITLE), eq(Notification.NotificationType.INFO));
         assertThat(receiver.getValue().getId()).isEqualTo(TARGET_ID);
     }
 
@@ -96,8 +98,8 @@ class TeamOfferServiceNotificationTest {
         givenOffer(accepted);
 
         assertThatThrownBy(() -> service.cancelOffer(OFFER_ID, LEADER_ID))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OFFER_ALREADY_RESPONDED);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OFFER_ALREADY_RESPONDED);
 
         // send 가 cancel() 앞에 있었다면 여기서 알림이 하나 잡힌다.
         verify(notificationService, never()).send(any(), anyString(), anyString(), any());
@@ -110,14 +112,13 @@ class TeamOfferServiceNotificationTest {
         givenOffer(pendingOffer());
 
         assertThatThrownBy(() -> service.cancelOffer(OFFER_ID, 999L))
-                .isInstanceOf(MateonException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN_ACCESS);
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN_ACCESS);
 
         verify(notificationService, never()).send(any(), anyString(), anyString(), any());
     }
 
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────
-
     private TeamOffer pendingOffer() {
         return new TeamOffer(team, target, "함께해요", null, null);
     }

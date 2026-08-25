@@ -27,34 +27,42 @@ public interface TeamApplicationRepository extends JpaRepository<TeamApplication
     /**
      * 특정 상태의 지원자 <b>유저만</b>.
      *
-     * <p>지원서 엔티티를 컨텍스트에 올리지 않는 게 요점이다 — 팀 삭제 알림처럼 곧 team 행이
+     * <p>
+     * 지원서 엔티티를 컨텍스트에 올리지 않는 게 요점이다 — 팀 삭제 알림처럼 곧 team 행이
      * 사라지는 흐름에서 TeamApplication 이 남아 있으면 삭제된 Team 을 참조한 채 flush 된다.
      */
     @Query("SELECT a.applicant FROM TeamApplication a WHERE a.team.id = :teamId AND a.status = :status")
     List<User> findApplicantsByTeamIdAndStatus(@Param("teamId") Long teamId,
-                                               @Param("status") ApplicationStatus status);
+      @Param("status") ApplicationStatus status);
 
     int countByTeamIdAndStatus(Long teamId, ApplicationStatus status);
+
     // 특정 사용자의 승인된 지원서 목록 조회
     List<TeamApplication> findByApplicantIdAndStatus(Long applicantId, ApplicationStatus status);
 
     /**
      * 여러 팀의 인원 수를 한 번에 집계한다.
      *
-     * <p>위 countByTeamIdAndStatus 를 팀 수만큼 도는 대신 쓴다 — 추천 목록처럼 팀이 여러 개인
+     * <p>
+     * 위 countByTeamIdAndStatus 를 팀 수만큼 도는 대신 쓴다 — 추천 목록처럼 팀이 여러 개인
      * 화면에서 팀당 쿼리를 날리면 그대로 N+1 이 된다.
      *
-     * <p>지원서가 한 건도 없는 팀은 결과에 아예 나타나지 않는다 (GROUP BY 특성).
+     * <p>
+     * 지원서가 한 건도 없는 팀은 결과에 아예 나타나지 않는다 (GROUP BY 특성).
      * 호출부에서 0 으로 기본값을 채워야 한다.
      */
-    @Query("SELECT a.team.id AS teamId, COUNT(a) AS memberCount FROM TeamApplication a " +
-           "WHERE a.team.id IN :teamIds AND a.status = :status GROUP BY a.team.id")
+    @Query("SELECT a.team.id AS teamId, COUNT(a) AS memberCount FROM TeamApplication a "
+      + "WHERE a.team.id IN :teamIds AND a.status = :status GROUP BY a.team.id")
     List<TeamMemberCount> countGroupedByTeamId(@Param("teamIds") List<Long> teamIds,
-                                               @Param("status") ApplicationStatus status);
+      @Param("status") ApplicationStatus status);
 
-    /** countGroupedByTeamId 결과 projection. */
+    /**
+     * countGroupedByTeamId 결과 projection.
+     */
     interface TeamMemberCount {
+
         Long getTeamId();
+
         long getMemberCount();
     }
 }

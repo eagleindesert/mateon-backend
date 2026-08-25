@@ -8,8 +8,8 @@
 #        05_team            2회  (팀 생성/수정 -> 비동기 임베딩 갱신)
 #        11_matching_intent 최대 8회 (의도 추출 대화, 완료까지 되묻는 만큼)
 #        12_team_embedding  3회  (팀 생성 2 + 수정 1)
-#        13_recommendation  7회  (팀 생성 2 + 의도 추출 2 + 추천 점수화 3)
-#        14_reverse_offer   6회  (팀 생성 2 + 의도 추출 2 + 역제안 점수화 2)
+#        13_recommendation  최대 7회 (팀 생성 2 + 의도 추출 최대 2 + 추천 점수화 3)
+#        14_reverse_offer   최대 6회 (팀 생성 2 + 의도 추출 최대 2 + 역제안 점수화 2)
 #        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
 #        16_recommendation_reason 8회 (팀 1 + 의도 4 + 점수화 2 + 이유 2, 캐시 hit 는 제외)
 #        17_proposal_assembly    10회 (팀 1 + 의도 4 + 점수화 2 + 조립 3)
@@ -17,8 +17,9 @@
 #         (PDF 요약은 페이지마다 이미지를 렌더링해 한 번에 보내므로 1회가 이미지 1장보다 비쌉니다.)
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
-#        pwsh -File .\debug\ai-stub\stub-ai-server.ps1      # 포트 8000
-#        백엔드 AI_BASE_URL=http://localhost:8000 으로 재기동
+#        pwsh -File .\debug\ai-stub\start-all.ps1
+#        (FastAPI 스텁 8000 + 라우터 스텁 8001 을 띄우고 백엔드를 그 주소로 재기동한다.
+#         19 번의 도메인 분류는 FastAPI 가 아니라 OpenAI 를 직접 부르므로 스텁이 둘이다.)
 #      (스텁은 고정 응답이라 AI 품질 검증은 못 하지만 연동/스키마 검증에는 충분합니다.)
 # ============================================================================
 #
@@ -171,10 +172,25 @@ Write-Host "`n===== 17) Proposal Assembly (최종 제안 조립) =====" -Foregro
 & "$PSScriptRoot\17_proposal_assembly.ps1" @chatArgs
 Use-User "A" -Quiet | Out-Null
 
+Write-Host "`n===== 19) AI Gateway (AI 채팅 입구) =====" -ForegroundColor Magenta
+# 11 번과 겹치지 않는다 — 저쪽은 매칭 도메인의 직접 경로이고, 여기는 그 앞단의 라우팅이다.
+# 대화 세션 관리(생성/목록/복원), 도메인 분기, 위임 중 대화 세션이 분류를 건너뛰는 지름길을 본다.
+#
+# 마지막에 두는 이유: 19.8 이 유저 A 의 매칭 작업을 새로 열어 슬롯/임베딩을 덮어쓸 수 있어서
+# 앞 스크립트들이 만든 상태에 영향을 주지 않게 한다.
+#
+# 도메인 분류가 안 되는 서버(키 없음 등)에서는 도메인 값 단정을 스스로 건너뛰고 구조 계약만
+# 검증한다 — 그 상태를 실패로 잡으려면 개별 실행: pwsh -File .\19_ai_gateway.ps1 -StrictRouting
+#
+# 19.4b(스텁 문구 [stub#N] 확인)는 실패가 아니라 [WARN](주의)로 남는다. 스텁 없이 실제 LLM 으로
+# 돌리면 표시가 없는 게 정상이라, 아래 요약의 "주의" 목록에만 나오고 종료 코드에는 안 들어간다.
+& "$PSScriptRoot\19_ai_gateway.ps1"
+
 Write-Host "`n===== 전체 테스트 완료 =====" -ForegroundColor Green
 
 # 성공/실패 개수 및 실패 항목 요약 출력 (전체 스크립트 합산 - From 0)
 $failedCount = Write-TestSummary -From 0
 
 # 실패가 있으면 0 이 아닌 종료 코드로 종료 (CI 등에서 활용 가능)
+# 주의([WARN])는 실패로 세지 않는다 - 요약에 따로 나열될 뿐 종료 코드에는 영향이 없다.
 exit $failedCount

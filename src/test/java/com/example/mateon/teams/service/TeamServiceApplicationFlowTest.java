@@ -43,23 +43,26 @@ import static org.mockito.Mockito.when;
 /**
  * 지원서 승인/거절 흐름 — 이 서비스에서 <b>두 테이블이 함께 움직이는</b> 유일한 지점이다.
  *
- * <p>승인은 {@code team_applications.status} 와 {@code team_members} 행을 같이 바꾼다.
+ * <p>
+ * 승인은 {@code team_applications.status} 와 {@code team_members} 행을 같이 바꾼다.
  * 둘 중 하나만 움직이면 인원 수와 명단이 어긋나는데, 어긋난 상태로도 API 는 전부 200 이다.
  * 여기 모인 테스트는 그 어긋남이 생기는 세 가지 경로를 각각 막는다:
  *
  * <ol>
- *   <li><b>이미 처리된 지원서 재처리</b> — 승인을 거절로 되돌리면 상태만 바뀌고 활성 멤버 행은
- *       남아 인원이 실제보다 커진다. 그래서 승인·거절 <i>둘 다</i> PENDING 에서만 가능하다.</li>
- *   <li><b>나갔다 돌아온 멤버</b> — 행이 이미 있는데 새로 저장하면 유니크 위반이거나 중복 집계다.
- *       {@code leftAt = null} 로 되살린다.</li>
- *   <li><b>flush 누락</b> — 방금 {@code save()} 한 행은 아직 INSERT 전일 수 있어 카운트에
- *       안 잡힌다. flush 가 카운트보다 먼저 와야 마지막 한 명이 팀을 마감시킨다.</li>
+ * <li><b>이미 처리된 지원서 재처리</b> — 승인을 거절로 되돌리면 상태만 바뀌고 활성 멤버 행은
+ * 남아 인원이 실제보다 커진다. 그래서 승인·거절 <i>둘 다</i> PENDING 에서만 가능하다.</li>
+ * <li><b>나갔다 돌아온 멤버</b> — 행이 이미 있는데 새로 저장하면 유니크 위반이거나 중복 집계다.
+ * {@code leftAt = null} 로 되살린다.</li>
+ * <li><b>flush 누락</b> — 방금 {@code save()} 한 행은 아직 INSERT 전일 수 있어 카운트에
+ * 안 잡힌다. flush 가 카운트보다 먼저 와야 마지막 한 명이 팀을 마감시킨다.</li>
  * </ol>
  *
- * <p>3번이 특히 조용하다. flush 를 빼도 승인은 성공하고 알림도 가며, 증상은 "정원이 다 찼는데
+ * <p>
+ * 3번이 특히 조용하다. flush 를 빼도 승인은 성공하고 알림도 가며, 증상은 "정원이 다 찼는데
  * 모집 중으로 계속 떠 있다" 뿐이다 — 다음 승인 때 마감되므로 재현도 잘 안 된다.
  *
- * <p>알림 발송 자체는 {@code TeamServiceNotificationTest} 가 맡는다. 여기서는 상태 전이와
+ * <p>
+ * 알림 발송 자체는 {@code TeamServiceNotificationTest} 가 맡는다. 여기서는 상태 전이와
  * 순서만 본다.
  */
 class TeamServiceApplicationFlowTest {
@@ -89,10 +92,10 @@ class TeamServiceApplicationFlowTest {
         notificationService = mock(NotificationService.class);
 
         service = new TeamService(teamRepository, applicationRepository,
-                mock(TeamOfferRepository.class), teamMemberRepository,
-                mock(EventRepository.class), userRepository,
-                mock(UserCollaborationScoreRepository.class), notificationService,
-                mock(ApplicationEventPublisher.class));
+          mock(TeamOfferRepository.class), teamMemberRepository,
+          mock(EventRepository.class), userRepository,
+          mock(UserCollaborationScoreRepository.class), notificationService,
+          mock(ApplicationEventPublisher.class));
 
         leader = user(LEADER_ID, "팀장");
         applicant = user(APPLICANT_ID, "지원자");
@@ -114,8 +117,8 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.PENDING);
 
             assertThatThrownBy(() -> service.processApplication(APPLICATION_ID, true, 9L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(teamMemberRepository, never()).save(any());
             verify(notificationService, never()).send(any(), anyString(), anyString(), any());
@@ -127,8 +130,8 @@ class TeamServiceApplicationFlowTest {
             when(applicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.processApplication(APPLICATION_ID, true, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
         @Test
@@ -137,8 +140,8 @@ class TeamServiceApplicationFlowTest {
             TeamApplication application = givenApplication(ApplicationStatus.APPROVED);
 
             assertThatThrownBy(() -> service.processApplication(APPLICATION_ID, false, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.APPLICATION_ALREADY_PROCESSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.APPLICATION_ALREADY_PROCESSED);
 
             assertThat(application.getStatus()).isEqualTo(ApplicationStatus.APPROVED);
             verify(notificationService, never()).send(any(), anyString(), anyString(), any());
@@ -150,8 +153,8 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.REJECTED);
 
             assertThatThrownBy(() -> service.processApplication(APPLICATION_ID, true, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.APPLICATION_ALREADY_PROCESSED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.APPLICATION_ALREADY_PROCESSED);
 
             verify(teamMemberRepository, never()).save(any());
         }
@@ -166,7 +169,7 @@ class TeamServiceApplicationFlowTest {
         void createsMemberRow() {
             TeamApplication application = givenApplication(ApplicationStatus.PENDING);
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
 
@@ -187,7 +190,7 @@ class TeamServiceApplicationFlowTest {
             TeamMember left = TeamMember.of(team, applicant, TeamMemberRole.MEMBER);
             left.setLeftAt(LocalDateTime.now().minusDays(3));
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.of(left));
+              .thenReturn(Optional.of(left));
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
 
@@ -206,7 +209,7 @@ class TeamServiceApplicationFlowTest {
         void flushBeforeCount() {
             givenApplication(ApplicationStatus.PENDING);
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(4);
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
@@ -222,7 +225,7 @@ class TeamServiceApplicationFlowTest {
         void closesRecruitingWhenFull() {
             givenApplication(ApplicationStatus.PENDING);
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(4);
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
@@ -235,7 +238,7 @@ class TeamServiceApplicationFlowTest {
         void staysRecruitingWhenNotFull() {
             givenApplication(ApplicationStatus.PENDING);
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(3);
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
@@ -249,7 +252,7 @@ class TeamServiceApplicationFlowTest {
             team.setCapacity(null);
             givenApplication(ApplicationStatus.PENDING);
             when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
             when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(999);
 
             service.processApplication(APPLICATION_ID, true, LEADER_ID);
@@ -287,8 +290,8 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.PENDING);
 
             assertThatThrownBy(() -> service.updateApplication(APPLICATION_ID, request(), LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
         }
 
         @Test
@@ -318,14 +321,14 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.APPROVED);
 
             assertThatThrownBy(() -> service.updateApplication(APPLICATION_ID, request(), APPLICANT_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .isNotInstanceOf(MateonException.class)
-                    .hasMessage("이미 처리된 지원서는 수정할 수 없습니다.");
+              .isInstanceOf(IllegalArgumentException.class)
+              .isNotInstanceOf(MateonException.class)
+              .hasMessage("이미 처리된 지원서는 수정할 수 없습니다.");
 
             assertThatThrownBy(() -> service.cancelApplication(APPLICATION_ID, APPLICANT_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .isNotInstanceOf(MateonException.class)
-                    .hasMessage("이미 처리된 지원서는 취소할 수 없습니다.");
+              .isInstanceOf(IllegalArgumentException.class)
+              .isNotInstanceOf(MateonException.class)
+              .hasMessage("이미 처리된 지원서는 취소할 수 없습니다.");
 
             verify(applicationRepository, never()).delete(any());
         }
@@ -336,8 +339,8 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.PENDING);
 
             assertThatThrownBy(() -> service.cancelApplication(APPLICATION_ID, LEADER_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
             verify(applicationRepository, never()).delete(any());
         }
@@ -354,8 +357,8 @@ class TeamServiceApplicationFlowTest {
             when(userRepository.findById(APPLICANT_ID)).thenReturn(Optional.of(unverified));
 
             assertThatThrownBy(() -> service.applyToTeam(TEAM_ID, request(), APPLICANT_ID))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.SCHOOL_NOT_VERIFIED);
 
             verify(teamRepository, never()).findById(anyLong());
             verify(applicationRepository, never()).save(any());
@@ -367,8 +370,8 @@ class TeamServiceApplicationFlowTest {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
 
             assertThatThrownBy(() -> service.applyToTeam(TEAM_ID, request(), LEADER_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("본인이 개설한 팀에는 지원할 수 없습니다.");
+              .isInstanceOf(IllegalArgumentException.class)
+              .hasMessage("본인이 개설한 팀에는 지원할 수 없습니다.");
 
             verify(applicationRepository, never()).save(any());
         }
@@ -378,7 +381,7 @@ class TeamServiceApplicationFlowTest {
         void savesAllFields() {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
             when(applicationRepository.findByTeamIdAndApplicantId(TEAM_ID, APPLICANT_ID))
-                    .thenReturn(Optional.empty());
+              .thenReturn(Optional.empty());
 
             service.applyToTeam(TEAM_ID, request(), APPLICANT_ID);
 
@@ -420,8 +423,8 @@ class TeamServiceApplicationFlowTest {
             givenApplication(ApplicationStatus.PENDING);
 
             assertThatThrownBy(() -> service.getApplicationDetail(APPLICATION_ID, 9L))
-                    .isInstanceOf(MateonException.class)
-                    .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
         }
     }
 
@@ -431,8 +434,8 @@ class TeamServiceApplicationFlowTest {
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
 
         assertThatThrownBy(() -> service.getApplicationsForMyTeam(TEAM_ID, APPLICANT_ID))
-                .isInstanceOf(MateonException.class)
-                .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.FORBIDDEN_ACCESS);
 
         verify(applicationRepository, never()).findByTeamId(anyLong());
     }
@@ -448,13 +451,12 @@ class TeamServiceApplicationFlowTest {
     }
 
     // --- 픽스처 -------------------------------------------------------------
-
     private TeamApplication givenApplication(ApplicationStatus status) {
         TeamApplication application = TeamApplication.builder()
-                .team(team)
-                .applicant(applicant)
-                .status(status)
-                .build();
+          .team(team)
+          .applicant(applicant)
+          .status(status)
+          .build();
         when(applicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(application));
         return application;
     }

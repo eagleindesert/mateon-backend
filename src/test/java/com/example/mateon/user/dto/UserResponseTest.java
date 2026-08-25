@@ -36,7 +36,7 @@ class UserResponseTest {
         UserResponse response = UserResponse.ofFull(user(), null, List.of());
 
         assertThat(response.getCollaborationTemperature())
-                .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
+          .isEqualByComparingTo(CollaborationTemperatureCalculator.INITIAL);
         assertThat(response.getCollaborationReviewCount()).isZero();
     }
 
@@ -77,19 +77,19 @@ class UserResponseTest {
     @DisplayName("참여 활동은 마이페이지·공개 프로필과 같은 타입으로 실린다")
     void carriesActivitiesWithSharedType() {
         MyPageResponseDTO.ActivitySummaryDTO activity = MyPageResponseDTO.ActivitySummaryDTO.builder()
-                .id(11L)
-                .title("교내 해커톤 팀")
-                .category("교내")
-                .build();
+          .id(11L)
+          .title("교내 해커톤 팀")
+          .category("교내")
+          .build();
 
         UserResponse response = UserResponse.ofFull(user(), null, List.of(activity));
 
         assertThat(response.getParticipatedActivities()).singleElement()
-                .satisfies(summary -> {
-                    assertThat(summary.getId()).isEqualTo(11L);
-                    assertThat(summary.getTitle()).isEqualTo("교내 해커톤 팀");
-                    assertThat(summary.getCategory()).isEqualTo("교내");
-                });
+          .satisfies(summary -> {
+              assertThat(summary.getId()).isEqualTo(11L);
+              assertThat(summary.getTitle()).isEqualTo("교내 해커톤 팀");
+              assertThat(summary.getCategory()).isEqualTo("교내");
+          });
     }
 
     @Test
@@ -101,21 +101,21 @@ class UserResponseTest {
         // 값이 아니라 키 구성을 비교한다. 응답 JSON 으로 검사하면 픽스처에서 null 인 필드
         // (profileImageUrl 등) 때문에 "필드가 없다"와 "값이 비었다"가 섞인다.
         assertThat(fieldNames(UserResponse.class))
-                .containsAll(fieldNames(MyPageResponseDTO.class));
+          .containsAll(fieldNames(MyPageResponseDTO.class));
     }
 
     private List<String> fieldNames(Class<?> type) {
         return Arrays.stream(type.getDeclaredFields())
-                .filter(field -> !field.isSynthetic())
-                .map(Field::getName)
-                .toList();
+          .filter(field -> !field.isSynthetic())
+          .map(Field::getName)
+          .toList();
     }
 
     private User user() {
         return User.builder()
-                .id(1L)
-                .email("rumi@dankook.ac.kr")
-                .name("김루미")
-                .build();
+          .id(1L)
+          .email("rumi@dankook.ac.kr")
+          .name("김루미")
+          .build();
     }
 }

@@ -29,8 +29,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor =
-                MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        StompHeaderAccessor accessor
+          = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         // CONNECT 시점에만 인증을 수행하고, 이후 프레임은 세션에 저장된 user 를 재사용한다.
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
@@ -41,11 +41,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             }
 
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            String.valueOf(userId),
-                            null,
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+            UsernamePasswordAuthenticationToken authentication
+              = new UsernamePasswordAuthenticationToken(
+                String.valueOf(userId),
+                null,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
 
             // 이후 @MessageMapping 핸들러에서 Principal.getName() == userId 로 사용
             accessor.setUser(authentication);

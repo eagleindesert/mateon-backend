@@ -10,12 +10,14 @@ import org.springframework.stereotype.Service;
 /**
  * 카카오 로그인 오케스트레이터.
  *
- * <p>클래스 레벨 @Transactional 이 없는 게 핵심이다 (MatchingIntentService 와 같은 원칙).
+ * <p>
+ * 클래스 레벨 @Transactional 이 없는 게 핵심이다 (MatchingIntentService 와 같은 원칙).
  * 카카오 user/me 호출은 외부 네트워크에 달려 있어 느려질 수 있는데, 트랜잭션 안에서 하면
  * 기다리는 내내 DB 커넥션을 붙잡는다. 커넥션은 @Transactional 메서드 진입 시점(TX begin)에
  * 이미 잡히므로 "쿼리를 아직 안 했으니 괜찮다"가 통하지 않는다.
  *
- * <p>빈이 나뉜 것도 필수다 — 같은 빈 안에서 호출하면 프록시를 타지 않아 @Transactional 이
+ * <p>
+ * 빈이 나뉜 것도 필수다 — 같은 빈 안에서 호출하면 프록시를 타지 않아 @Transactional 이
  * 무시된다.
  */
 @Service
