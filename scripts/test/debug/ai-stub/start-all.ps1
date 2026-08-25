@@ -61,7 +61,7 @@ $repoRoot     = (Resolve-Path (Join-Path $PSScriptRoot '../../../..')).Path
 $stubScript   = Join-Path $PSScriptRoot 'stub-ai-server.ps1'
 $routerScript = Join-Path $PSScriptRoot 'stub-spring-ai-server.ps1'
 $gradlew      = Join-Path $repoRoot 'gradlew.bat'
-$envFile      = Join-Path $repoRoot '.env'
+$envFile      = Join-Path $repoRoot '.env.secret'   # AI_INTERNAL_SECRET 은 .env 가 아니라 이쪽에 있다
 
 # 끝에 슬래시를 붙이면 안 된다. 클라이언트가 baseUrl + "/intents/extract" 로 단순 결합하므로
 # "http://localhost:8000/" 은 "//intents/extract" 가 되어 스텁의 라우팅에 걸리지 않는다.
@@ -87,10 +87,10 @@ function Test-PortOpen([int]$TargetPort) {
 # 백엔드는 AI_INTERNAL_SECRET 이 없으면 부팅 자체가 실패한다(AiServerProperties.validateInternalSecret).
 # 스텁을 띄우고 gradle 빌드까지 기다린 뒤에 그걸 알게 되면 시간 낭비라 먼저 확인한다.
 if (-not (Test-Path $envFile)) {
-    throw ".env 가 없습니다: $envFile  (AI_INTERNAL_SECRET 이 필요합니다)"
+    throw ".env.secret 이 없습니다: $envFile  (.env.secret.example 을 복사해서 만드세요. AI_INTERNAL_SECRET 이 필요합니다)"
 }
 if (-not ((Get-Content $envFile) -match '^\s*AI_INTERNAL_SECRET\s*=\s*\S')) {
-    throw ".env 의 AI_INTERNAL_SECRET 이 비어 있습니다. 값은 아무거나 좋습니다(스텁은 -ExpectedSecret 을 줄 때만 검증)."
+    throw ".env.secret 의 AI_INTERNAL_SECRET 이 비어 있습니다. 값은 아무거나 좋습니다(스텁은 -ExpectedSecret 을 줄 때만 검증)."
 }
 
 if (Test-PortOpen $Port) {

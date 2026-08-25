@@ -5,7 +5,9 @@
 #   예: ./scripts/docker/deploy-dockerhub.ps1 -Tag v1.0.0 -Platform linux/arm64)
 #
 # 사용법 (배포 서버에서):
-#   1) 이 파일과 .env 를 서버로 복사한다. (.env 에는 MAIL/JWT/AI 시크릿 포함)
+#   1) 이 파일과 .env, .env.secret 을 서버로 복사한다.
+#      (.env = 포트·오리진·이미지 태그·DB 계정 / .env.secret = MAIL·JWT·AI·OCI 시크릿)
+#      .env.secret 이 없으면 아래 up 이 통째로 실패하므로 먼저 올린다.
 #   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
 #   3) docker compose -f docker-compose-deployment.yml up -d
 #
@@ -39,9 +41,17 @@ services:
       options:
         max-size: "100m"
         max-file: "10"
-    # 애플리케이션 시크릿(MAIL/JWT/AI 등)은 .env 파일에서 주입
+    # 설정은 .env, 시크릿은 .env.secret 에서 주입한다. 뒤에 온 파일이 이긴다.
+    #
+    # .env.secret 을 app 에만 물리는 게 이 분리의 요점이다 — 아래 postgres/pgadmin 에는
+    # 붙이지 않는다. 한 파일로 두면 DB·pgAdmin 컨테이너 안에서도 OPENAI_API_KEY 와
+    # JWT_SECRET 이 env 로 보인다.
+    #
+    # 파일이 없으면 up 이 통째로 실패한다(required 기본값). 앱은 어차피 시크릿 없이
+    # 못 뜨므로, 부팅 중간에 죽는 것보다 여기서 먼저 걸리는 편이 낫다.
     env_file:
       - .env
+      - .env.secret
     environment:
       # 운영 환경이 아직 없다. 이 서버는 "배포된 개발 서버"이고, prod 프로필은 만들어만 뒀지
       # 켜는 곳이 없다. 그러니 여기서 prod 를 주면 실제와 다른 소리를 하는 셈이라 dev 로 둔다.

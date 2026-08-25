@@ -14,11 +14,18 @@ spring:
   profiles:
     default: dev
 
-  # 로컬 개발 시 .env 파일에서 값을 읽어옵니다 (없으면 무시).
+  # 로컬 개발 시 .env / .env.secret 에서 값을 읽어옵니다 (없으면 무시).
   # Docker 환경에서는 docker-compose 의 env_file/environment 로 주입됩니다.
   # 대괄호가 YAML 의 flow 시퀀스로 해석되지 않도록 따옴표로 감싼다.
+  #
+  # 두 파일로 나뉜 이유는 .env 헤더에 적어 뒀다(요약: .env 는 compose 치환도 겸하고,
+  # .env.secret 은 app 컨테이너에만 주입된다). bootRun 은 compose 를 거치지 않으므로
+  # 여기 두 줄이 로컬에서 시크릿을 받는 유일한 통로다 — 아래를 지우면 JWT_SECRET 이
+  # 없어 부팅이 실패한다.
   config:
-    import: "optional:file:.env[.properties]"
+    import:
+      - "optional:file:.env[.properties]"
+      - "optional:file:.env.secret[.properties]"
 
   # Docker Compose 지원(로컬 인프라 자동 기동)은 application-dev.yml 로 옮겼다.
   # spring-boot-docker-compose 가 developmentOnly 의존성이라 배포 JAR 에는 아예 없다.
@@ -152,7 +159,10 @@ ai:
   # 이 시간 넘게 방치된 의도 추출 대화는 만료 처리하고 새로 시작한다.
   session-ttl: "${AI_SESSION_TTL:24h}"
   # user_embeddings.embedding 이 vector(1536) 이므로 반드시 일치해야 한다.
-  embedding-dimension: "${AI_EMBEDDING_DIMENSION:1536}"
+  # 환경변수로 뚫어 두지 않는다 — 컬럼 차원이 V6__add_vector_embeddings_tables.sql 에
+  # 리터럴로 박혀 있어서, .env 로 이 값만 바꾸면 앱은 멀쩡히 뜨고 임베딩을 넣는 시점에
+  # 가서 터진다. 바꾸려면 마이그레이션과 함께 바꿔야 하므로 코드에 둔다.
+  embedding-dimension: 1536
 
 # --- OCI Object Storage (S3 호환 API) ---
 # Customer Secret Key 방식. 엔드포인트는 S3ClientConfig 가 namespace/region 으로 조립한다.

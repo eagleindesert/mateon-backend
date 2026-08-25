@@ -42,11 +42,15 @@ application-local.properties
 application-secret.properties
 *.env
 .env
+.env.secret
 .env.local
 .env.*.local
 .env.deploy
 **/.env.deploy
 http-client.private.env.json
+# .env.example / .env.secret.example 은 위 패턴에 걸리지 않아 추적된다 (의도된 동작).
+# 키 목록만 담은 템플릿이라 값이 없고, 이 둘이 없으면 새로 받은 사람이 무엇을 채워야
+# 하는지 알 방법이 없다.
 
 ### Node ###
 node_modules/

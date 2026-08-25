@@ -59,8 +59,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: mateon-app
+    # 설정은 .env, 시크릿은 .env.secret. 배포 파일과 같은 구성이다(그쪽 주석 참고).
+    # postgres/pgadmin 에는 일부러 붙이지 않는다.
     env_file:
       - .env
+      - .env.secret
     environment:
       # 기본값이 dev 라 없어도 결과는 같지만, 배포 파일(docker-compose-deployment.yml)과
       # 나란히 놓고 볼 때 차이가 드러나도록 명시해 둔다.
