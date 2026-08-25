@@ -70,23 +70,26 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 
 | 항목 | dev 기본 | prod 기본 | 덮어쓰는 `.env` 키 |
 | --- | --- | --- | --- |
-| SQL 로그 (`show-sql`) | 켬 | 끔 | `JPA_SHOW_SQL` |
-| SQL 로거 (`org.hibernate.SQL`) | `DEBUG` | `INFO` | `LOG_LEVEL_SQL` |
+| SQL 로그 (`show-sql`) | 끔 | 끔 | `JPA_SHOW_SQL` |
+| SQL 로거 (`org.hibernate.SQL`) | `INFO` | `INFO` | `LOG_LEVEL_SQL` |
 | 앱 로그 레벨 (`com.example.mateon`) | `DEBUG` | `INFO` | `LOG_LEVEL_APP` |
 | CORS 허용 오리진 | `*` (전체 허용) | 기본값 없음 (누락 시 부팅 실패) | `CORS_ALLOWED_ORIGINS` |
 | 디버그 컨트롤러 (`/debug/**`) | 등록 | 미등록 | `DEBUG_OAUTH_ENABLED` |
 | 커넥션 풀 크기 | 10 | 20 | `DB_POOL_SIZE` |
 | Docker Compose 자동 기동 | 켬 | 끔 | — (프로필 전용) |
 
-> SQL 을 완전히 끄려면 **`JPA_SHOW_SQL` 하나로는 부족합니다.** 같은 쿼리를 두 곳이 찍기
-> 때문입니다 — `show-sql` 은 `System.out` 으로, `org.hibernate.SQL` 은 로거로. 그래서 서버를
-> 조용히 시킬 때는 세 개를 세트로 줍니다:
+> **SQL 로그는 두 프로필 모두 기본이 꺼짐입니다.** 배포 서버가 `dev` 로 도는 탓에 예전의
+> dev 기본값(켬)이 그대로 서버 컨테이너 로그에 쌓였기 때문입니다. 로컬에서 쿼리를 보려면
+> `.env` 로 켜세요 — 같은 쿼리를 두 곳이 찍으므로(`show-sql` 은 `System.out` 으로,
+> `org.hibernate.SQL` 은 로거로) **`JPA_SHOW_SQL` 하나로는 반쪽만 열립니다.** 둘을 세트로 줍니다:
 >
 > ```dotenv
-> JPA_SHOW_SQL=false
-> LOG_LEVEL_SQL=INFO
-> LOG_LEVEL_APP=INFO
+> JPA_SHOW_SQL=true
+> LOG_LEVEL_SQL=DEBUG
 > ```
+>
+> 앱 로그(`LOG_LEVEL_APP`)는 dev 기본이 여전히 `DEBUG` 입니다. 서버까지 조용히 시키려면
+> 여기에 `LOG_LEVEL_APP=INFO` 를 더합니다.
 
 ## 환경 변수
 

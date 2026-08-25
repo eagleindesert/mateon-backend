@@ -63,8 +63,9 @@ services:
       #     prod 와 달리 설정 누락을 부팅으로 잡아 주지 않으니 오타는 조용히 전체 허용이 된다.
       #   - /debug/oauth 가 열린다(DEBUG_OAUTH_ENABLED 기본 true). 서버에서 카카오 인가코드를
       #     받으려면 필요하고, 닫으려면 .env 에 false 를 준다.
-      #   - SQL·앱 로그가 DEBUG 다. 조용히 시키려면 .env 에 JPA_SHOW_SQL=false,
-      #     LOG_LEVEL_SQL=INFO, LOG_LEVEL_APP=INFO 를 세트로 준다.
+      #   - 앱 로그가 DEBUG 다(prod 는 INFO). 조용히 시키려면 .env 에 LOG_LEVEL_APP=INFO.
+      #     SQL 로그는 dev 도 기본이 꺼짐이라 그대로 두면 안 나온다 — 서버에서 잠깐 봐야 하면
+      #     .env 에 JPA_SHOW_SQL=true 와 LOG_LEVEL_SQL=DEBUG 를 세트로 주고 끝나면 되돌린다.
       #   - 커넥션 풀이 10 이다(prod 는 20). 늘리려면 .env 의 DB_POOL_SIZE.
       SPRING_PROFILES_ACTIVE: dev
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)

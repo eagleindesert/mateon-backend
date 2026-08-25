@@ -35,20 +35,24 @@ spring:
       maximum-pool-size: "${DB_POOL_SIZE:10}"
 
   jpa:
-    # SQL 로그 스위치. 프로필은 기본값(로컬은 켠다)만 정하고 실제 on/off 는 .env 가 쥔다 —
+    # SQL 로그 스위치. 프로필은 기본값만 정하고 실제 on/off 는 .env 가 쥔다 —
     # 지금 배포돼 있는 서버도 이 프로필로 도는데, 거기서는 SQL 이 컨테이너 로그로 그대로
     # 쌓이기 때문에 프로필을 바꾸지 않고 끌 수단이 필요하다.
+    #
+    # 기본값은 꺼짐이다. 예전에는 로컬 편의로 켜 두었는데, 같은 프로필로 도는 배포 서버가
+    # 그 기본값을 그대로 물려받아 쿼리를 컨테이너 로그에 계속 쌓았다. 켜고 싶은 쪽(로컬에서
+    # 쿼리를 들여다볼 때)이 .env 로 켜는 편이 사고가 적다.
     #
     # 이름을 SPRING_JPA_SHOW_SQL 이 아니라 JPA_SHOW_SQL 로 둔 건 나머지 설정
     # (DB_POOL_SIZE, SWAGGER_UI_ENABLED …)과 같은 규칙을 쓰기 위해서다.
     #
-    # 주의: 이 스위치는 System.out 으로 나가는 쪽만 끈다. 같은 SQL 을 org.hibernate.SQL
-    # 로거도 찍고 있어서(아래 logging.level), 완전히 없애려면 LOG_LEVEL_SQL 과 짝으로 준다.
-    show-sql: "${JPA_SHOW_SQL:true}"
+    # 주의: 이 스위치는 System.out 으로 나가는 쪽만 연다. 같은 SQL 을 org.hibernate.SQL
+    # 로거도 찍으므로(아래 logging.level), 실제로 보려면 LOG_LEVEL_SQL 과 짝으로 준다.
+    show-sql: "${JPA_SHOW_SQL:false}"
     properties:
       hibernate:
         # 줄바꿈·들여쓰기 정렬. show-sql 과 따로 켤 이유가 없어 같은 스위치를 본다.
-        format_sql: "${JPA_SHOW_SQL:true}"
+        format_sql: "${JPA_SHOW_SQL:false}"
 
 # 허용 오리진 (REST + STOMP 핸드셰이크 공통, CorsProperties 가 읽는다).
 #
@@ -69,13 +73,15 @@ debug.oauth.enabled: "${DEBUG_OAUTH_ENABLED:true}"
 
 logging:
   level:
-    # 레벨도 .env 로 내릴 수 있게 뚫어 둔다. 배포된 서버가 이 프로필로 도는 동안 DEBUG 를
-    # 그대로 두면 컨테이너 로그가 빠르게 커진다. 조용히 시키려면 세 개를 같이 준다:
-    #   JPA_SHOW_SQL=false
-    #   LOG_LEVEL_SQL=INFO
-    #   LOG_LEVEL_APP=INFO
+    # 레벨도 .env 로 뒤집을 수 있게 뚫어 둔다. 앱 로그는 DEBUG 로 두지만(우리 코드라 양이
+    # 통제된다), SQL 로거는 show-sql 과 같이 기본을 닫는다 — 배포된 서버가 이 프로필로 도는
+    # 동안 DEBUG 로 두면 컨테이너 로그가 빠르게 커진다.
+    #
+    # 로컬에서 쿼리를 보려면 .env 에 둘을 세트로 준다:
+    #   JPA_SHOW_SQL=true
+    #   LOG_LEVEL_SQL=DEBUG
     com.example.mateon: "${LOG_LEVEL_APP:DEBUG}"
-    org.hibernate.SQL: "${LOG_LEVEL_SQL:DEBUG}"
+    org.hibernate.SQL: "${LOG_LEVEL_SQL:INFO}"
     # 바인딩 파라미터(? 자리에 실제로 들어간 값)까지 보려면 아래 주석을 푼다.
     # 평소에는 로그가 읽을 수 없을 만큼 길어진다.
     # org.hibernate.orm.jdbc.bind: TRACE
