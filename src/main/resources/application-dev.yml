@@ -82,6 +82,10 @@ logging:
     #   LOG_LEVEL_SQL=DEBUG
     com.example.mateon: "${LOG_LEVEL_APP:DEBUG}"
     org.hibernate.SQL: "${LOG_LEVEL_SQL:INFO}"
+    # 커넥션 풀(HikariCP). DEBUG 로 올리면 30초마다 풀 상태(total/active/idle/waiting)와
+    # 커넥션 추가·폐기, 부팅 시 설정 덤프가 찍힌다. 풀 고갈이나 커넥션 누수를 쫓을 때만 켠다.
+    # 누수 경고(leak-detection-threshold)는 WARN 이라 이 값과 무관하게 항상 나온다.
+    com.zaxxer.hikari: "${LOG_LEVEL_POOL:INFO}"
     # 바인딩 파라미터(? 자리에 실제로 들어간 값)까지 보려면 아래 주석을 푼다.
     # 평소에는 로그가 읽을 수 없을 만큼 길어진다.
     # org.hibernate.orm.jdbc.bind: TRACE
