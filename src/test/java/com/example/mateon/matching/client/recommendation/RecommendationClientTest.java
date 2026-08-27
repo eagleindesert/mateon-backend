@@ -3,8 +3,6 @@ package com.example.mateon.matching.client.recommendation;
 import com.example.mateon.common.ai.AiCallTemplate;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,6 +30,10 @@ import static org.mockito.Mockito.when;
  *
  * <p>거부 규칙도 마찬가지다 — {@code recommendations} 가 null 인 응답과 빈 reason 을 여기서
  * 막지 않으면, null 은 하류 NPE 로, 빈 이유는 <b>DB 캐시에 영구히</b> 남는다.
+ *
+ * <p>요청 본문이 실제로 어떤 바이트로 나가는지는
+ * {@link RecommendationRequestSerializationTest} 가 본다 (거기는 목이 아니라 진짜
+ * RestTemplate 을 태운다).
  */
 class RecommendationClientTest {
 
@@ -125,39 +127,6 @@ class RecommendationClientTest {
             assertThatThrownBy(() -> client.teamToUser(teamToUserRequest()))
                     .isInstanceOf(MateonException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
-        }
-    }
-
-    @Nested
-    @DisplayName("메타데이터 직렬화 — 키 하나가 빠져도 AI 는 422 를 내지 않는다")
-    class MetadataSerialization {
-
-        private final ObjectMapper objectMapper = new ObjectMapper();
-
-        @Test
-        @DisplayName("유저 메타데이터에 activity_time 이 실린다 (지금은 값이 null 이어도 키는 있어야 한다)")
-        void userMetadataCarriesActivityTime() throws Exception {
-            JsonNode metadata = objectMapper
-              .readTree(objectMapper.writeValueAsString(userToTeamRequest()))
-              .get("query_metadata");
-
-            assertThat(metadata.has("activity_time")).isTrue();
-            assertThat(metadata.get("activity_time").isNull()).isTrue();
-            // 기존 키가 사라지지 않았는지도 같이 본다 (@AllArgsConstructor 자리 밀림 사고 방지).
-            assertThat(metadata.get("desired_roles").get(0).asText()).isEqualTo("디자이너");
-            assertThat(metadata.get("experience_level").asText()).isEqualTo("입문");
-        }
-
-        @Test
-        @DisplayName("팀 메타데이터의 contest_field 는 enum 상수명 그대로 나간다 (한글 라벨이 아니다)")
-        void teamMetadataCarriesContestField() throws Exception {
-            JsonNode metadata = objectMapper
-              .readTree(objectMapper.writeValueAsString(teamToUserRequest()))
-              .get("query_metadata");
-
-            assertThat(metadata.get("contest_field").asText()).isEqualTo("DESIGN_PHOTO_ART_VIDEO");
-            assertThat(metadata.has("activity_time")).isTrue();
-            assertThat(metadata.get("beginner_friendly").asBoolean()).isTrue();
         }
     }
 

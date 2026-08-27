@@ -4,7 +4,6 @@ import com.example.mateon.common.ai.AiCallTemplate;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.matching.domain.SelectionDirection;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,7 +13,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,10 +27,13 @@ import static org.mockito.Mockito.when;
  * {@code RecommendationClientTest} 와 같은 방식이다.)
  *
  * <p>
- * 직렬화를 검증하는 테스트가 있는 이유가 이 클래스의 존재 이유와 같다. component_scores 는
- * <b>추천 때 받은 원문을 한 글자도 바꾸지 말고</b> 되돌려줘야 하는 값인데, 이걸 String 필드로
- * 들고 다니므로 {@code @JsonRawValue} 하나가 빠지면 조용히 <b>따옴표로 감싼 문자열</b>이 나간다.
- * AI 쪽에서는 422 도 아니고 그냥 이상한 데이터로 남아, 피드백 품질이 나빠질 때까지 아무도 모른다.
+ * 요청 본문이 실제로 어떤 바이트로 나가는지는
+ * {@link SelectionEventRequestSerializationTest} 가 본다 (거기는 목이 아니라 진짜
+ * RestTemplate 을 태운다). 그 테스트가 따로 있는 이유는 이 클래스의 존재 이유와 같다 —
+ * component_scores 는 <b>추천 때 받은 원문을 한 글자도 바꾸지 말고</b> 되돌려줘야 하는 값인데,
+ * 이걸 String 필드로 들고 다니므로 {@code @JsonRawValue} 하나가 빠지면 조용히 <b>따옴표로 감싼
+ * 문자열</b>이 나간다. AI 쪽에서는 422 도 아니고 그냥 이상한 데이터로 남아, 피드백 품질이
+ * 나빠질 때까지 아무도 모른다.
  */
 class SelectionEventClientTest {
 
@@ -92,52 +93,6 @@ class SelectionEventClientTest {
             assertThatThrownBy(() -> client.send(request()))
               .isInstanceOf(MateonException.class)
               .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_UNAVAILABLE);
-        }
-    }
-
-    @Nested
-    @DisplayName("요청 직렬화 — 명세 키와 원문 보존")
-    class Serialization {
-
-        private final ObjectMapper objectMapper = new ObjectMapper();
-
-        @Test
-        @DisplayName("component_scores 가 원문 JSON 그대로 나간다 (문자열로 감싸지 않는다)")
-        void componentScoresStayRawJson() throws Exception {
-            String json = objectMapper.writeValueAsString(request());
-
-            // 따옴표로 감싸였다면 "component_scores":"{\"similarity\":0.8}" 처럼 나온다.
-            assertThat(json).contains("\"component_scores\":{\"similarity\":0.8,\"role_match\":1.0}");
-            assertThat(objectMapper.readTree(json)
-              .at("/selection_context/shown_candidates/0/component_scores/similarity")
-              .asDouble()).isEqualTo(0.8);
-        }
-
-        @Test
-        @DisplayName("component_scores 가 없던 추천이면 null 로 나간다 (지어내지 않는다)")
-        void missingComponentScoresSerializeToNull() throws Exception {
-            SelectionEventRequest withoutScores = new SelectionEventRequest(
-              SelectionDirection.USER_TO_TEAM, 17L,
-              new SelectionEventRequest.SelectionContext("key", Map.of(),
-                List.of(new SelectionEventRequest.ShownCandidate(17L, 0.92, null))));
-
-            assertThat(objectMapper.readTree(objectMapper.writeValueAsString(withoutScores))
-              .at("/selection_context/shown_candidates/0/component_scores")
-              .isNull()).isTrue();
-        }
-
-        @Test
-        @DisplayName("최상위 키가 명세 그대로다 (direction/selected_candidate_id/selection_context)")
-        void topLevelKeysMatchSpec() throws Exception {
-            var tree = objectMapper.readTree(objectMapper.writeValueAsString(request()));
-
-            assertThat(tree.get("direction").asText()).isEqualTo("USER_TO_TEAM");
-            assertThat(tree.get("selected_candidate_id").asLong()).isEqualTo(17L);
-            assertThat(tree.at("/selection_context/idempotency_key").asText()).isEqualTo("key-1");
-            assertThat(tree.at("/selection_context/chooser_fields/experience_level").asText())
-              .isEqualTo("beginner");
-            assertThat(tree.at("/selection_context/shown_candidates/0/total_score").asDouble())
-              .isEqualTo(0.92);
         }
     }
 

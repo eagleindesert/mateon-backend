@@ -16,6 +16,7 @@ import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -67,6 +68,24 @@ class KakaoOAuthClientTest {
               .andExpect(method(HttpMethod.POST))
               .andExpect(header("Authorization", "Bearer access-token"))
               .andExpect(header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE))
+              .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
+
+            client.fetchUserInfo("access-token");
+
+            server.verify();
+        }
+
+        /**
+         * 토큰 자체를 카카오가 검증하므로 본문에 실어 보낼 것이 없다. 여기에 무언가 붙으면
+         * <b>form 콘텐츠 타입을 선언해 놓고 다른 것을 보내는</b> 상태가 되는데, 카카오는 그런
+         * 요청을 거절한다. 헤더만 담긴 {@code HttpEntity} 라 지금은 비어 있고, 파라미터를
+         * 추가하고 싶어지는 자리라 못박아 둔다.
+         */
+        @Test
+        @DisplayName("본문은 비어 있다 (액세스 토큰은 헤더로만 간다)")
+        void sendsEmptyBody() {
+            server.expect(requestTo(USER_ME_URL))
+              .andExpect(content().string(""))
               .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
 
             client.fetchUserInfo("access-token");

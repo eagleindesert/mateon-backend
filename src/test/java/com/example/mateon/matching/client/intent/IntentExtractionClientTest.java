@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,6 +20,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -78,6 +80,31 @@ class IntentExtractionClientTest {
                     .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
 
             client.extract(List.of("디자인 팀 찾아요", "주 2회 정도요", "온라인이면 좋겠어요"));
+
+            server.verify();
+        }
+
+        /**
+         * 위 테스트는 <b>있어야 할 키</b>만 본다. 그것만으로는 예상 밖의 키가 늘어난 경우를
+         * 못 잡는데, JSON 키 이름은 자바 소스 어디에도 적혀 있지 않아서(게터 이름 + 롬복이
+         * 생성한 것 + 네이밍 전략의 결과다) 필드를 하나 추가하거나 이름을 바꾸는 것만으로
+         * 조용히 늘어날 수 있다. 그래서 본문 전체를 한 번 못박는다.
+         */
+        @Test
+        @DisplayName("본문 전체가 명세와 같다 (messages 말고 다른 키가 끼어들지 않는다)")
+        void bodyMatchesSpec() {
+            server.expect(requestTo(EXTRACT_URL))
+                    .andExpect(content().json("""
+                            {
+                              "messages": [
+                                {"id": 1, "message": "디자인 팀 찾아요"},
+                                {"id": 2, "message": "주 2회 정도요"}
+                              ]
+                            }
+                            """, JsonCompareMode.STRICT))
+                    .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
+
+            client.extract(List.of("디자인 팀 찾아요", "주 2회 정도요"));
 
             server.verify();
         }
