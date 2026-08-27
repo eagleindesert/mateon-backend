@@ -87,16 +87,17 @@ public class RecommendationService {
               limit, candidateCount, ranked.size(), userId);
         }
 
-        // ④ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
+        // ④ 내려보낼 상위 N 건을 먼저 자른다. 표시 정보 조회를 줄이려는 것도 있지만(후보 200개를
+        // 전부 조회해 10개만 쓰는 낭비), 이 건수 자체가 기록에 필요하다 — 선택 피드백의
+        // shown_candidates 는 "화면에 노출된 것"이라 무엇이 잘렸는지를 로그가 알아야 한다.
+        List<Recommendation> top = ranked.stream().limit(Math.max(limit, 1)).toList();
+
+        // ⑤ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
         try {
-            logService.save(userId, eventId, snapshot.getCandidates().size(), ranked);
+            logService.save(userId, eventId, snapshot.getCandidates().size(), top.size(), ranked);
         } catch (Exception e) {
             log.warn("추천 결과 기록 실패 (추천 응답에는 영향 없음). userId={}", userId, e);
         }
-
-        // ⑤ 내려보낼 상위 N 건을 먼저 자르고, 그것들의 표시 정보(활동/인원)만 배치로 조회한다.
-        // 후보 200개를 전부 조회해 10개만 쓰는 낭비를 피하려고 자르기를 조회 앞에 둔다.
-        List<Recommendation> top = ranked.stream().limit(Math.max(limit, 1)).toList();
 
         List<Long> topTeamIds = top.stream().map(Recommendation::getCandidateId).toList();
         Map<Long, TeamDisplayInfo> displayInfo
@@ -122,12 +123,16 @@ public class RecommendationService {
             candidate.getEmbedding().getRecruitingRoles(),
             candidate.getEmbedding().getRequiredSkills(),
             candidate.getEmbedding().getActivityStyle(),
-            candidate.getEmbedding().getBeginnerFriendly())))
+            candidate.getEmbedding().getBeginnerFriendly(),
+            // activityTime: 사용자 입력값인데 아직 받는 화면이 없다 (TeamMetadata 주석).
+            null,
+            // contestField: 명세가 이 자리에는 키를 적어 두지 않았다 (TeamMetadata 주석).
+            null)))
           .toList();
 
         return new UserToTeamRecommendationRequest(snapshot.getQueryEmbedding(),
           new UserMetadata(snapshot.getDesiredRoles(), snapshot.getSkills(),
-            snapshot.getExperienceLevel(), snapshot.getActivityStyle()),
+            snapshot.getExperienceLevel(), snapshot.getActivityStyle(), null),
           candidates);
     }
 }

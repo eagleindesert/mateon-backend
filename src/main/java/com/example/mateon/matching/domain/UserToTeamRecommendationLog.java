@@ -43,6 +43,20 @@ public class UserToTeamRecommendationLog {
     @Column(name = "candidate_count", nullable = false)
     private int candidateCount;
 
+    /**
+     * 프론트에 실제로 내려간 상위 N 건. items 에는 AI 가 점수를 매긴 결과 전체가 남으므로
+     * 이 값이 없으면 "사용자가 무엇을 봤는지"를 나중에 복원할 수 없다.
+     *
+     * <p>
+     * 선택 피드백의 shown_candidates 를 자르는 기준이다 — 사용자가 본 적 없는 후보까지
+     * 실어 보내면 "안 골랐다"로 집계돼 AI 의 선택 대비 분석이 오염된다.
+     *
+     * <p>
+     * V32 이전 행은 null 이다 (판정 불가).
+     */
+    @Column(name = "shown_count")
+    private Integer shownCount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -50,17 +64,23 @@ public class UserToTeamRecommendationLog {
     @OneToMany(mappedBy = "log", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserToTeamRecommendationItem> items = new ArrayList<>();
 
-    public UserToTeamRecommendationLog(Long userId, Long eventId, int candidateCount) {
+    public UserToTeamRecommendationLog(Long userId, Long eventId, int candidateCount,
+      Integer shownCount) {
         this.userId = userId;
         this.eventId = eventId;
         this.candidateCount = candidateCount;
+        this.shownCount = shownCount;
     }
 
     /**
      * 점수 내림차순으로 이미 정렬된 결과를 1부터 순위를 매겨 담는다.
+     *
+     * @param componentScores AI 응답의 component_scores 원문 JSON. 없으면 null.
      */
-    public void addItem(Long teamId, int rankNo, double score, String label) {
-        this.items.add(new UserToTeamRecommendationItem(this, teamId, rankNo, score, label));
+    public void addItem(Long teamId, int rankNo, double score, String label,
+      String componentScores) {
+        this.items.add(new UserToTeamRecommendationItem(this, teamId, rankNo, score, label,
+          componentScores));
     }
 
     @PrePersist

@@ -32,6 +32,16 @@ public class UserRecommendationSnapshot {
     private final String activityStyle;
     private final Boolean beginnerFriendly;
 
+    /**
+     * 연결된 활동의 분야 코드 ({@code Event.Field.name()}). 자율 프로젝트이거나 활동이
+     * 삭제됐으면 null.
+     *
+     * <p>
+     * 위 네 값과 달리 team_embeddings 가 아니라 events 에서 온다 — AI 가 소개글에서 추출한
+     * 값이 아니라 우리가 이미 정규화해 갖고 있는 분류이기 때문이다.
+     */
+    private final String contestField;
+
     /** 의도 추출을 마친 후보 유저들 (멤버/지원자/기제안자 제외 완료). */
     private final List<Candidate> candidates;
 

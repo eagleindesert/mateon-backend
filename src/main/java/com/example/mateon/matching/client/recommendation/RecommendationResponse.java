@@ -2,6 +2,7 @@ package com.example.mateon.matching.client.recommendation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -41,5 +42,22 @@ public class RecommendationResponse {
 
         /** 추천 근거 문구. */
         private String label;
+
+        /**
+         * 컴포넌트별 점수 (similarity/role_match/deficit_fit/...). 선택 피드백에 그대로 되돌려
+         * 주려고 받는 값이라 <b>백엔드는 내용을 읽지 않는다</b>.
+         *
+         * <p>
+         * Map&lt;String, Double&gt; 이 아니라 JsonNode 인 게 의도다. 명세가 "현재 위 6개 키를
+         * 반환합니다"라고 써 키 집합이 늘 수 있음을 전제하는데, 타입을 못박으면 AI 가 키를
+         * 추가하거나 값 타입을 바꾼 순간 <b>추천 응답 전체가 파싱 실패</b>한다. 랭킹에 쓰지도
+         * 않는 분석용 필드 때문에 추천이 죽는 건 말이 안 된다. JsonNode 는 어떤 유효 JSON 도 받는다.
+         *
+         * <p>
+         * 저장도 이 노드의 문자열 표현 그대로 한다 — 명세가 요구하는 "값을 재계산하거나 이름을
+         * 바꾸지 않고 보관"이 그래야 지켜진다.
+         */
+        @JsonProperty("component_scores")
+        private JsonNode componentScores;
     }
 }

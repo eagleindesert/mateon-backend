@@ -5,11 +5,13 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.domain.SelectionDirection;
 import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
 import com.example.mateon.matching.domain.UserToTeamRecommendationItem;
 import com.example.mateon.matching.dto.snapshot.ProposalSnapshot;
 import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
+import com.example.mateon.matching.dto.snapshot.SelectionSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserRecommendationSnapshot;
@@ -39,9 +41,11 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -289,7 +293,26 @@ public class RecommendationQueryService {
           teamEmbedding.getEmbedding(),
           teamEmbedding.getRecruitingRoles(), teamEmbedding.getRequiredSkills(),
           teamEmbedding.getActivityStyle(), teamEmbedding.getBeginnerFriendly(),
+          contestFieldOf(team),
           candidates);
+    }
+
+    /**
+     * 팀에 연결된 활동의 분야 코드. 자율 프로젝트(eventId=null)이거나 활동이 삭제됐으면 null.
+     *
+     * <p>
+     * enum 의 {@code name()} 을 그대로 쓴다 — {@code Event.Field} 상수 이름이 AI 명세의
+     * 코드값과 일치하도록 맞춰져 있어 매핑 테이블이 필요 없다. 한글 라벨(getLabel)을 보내면
+     * AI 쪽에서 알 수 없는 코드가 된다.
+     */
+    private String contestFieldOf(Team team) {
+        if (team.getEventId() == null) {
+            return null;
+        }
+        return eventRepository.findById(team.getEventId())
+          .map(Event::getField)
+          .map(Enum::name)
+          .orElse(null);
     }
 
     /**
@@ -461,6 +484,142 @@ public class RecommendationQueryService {
           item.getScore(),
           RecommendationSummaryFactory.userSummary(slot, slot.getUser()),
           RecommendationSummaryFactory.teamSummary(teamEmbedding, team));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  선택 피드백 (POST /selection-events)
+    // ════════════════════════════════════════════════════════════════════════
+    /**
+     * 사용자가 고른 후보와 그때 화면에 노출됐던 추천 목록을 모아 detach 된 스냅샷으로 돌려준다.
+     *
+     * <p>
+     * <b>비어 있는 결과는 정상이다.</b> 추천을 거치지 않고 곧바로 지원/제안한 경우가 그렇고,
+     * 그건 기록할 "선택"이 애초에 없다는 뜻이다 (예외로 만들면 정상 발송이 막힌다).
+     *
+     * <p>
+     * 여기서 권한을 다시 보지 않는다 — 이 메서드는 지원/제안이 이미 성공한 뒤에만 불리고,
+     * 그 검증은 발송 경로가 끝냈다. 조회 대상도 발송에 쓰인 (주체, 상대) 쌍 그대로다.
+     *
+     * @param chooserId 선택 주체. USER_TO_TEAM 이면 userId, TEAM_TO_USER 면 teamId.
+     * @param selectedCandidateId 선택된 상대. USER_TO_TEAM 이면 teamId, TEAM_TO_USER 면 userId.
+     */
+    public Optional<SelectionSnapshot> gatherSelection(SelectionDirection direction,
+      Long chooserId, Long selectedCandidateId) {
+        return switch (direction) {
+            case USER_TO_TEAM ->
+                gatherUserToTeamSelection(chooserId, selectedCandidateId);
+            case TEAM_TO_USER ->
+                gatherTeamToUserSelection(chooserId, selectedCandidateId);
+        };
+    }
+
+    private Optional<SelectionSnapshot> gatherUserToTeamSelection(Long userId, Long teamId) {
+        Optional<UserToTeamRecommendationItem> selected
+          = userToTeamLogRepository.findLatestItem(userId, teamId);
+        if (selected.isEmpty()) {
+            return Optional.empty();
+        }
+        UserToTeamRecommendationItem item = selected.get();
+        if (wasNotShown(item.getRankNo(), item.getLog().getShownCount())) {
+            log.debug("추천 목록에 뜨지 않았던 팀입니다 (목록 밖에서 지원). "
+              + "userId={}, teamId={}, rankNo={}", userId, teamId, item.getRankNo());
+            return Optional.empty();
+        }
+        Long logId = item.getLog().getId();
+
+        // chooser_fields 는 선택 시점의 슬롯을 읽는다. 추천 시점 이후에 사용자가 의도를 다시
+        // 추출했다면 그 최신값이 나가는데, "이 사람이 이런 조건으로 골랐다"는 클러스터 용도라
+        // 최신값이 오히려 맞다. 슬롯이 사라졌으면 빈 맵으로 둔다(명세상 생략 가능한 필드다).
+        Map<String, Object> chooserFields = slotRepository.findByUserId(userId)
+          .<Map<String, Object>>map(slot -> Map.of(
+          "desired_roles", nullToEmptyList(slot.getDesiredRoles()),
+          "experience_level", nullToEmptyString(slot.getExperienceLevel())))
+          .orElseGet(Map::of);
+
+        List<SelectionSnapshot.ShownCandidate> shown
+          = userToTeamLogRepository.findShownItems(logId).stream()
+            .map(shownItem -> new SelectionSnapshot.ShownCandidate(shownItem.getTeamId(),
+            shownItem.getScore(), shownItem.getComponentScores()))
+            .toList();
+        warnIfNotTruncated(logId, item.getLog().getShownCount(), shown.size());
+
+        return Optional.of(new SelectionSnapshot(SelectionDirection.USER_TO_TEAM, teamId,
+          item.getId(), chooserFields, shown));
+    }
+
+    private Optional<SelectionSnapshot> gatherTeamToUserSelection(Long teamId, Long userId) {
+        Optional<TeamToUserRecommendationItem> selected
+          = teamToUserLogRepository.findLatestItem(teamId, userId);
+        if (selected.isEmpty()) {
+            return Optional.empty();
+        }
+        TeamToUserRecommendationItem item = selected.get();
+        if (wasNotShown(item.getRankNo(), item.getLog().getShownCount())) {
+            log.debug("추천 목록에 뜨지 않았던 유저입니다 (목록 밖에서 제안). "
+              + "teamId={}, userId={}, rankNo={}", teamId, userId, item.getRankNo());
+            return Optional.empty();
+        }
+        Long logId = item.getLog().getId();
+
+        // 팀 쪽 chooser_fields 는 두 출처가 섞인다 — 모집 역할은 team_embeddings 의 AI 정규화
+        // 값이고, 분야는 events 의 우리 분류다 (gatherForTeam 의 질의 메타데이터와 같은 규칙).
+        Map<String, Object> chooserFields = new LinkedHashMap<>();
+        teamEmbeddingRepository.findById(teamId).ifPresent(embedding
+          -> chooserFields.put("recruiting_roles", nullToEmptyList(embedding.getRecruitingRoles())));
+        teamRepository.findById(teamId).ifPresent(team
+          -> chooserFields.put("contest_field", nullToEmptyString(contestFieldOf(team))));
+
+        List<SelectionSnapshot.ShownCandidate> shown
+          = teamToUserLogRepository.findShownItems(logId).stream()
+            .map(shownItem -> new SelectionSnapshot.ShownCandidate(shownItem.getUserId(),
+            shownItem.getScore(), shownItem.getComponentScores()))
+            .toList();
+        warnIfNotTruncated(logId, item.getLog().getShownCount(), shown.size());
+
+        return Optional.of(new SelectionSnapshot(SelectionDirection.TEAM_TO_USER, userId,
+          item.getId(), chooserFields, shown));
+    }
+
+    /**
+     * 점수는 매겨졌지만 <b>화면에는 뜨지 않았던</b> 후보인가.
+     *
+     * <p>
+     * 추천 이력이 있다고 곧 "추천에서 골랐다"가 아니다. 팀 목록을 직접 둘러보다 지원할 수도
+     * 있고, 그 팀이 마침 지난 추천에서 50위였을 수 있다. 그때 이걸 선택으로 보내면
+     * {@code selected_candidate_id} 가 {@code shown_candidates} 안에 없는 요청이 되는데,
+     * 명세는 선택된 후보가 노출 목록 안의 하나여야 한다고 못박고 있다.
+     *
+     * <p>
+     * 사용자 입장에서도 맞다 — 본 적 없는 후보를 "고르지 않았다"고 셀 수 없듯이,
+     * 목록 밖에서 찾아간 팀을 "목록에서 골랐다"고 셀 수도 없다.
+     *
+     * @param shownCount null 이면 자를 기준이 없어(V32 이전) 전부 노출된 것으로 본다.
+     */
+    private static boolean wasNotShown(int rankNo, Integer shownCount) {
+        return shownCount != null && rankNo > shownCount;
+    }
+
+    /**
+     * V32 이전 로그는 shown_count 가 없어 자를 기준이 없다. 그때는 점수가 매겨진 전체가 나가는데,
+     * 사용자가 본 적 없는 후보가 "안 골랐다"로 집계되므로 남겨 둔다 (조용히 넘어가면 AI 쪽
+     * 분석이 왜 이상한지 추적할 단서가 없다).
+     */
+    private void warnIfNotTruncated(Long logId, Integer shownCount, int sentCount) {
+        if (shownCount == null) {
+            log.warn("shown_count 가 없는 추천 로그입니다 (V32 이전). 노출분을 자르지 못해 {}건을 "
+              + "전부 선택 피드백으로 보냅니다. logId={}", sentCount, logId);
+        }
+    }
+
+    /**
+     * AI 는 null 보다 빈 값을 더 잘 다룬다 (명세상 chooser_fields 는 생략 시 빈 객체 취급).
+     */
+    private static List<String> nullToEmptyList(List<String> value) {
+        return value != null ? value : List.of();
+    }
+
+    private static String nullToEmptyString(String value) {
+        return value != null ? value : "";
     }
 
     /**

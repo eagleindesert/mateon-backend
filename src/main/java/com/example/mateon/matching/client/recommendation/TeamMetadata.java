@@ -32,4 +32,27 @@ public class TeamMetadata {
     /** AI 가 팀 소개글에서 못 읽어냈으면 null → Boolean (primitive 금지). */
     @JsonProperty("beginner_friendly")
     private final Boolean beginnerFriendly;
+
+    /**
+     * 팀의 활동 가능 시간대. <b>지금은 항상 null 이다</b> — 이유는
+     * {@link UserMetadata#getActivityTime()} 과 같다 (사용자 입력값인데 받는 화면이 없다).
+     */
+    @JsonProperty("activity_time")
+    private final String activityTime;
+
+    /**
+     * 연결된 활동의 분야 코드 (예: "SCIENCE_ENGINEERING_TECH_IT"). 자율 프로젝트면 null.
+     *
+     * <p>
+     * {@code Event.Field} 의 상수 이름이 AI 명세의 코드값과 그대로 일치해서 별도 매핑 없이
+     * {@code name()} 을 쓴다. 한글 라벨(getLabel)이 아니다.
+     *
+     * <p>
+     * <b>team-to-user 의 query_metadata 자리에서만 채운다.</b> 명세가 user-to-team 의
+     * candidates[].metadata 에는 이 키를 적어 두지 않았다 — 같은 팀 객체인데 방향에 따라
+     * 필드가 사라지는 게 의도인지 확인 전이라, 그 자리에는 null 을 보낸다. 데이터 자체는
+     * 양쪽 다 있으므로 확인되면 호출부 한 줄로 채울 수 있다.
+     */
+    @JsonProperty("contest_field")
+    private final String contestField;
 }

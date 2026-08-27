@@ -87,16 +87,17 @@ public class TeamToUserRecommendationService {
               limit, candidateCount, ranked.size(), teamId);
         }
 
-        // ④ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
+        // ④ 내려보낼 상위 N 건을 먼저 자른다 (유저→팀 방향과 같은 이유 — 표시 정보 조회를
+        //    줄이는 것과 별개로, 이 건수 자체가 선택 피드백의 shown_candidates 기준이 된다).
+        List<Recommendation> top = ranked.stream().limit(Math.max(limit, 1)).toList();
+
+        // ⑤ [TX2] 기록. 실패해도 추천 자체는 이미 성공했으므로 응답을 막지 않는다.
         //    이 기록은 제안 발송 시 ai_score/ai_label 스냅샷의 출처이기도 하다.
         try {
-            logService.saveTeamToUser(teamId, leaderUserId, candidateCount, ranked);
+            logService.saveTeamToUser(teamId, leaderUserId, candidateCount, top.size(), ranked);
         } catch (Exception e) {
             log.warn("역제안 추천 결과 기록 실패 (추천 응답에는 영향 없음). teamId={}", teamId, e);
         }
-
-        // ⑤ 내려보낼 상위 N 건을 먼저 자르고, 그것들의 표시 정보(협업 온도)만 배치로 조회한다.
-        List<Recommendation> top = ranked.stream().limit(Math.max(limit, 1)).toList();
 
         List<Long> topUserIds = top.stream().map(Recommendation::getCandidateId).toList();
         Map<Long, User> usersById = topUserIds.stream()
@@ -122,14 +123,16 @@ public class TeamToUserRecommendationService {
                 candidate.getUser().getId(),
                 candidate.getEmbedding(),
                 new UserMetadata(slot.getDesiredRoles(), slot.getSkills(),
-                  slot.getExperienceLevel(), slot.getActivityStyle()));
+                  slot.getExperienceLevel(), slot.getActivityStyle(), null));
           })
           .toList();
 
         // 질의 메타데이터는 팀의 team_embeddings 정규화 값 — 2번(embedding:refresh) 응답 그대로다.
+        // 단 contestField 만은 events 에서 온다 (AI 가 추출한 값이 아니라 우리 분류다).
         return new TeamToUserRecommendationRequest(snapshot.getQueryEmbedding(),
           new TeamMetadata(snapshot.getRecruitingRoles(), snapshot.getRequiredSkills(),
-            snapshot.getActivityStyle(), snapshot.getBeginnerFriendly()),
+            snapshot.getActivityStyle(), snapshot.getBeginnerFriendly(),
+            null, snapshot.getContestField()),
           candidates);
     }
 }

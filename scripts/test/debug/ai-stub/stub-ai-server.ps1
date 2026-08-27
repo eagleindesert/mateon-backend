@@ -5,6 +5,7 @@
 #   POST /recommendations/user-to-team     (유저→팀 추천 점수 계산)
 #   POST /recommendations/team-to-user     (팀→유저 역제안 추천 점수 계산)
 #   POST /recommendations/reason           (선택된 한 쌍의 상세 이유)
+#   POST /selection-events                 (실제로 고른 후보 + 그때 노출된 목록 기록)
 #   POST /proposals/user-to-team           (최종 제안 조립 - 지원 문구 초안)
 #   POST /proposals/team-to-user           (최종 역제안 조립 - 제안 문구 초안)
 #   POST /contests/extract-image           (포스터 이미지에서 공모전 정보 추출, multipart)
@@ -59,7 +60,7 @@ try {
 }
 
 Write-Host ("=" * 70) -ForegroundColor DarkGray
-Write-Host " AI 서버 스텁 (intents, teams/embedding, recommendations+reason, proposals, 이미지 추출, PDF 요약)" -ForegroundColor Magenta
+Write-Host " AI 서버 스텁 (intents, teams/embedding, recommendations+reason, selection-events, proposals, 이미지 추출, PDF 요약)" -ForegroundColor Magenta
 Write-Host ("=" * 70) -ForegroundColor DarkGray
 Write-Host "  리스닝: http://localhost:$Port/" -ForegroundColor Green
 Write-Host "  임베딩 차원: $EmbeddingDimension" -ForegroundColor DarkGray
@@ -80,6 +81,8 @@ Write-Host "    (일부러 점수 오름차순으로 돌려준다 — 백엔드�
 Write-Host "  동작 (/recommendations/team-to-user): 위와 같되 질의/후보가 뒤집힘 (역제안)" -ForegroundColor DarkGray
 Write-Host "    query=팀(recruiting_roles), candidates=유저(desired_roles) - 겹치면 0.9x" -ForegroundColor DarkGray
 Write-Host "  동작 (/recommendations/reason): 받은 세 요약을 그대로 찍고 [stub#N] 문장 반환" -ForegroundColor DarkGray
+Write-Host "  동작 (/selection-events): 선택된 후보와 노출 목록을 찍고 accepted:true 반환" -ForegroundColor DarkGray
+Write-Host "    component_scores 가 추천 응답과 똑같이 오는지 여기서 대조한다 (원문 보존 검증)" -ForegroundColor DarkGray
 Write-Host "    N 은 호출 일련번호 — 같은 쌍을 두 번 물었는데 N 이 같으면 백엔드 캐시가 동작한 것" -ForegroundColor DarkGray
 Write-Host "    candidate_summary/target_summary 가 비면 [!!] 로 표시된다 (백엔드 조립 실패)" -ForegroundColor DarkGray
 Write-Host "  동작 (/proposals/*): 받은 식별자를 에코하고 [stub#N] 초안(summary+message) 반환" -ForegroundColor DarkGray
@@ -116,6 +119,33 @@ function New-StubVector {
     return ,$vector   # 콤마: 배열이 파이프라인에서 풀리지 않게
 }
 
+function Show-Nullable {
+    # "키가 없다"(스키마 어긋남)와 "키는 있고 값이 null 이다"(정상)를 구분해 보여 준다.
+    # activity_time 처럼 당분간 항상 null 인 필드는 이 구분이 있어야 검증이 된다.
+    param($Object, [string]$Name)
+    if ($null -eq $Object -or -not ($Object.PSObject.Properties.Name -contains $Name)) {
+        return "<키 없음!>"
+    }
+    $value = $Object.$Name
+    if ($null -eq $value) { return "null" }
+    return $value
+}
+
+function New-ComponentScores {
+    # 선택 피드백으로 되돌아올 값이다. 스텁이 굳이 6키를 다 채우는 이유는,
+    # 백엔드가 이걸 **원문 그대로** 보관했다가 /selection-events 로 되보내는지
+    # 눈으로 대조하기 위해서다 (키 이름/순서/값이 하나라도 바뀌면 계약 위반이다).
+    param([bool]$Matched, [double]$Score)
+    return [ordered]@{
+        similarity           = [Math]::Round($Score * 0.85, 4)
+        role_match           = if ($Matched) { 1.0 } else { 0.0 }
+        deficit_fit          = if ($Matched) { 1.0 } else { 0.0 }
+        activity_style_match = 0.5
+        beginner_fit         = 1.0
+        activity_time_match  = 0.0
+    }
+}
+
 function Write-Json {
     param($Response, $Object, [int]$StatusCode = 200)
     $json  = $Object | ConvertTo-Json -Depth 10 -Compress
@@ -140,6 +170,7 @@ try {
         $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh",
                         "/recommendations/user-to-team", "/recommendations/team-to-user",
                         "/recommendations/reason",
+                        "/selection-events",
                         "/proposals/user-to-team", "/proposals/team-to-user",
                         "/contests/extract-image", "/portfolios/summarize")
         if ($request.HttpMethod -ne "POST" -or $knownPaths -notcontains $path) {
@@ -330,6 +361,9 @@ try {
                 Write-Host ("    skills           = [{0}]" -f (@($queryMeta.skills) -join ", ")) -ForegroundColor Gray
                 Write-Host ("    activity_style   = {0}" -f $queryMeta.activity_style) -ForegroundColor Gray
                 Write-Host ("    experience_level = {0}" -f $queryMeta.experience_level) -ForegroundColor Gray
+                # activity_time 은 FE 입력값이라 당분간 항상 null 이다. 키 자체가 빠지면
+                # AI 스키마와 어긋난 것이므로 있음/없음을 구분해 찍는다.
+                Write-Host ("    activity_time    = {0}" -f (Show-Nullable $queryMeta 'activity_time')) -ForegroundColor Gray
             }
 
             Write-Host "  후보 $($candidates.Count)개:" -ForegroundColor White
@@ -343,8 +377,8 @@ try {
                 $roles  = @($meta.recruiting_roles)
                 $dimOk  = if ($vector.Count -eq $EmbeddingDimension) { "OK" } else { "!! $($vector.Count)차원" }
 
-                Write-Host ("    candidate_id={0}  vector={1}  recruiting_roles=[{2}]  required_skills=[{3}]  activity_style={4}  beginner_friendly={5}" -f `
-                    $c.candidate_id, $dimOk, ($roles -join ", "), (@($meta.required_skills) -join ", "), $meta.activity_style, $meta.beginner_friendly) -ForegroundColor Gray
+                Write-Host ("    candidate_id={0}  vector={1}  recruiting_roles=[{2}]  required_skills=[{3}]  activity_style={4}  beginner_friendly={5}  activity_time={6}" -f `
+                    $c.candidate_id, $dimOk, ($roles -join ", "), (@($meta.required_skills) -join ", "), $meta.activity_style, $meta.beginner_friendly, (Show-Nullable $meta 'activity_time')) -ForegroundColor Gray
 
                 # 역할이 겹치면 높은 점수 + 역할 근거 문구, 아니면 낮은 점수 + 유사도 문구.
                 # 같은 점수가 안 나오게 후보 순번으로 미세하게 흔든다 (정렬 검증용).
@@ -361,9 +395,10 @@ try {
                 }
 
                 $recommendations += [ordered]@{
-                    candidate_id = $c.candidate_id
-                    score        = $score
-                    label        = $label
+                    candidate_id     = $c.candidate_id
+                    score            = $score
+                    label            = $label
+                    component_scores = New-ComponentScores -Matched ($matched.Count -gt 0) -Score $score
                 }
                 $i++
             }
@@ -399,6 +434,10 @@ try {
                 Write-Host ("    required_skills   = [{0}]" -f (@($queryMeta.required_skills) -join ", ")) -ForegroundColor Gray
                 Write-Host ("    activity_style    = {0}" -f $queryMeta.activity_style) -ForegroundColor Gray
                 Write-Host ("    beginner_friendly = {0}" -f $queryMeta.beginner_friendly) -ForegroundColor Gray
+                Write-Host ("    activity_time     = {0}" -f (Show-Nullable $queryMeta 'activity_time')) -ForegroundColor Gray
+                # contest_field 는 events 에서 오는 값이라 실제로 채워져 나가야 한다
+                # (자율 프로젝트 팀이면 null 이 맞다).
+                Write-Host ("    contest_field     = {0}" -f (Show-Nullable $queryMeta 'contest_field')) -ForegroundColor Gray
             }
 
             Write-Host "  후보 유저 $($candidates.Count)명:" -ForegroundColor White
@@ -412,8 +451,8 @@ try {
                 $roles  = @($meta.desired_roles)
                 $dimOk  = if ($vector.Count -eq $EmbeddingDimension) { "OK" } else { "!! $($vector.Count)차원" }
 
-                Write-Host ("    candidate_id={0}  vector={1}  desired_roles=[{2}]  skills=[{3}]  experience_level={4}  activity_style={5}" -f `
-                    $c.candidate_id, $dimOk, ($roles -join ", "), (@($meta.skills) -join ", "), $meta.experience_level, $meta.activity_style) -ForegroundColor Gray
+                Write-Host ("    candidate_id={0}  vector={1}  desired_roles=[{2}]  skills=[{3}]  experience_level={4}  activity_style={5}  activity_time={6}" -f `
+                    $c.candidate_id, $dimOk, ($roles -join ", "), (@($meta.skills) -join ", "), $meta.experience_level, $meta.activity_style, (Show-Nullable $meta 'activity_time')) -ForegroundColor Gray
 
                 # 유저의 희망 역할이 팀의 모집 역할과 겹치면 높은 점수.
                 # 같은 점수가 안 나오게 후보 순번으로 미세하게 흔든다 (정렬 검증용).
@@ -430,9 +469,10 @@ try {
                 }
 
                 $recommendations += [ordered]@{
-                    candidate_id = $c.candidate_id
-                    score        = $score
-                    label        = $label
+                    candidate_id     = $c.candidate_id
+                    score            = $score
+                    label            = $label
+                    component_scores = New-ComponentScores -Matched ($matched.Count -gt 0) -Score $score
                 }
                 $i++
             }
@@ -442,6 +482,70 @@ try {
 
             Write-Host "  -> 200 (recommendations $($recommendations.Count)건, 점수 오름차순으로 반환)" -ForegroundColor Green
             Write-Json -Response $response -Object ([ordered]@{ recommendations = $recommendations })
+            continue
+        }
+
+        # --- POST /selection-events (선택 피드백 기록) ---
+        # 이 핸들러의 목적은 응답을 흉내내는 게 아니라 **백엔드가 무엇을 보내는지**를 눈으로
+        # 확인하는 것이다. 응답은 항상 { accepted = true } 하나뿐이라 볼 게 없다.
+        #
+        # 눈여겨볼 것 세 가지:
+        #   1. shown_candidates 건수가 화면에 내려간 상위 N 과 같은가?
+        #      (점수화된 후보 전체가 오면 shown_count 로 자르는 로직이 깨진 것이다)
+        #   2. component_scores 가 추천 응답에서 준 것과 키/값이 똑같은가?
+        #      (따옴표로 감싼 문자열로 오면 @JsonRawValue 가 빠진 것이다)
+        #   3. selected_candidate_id 가 shown_candidates 안에 있는가?
+        if ($path -eq "/selection-events") {
+            $ctx   = $body.selection_context
+            $shown = @($ctx.shown_candidates)
+
+            Write-Host ("  direction             = {0}" -f $body.direction) -ForegroundColor White
+            Write-Host ("  selected_candidate_id = {0}" -f $body.selected_candidate_id) -ForegroundColor White
+
+            if ($null -eq $ctx) {
+                Write-Host "  [!!] selection_context 없음 - 기록할 컨텍스트가 통째로 빠졌다" -ForegroundColor Red
+            } else {
+                Write-Host ("  idempotency_key       = {0}" -f $ctx.idempotency_key) -ForegroundColor Gray
+                Write-Host "  chooser_fields:" -ForegroundColor White
+                if ($null -eq $ctx.chooser_fields -or $ctx.chooser_fields.PSObject.Properties.Count -eq 0) {
+                    Write-Host "    (비어 있음 - 클러스터 분석이 안 된다)" -ForegroundColor Yellow
+                } else {
+                    foreach ($field in $ctx.chooser_fields.PSObject.Properties) {
+                        $value = if ($field.Value -is [Array]) { "[" + ($field.Value -join ", ") + "]" } else { $field.Value }
+                        Write-Host ("    {0} = {1}" -f $field.Name, $value) -ForegroundColor Gray
+                    }
+                }
+
+                Write-Host ("  shown_candidates {0}건:" -f $shown.Count) -ForegroundColor White
+                $selectedFound = $false
+                foreach ($sc in $shown) {
+                    if ($sc.candidate_id -eq $body.selected_candidate_id) { $selectedFound = $true }
+
+                    # component_scores 가 객체가 아니라 문자열로 왔으면 원문 보존이 깨진 것이다.
+                    if ($null -eq $sc.component_scores) {
+                        $scores = "null (추천 당시 AI 가 주지 않았음)"
+                    } elseif ($sc.component_scores -is [string]) {
+                        $scores = "[!!] 문자열로 옴 - @JsonRawValue 누락: $($sc.component_scores)"
+                    } else {
+                        $scores = ($sc.component_scores.PSObject.Properties |
+                            ForEach-Object { "$($_.Name)=$($_.Value)" }) -join " "
+                    }
+
+                    $mark = if ($sc.candidate_id -eq $body.selected_candidate_id) { "*" } else { " " }
+                    Write-Host ("   {0} candidate_id={1}  total_score={2}  component_scores: {3}" -f `
+                        $mark, $sc.candidate_id, $sc.total_score, $scores) -ForegroundColor Gray
+                }
+
+                if ($shown.Count -eq 0) {
+                    Write-Host "  [!] shown_candidates 가 비었다 - 선택 대비 분석을 할 수 없다" -ForegroundColor Yellow
+                } elseif (-not $selectedFound) {
+                    Write-Host "  [!!] selected_candidate_id 가 shown_candidates 안에 없다" -ForegroundColor Red
+                }
+            }
+
+            # 명세대로 저장을 기다리지 않고 즉시 접수 확인만 돌려준다.
+            Write-Host "  -> 200 { accepted: true } (저장 확인이 아니라 접수 확인이다)" -ForegroundColor Green
+            Write-Json -Response $response -Object ([ordered]@{ accepted = $true })
             continue
         }
 

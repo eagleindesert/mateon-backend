@@ -1,10 +1,12 @@
 package com.example.mateon.matching.service;
 
 import com.example.mateon.matching.client.recommendation.RecommendationResponse.Recommendation;
+import com.example.mateon.matching.domain.SelectionDirection;
 import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import com.example.mateon.matching.domain.UserToTeamRecommendationLog;
 import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
 import com.example.mateon.matching.repository.UserToTeamRecommendationLogRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,8 +18,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -59,7 +63,7 @@ class RecommendationLogServiceTest {
         @Test
         @DisplayName("순위는 넘겨받은 순서대로 1 부터 매긴다 (AI 배열 순서가 아니다)")
         void ranksInGivenOrder() {
-            service.save(1L, 7L, 50, List.of(item(10L, 0.9), item(11L, 0.8), item(12L, 0.7)));
+            service.save(1L, 7L, 50, 3, List.of(item(10L, 0.9), item(11L, 0.8), item(12L, 0.7)));
 
             UserToTeamRecommendationLog saved = captureUserToTeamLog();
             assertThat(items(saved)).hasSize(3);
@@ -70,7 +74,7 @@ class RecommendationLogServiceTest {
         @Test
         @DisplayName("헤더에 후보 수와 활동 id 가 남는다 (나중에 상위 N 을 재검토할 근거)")
         void storesHeaderFields() {
-            service.save(1L, 7L, 50, List.of(item(10L, 0.9)));
+            service.save(1L, 7L, 50, 1, List.of(item(10L, 0.9)));
 
             UserToTeamRecommendationLog saved = captureUserToTeamLog();
             assertThat(ReflectionTestUtils.getField(saved, "userId")).isEqualTo(1L);
@@ -81,7 +85,7 @@ class RecommendationLogServiceTest {
         @Test
         @DisplayName("결과가 0건이어도 헤더는 남긴다 (추천을 시도했다는 사실 자체가 기록이다)")
         void savesEvenWithNoItems() {
-            service.save(1L, null, 0, List.of());
+            service.save(1L, null, 0, 0, List.of());
 
             assertThat(items(captureUserToTeamLog())).isEmpty();
         }
@@ -94,7 +98,7 @@ class RecommendationLogServiceTest {
         @Test
         @DisplayName("같은 규칙으로 순위를 매기고 요청자 id 를 남긴다")
         void ranksAndStoresRequester() {
-            service.saveTeamToUser(100L, 1L, 30, List.of(item(2L, 0.9), item(3L, 0.5)));
+            service.saveTeamToUser(100L, 1L, 30, 2, List.of(item(2L, 0.9), item(3L, 0.5)));
 
             ArgumentCaptor<TeamToUserRecommendationLog> captor
               = ArgumentCaptor.forClass(TeamToUserRecommendationLog.class);
@@ -110,7 +114,7 @@ class RecommendationLogServiceTest {
         @Test
         @DisplayName("유저→팀 저장소는 건드리지 않는다")
         void doesNotTouchOtherRepository() {
-            service.saveTeamToUser(100L, 1L, 30, List.of(item(2L, 0.9)));
+            service.saveTeamToUser(100L, 1L, 30, 1, List.of(item(2L, 0.9)));
 
             verify(logRepository, never()).save(org.mockito.ArgumentMatchers.any());
         }
@@ -155,6 +159,94 @@ class RecommendationLogServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("컴포넌트 점수 보관 — 선택 피드백으로 그대로 되돌려줄 값이다")
+    class ComponentScores {
+
+        @Test
+        @DisplayName("AI 가 준 JSON 을 문자 그대로 저장한다 (키 이름/순서를 바꾸지 않는다)")
+        void storesRawJson() {
+            String raw = "{\"similarity\":0.8,\"role_match\":1.0}";
+            service.save(1L, null, 1, 1, List.of(withComponentScores(10L, 0.9, raw)));
+
+            assertThat(componentScores(captureUserToTeamLog())).containsExactly(raw);
+        }
+
+        @Test
+        @DisplayName("AI 가 안 주면 null 로 남긴다 — 우리가 지어낼 수 있는 값이 아니다")
+        void missingScoresBecomeNull() {
+            service.save(1L, null, 1, 1, List.of(item(10L, 0.9)));
+
+            assertThat(componentScores(captureUserToTeamLog())).containsExactly((String) null);
+        }
+
+        @Test
+        @DisplayName("역제안도 같은 규칙이다 (한쪽만 고치는 사고 방지)")
+        void teamToUserStoresRawJsonToo() {
+            String raw = "{\"similarity\":0.77}";
+            service.saveTeamToUser(100L, 1L, 1, 1, List.of(withComponentScores(2L, 0.9, raw)));
+
+            ArgumentCaptor<TeamToUserRecommendationLog> captor
+              = ArgumentCaptor.forClass(TeamToUserRecommendationLog.class);
+            verify(teamToUserLogRepository).save(captor.capture());
+            assertThat(componentScores(captor.getValue())).containsExactly(raw);
+        }
+    }
+
+    @Nested
+    @DisplayName("노출 건수")
+    class ShownCount {
+
+        @Test
+        @DisplayName("점수화된 전체가 아니라 프론트에 내려간 건수를 남긴다")
+        void recordsShownCountSeparately() {
+            service.save(1L, null, 50, 2,
+              List.of(item(10L, 0.9), item(11L, 0.8), item(12L, 0.7)));
+
+            UserToTeamRecommendationLog saved = captureUserToTeamLog();
+            assertThat(ReflectionTestUtils.getField(saved, "candidateCount")).isEqualTo(50);
+            assertThat(ReflectionTestUtils.getField(saved, "shownCount")).isEqualTo(2);
+            // 아이템은 여전히 전체가 남는다 — 자르는 건 전송 시점이다.
+            assertThat(items(saved)).hasSize(3);
+        }
+    }
+
+    @Nested
+    @DisplayName("선택 표시")
+    class MarkSelected {
+
+        @Test
+        @DisplayName("방향에 맞는 저장소로만 간다")
+        void routesByDirection() {
+            when(logRepository.markSelected(anyLong(), any())).thenReturn(1);
+
+            service.markSelected(SelectionDirection.USER_TO_TEAM, 900L);
+
+            verify(logRepository).markSelected(eq(900L), any());
+            verify(teamToUserLogRepository, never()).markSelected(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("역제안은 반대쪽 저장소로 간다")
+        void routesTeamToUser() {
+            when(teamToUserLogRepository.markSelected(anyLong(), any())).thenReturn(1);
+
+            service.markSelected(SelectionDirection.TEAM_TO_USER, 901L);
+
+            verify(teamToUserLogRepository).markSelected(eq(901L), any());
+            verify(logRepository, never()).markSelected(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("대상이 사라졌어도(0건) 예외를 던지지 않는다 — 지원/제안은 이미 성공했다")
+        void missingRowIsNotAnError() {
+            when(logRepository.markSelected(anyLong(), any())).thenReturn(0);
+
+            assertThatCode(() -> service.markSelected(SelectionDirection.USER_TO_TEAM, 900L))
+              .doesNotThrowAnyException();
+        }
+    }
+
     // --- 헬퍼 ---------------------------------------------------------------
     private UserToTeamRecommendationLog captureUserToTeamLog() {
         ArgumentCaptor<UserToTeamRecommendationLog> captor
@@ -186,5 +278,25 @@ class RecommendationLogServiceTest {
         recommendation.setScore(score);
         recommendation.setLabel("근거");
         return recommendation;
+    }
+
+    /**
+     * AI 응답을 흉내 내려면 JsonNode 로 넣어야 한다 — 문자열을 직접 세팅하면 실제 역직렬화
+     * 경로를 건너뛰어 "원문 그대로인가"를 검증하지 못한다.
+     */
+    private Recommendation withComponentScores(Long candidateId, Double score, String rawJson) {
+        Recommendation recommendation = item(candidateId, score);
+        try {
+            recommendation.setComponentScores(new ObjectMapper().readTree(rawJson));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return recommendation;
+    }
+
+    private List<String> componentScores(Object log) {
+        return items(log).stream()
+          .map(item -> (String) ReflectionTestUtils.getField(item, "componentScores"))
+          .toList();
     }
 }

@@ -3,6 +3,7 @@ package com.example.mateon.matching.service;
 import com.example.mateon.matching.client.proposal.ProposalAssemblyRequest;
 import com.example.mateon.matching.client.proposal.ProposalClient;
 import com.example.mateon.matching.client.proposal.ProposalResponse;
+import com.example.mateon.matching.domain.SelectionDirection;
 import com.example.mateon.matching.dto.response.ProposalDraftResponseDTO;
 import com.example.mateon.matching.dto.snapshot.ProposalSnapshot;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +31,6 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class ProposalAssemblyService {
 
-    private static final String USER_TO_TEAM = "USER_TO_TEAM";
-    private static final String TEAM_TO_USER = "TEAM_TO_USER";
-
     private final RecommendationQueryService queryService;
     private final ProposalClient client;
 
@@ -43,7 +41,7 @@ public class ProposalAssemblyService {
      */
     public ProposalDraftResponseDTO draftForTeam(Long userId, Long teamId) {
         return assemble(queryService.gatherProposalForUserToTeam(userId, teamId),
-          USER_TO_TEAM, client::userToTeam);
+          SelectionDirection.USER_TO_TEAM, client::userToTeam);
     }
 
     /**
@@ -53,7 +51,7 @@ public class ProposalAssemblyService {
      */
     public ProposalDraftResponseDTO draftForUser(Long teamId, Long targetUserId, Long leaderUserId) {
         return assemble(queryService.gatherProposalForTeamToUser(teamId, targetUserId, leaderUserId),
-          TEAM_TO_USER, client::teamToUser);
+          SelectionDirection.TEAM_TO_USER, client::teamToUser);
     }
 
     /**
@@ -61,10 +59,10 @@ public class ProposalAssemblyService {
      * 부르느냐뿐이다 (요약의 후보/대상 자리는 이미 조회 단계에서 맞춰져 온다).
      */
     private ProposalDraftResponseDTO assemble(
-      ProposalSnapshot snapshot, String direction,
+      ProposalSnapshot snapshot, SelectionDirection direction,
       Function<ProposalAssemblyRequest, ProposalResponse> aiCall) {
 
-        boolean userToTeam = USER_TO_TEAM.equals(direction);
+        boolean userToTeam = direction == SelectionDirection.USER_TO_TEAM;
 
         // [TX 밖] FastAPI 호출. 수십 초가 걸려도 DB 커넥션을 잡고 있지 않다.
         ProposalResponse assembled = aiCall.apply(new ProposalAssemblyRequest(
@@ -80,7 +78,8 @@ public class ProposalAssemblyService {
 
         // synergyScore 는 AI 가 되돌려 준 값이 아니라 우리가 읽은 추천 이력의 값을 쓴다 —
         // 조립 과정에서 바뀔 수 없는 값이라 출처를 하나로 고정해 둔다.
-        return new ProposalDraftResponseDTO(direction,
+        // direction 은 name() 으로 내린다 — 프론트에 나가는 문자열이 예전과 한 글자도 달라지면 안 된다.
+        return new ProposalDraftResponseDTO(direction.name(),
           snapshot.getTeamId(), snapshot.getUserId(), snapshot.getSynergyScore(),
           assembled.getSummary(), assembled.getMessage());
     }

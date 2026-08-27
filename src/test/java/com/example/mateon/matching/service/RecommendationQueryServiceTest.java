@@ -5,11 +5,15 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.domain.SelectionDirection;
 import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
+import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import com.example.mateon.matching.domain.UserToTeamRecommendationItem;
+import com.example.mateon.matching.domain.UserToTeamRecommendationLog;
 import com.example.mateon.matching.dto.snapshot.ProposalSnapshot;
 import com.example.mateon.matching.dto.snapshot.ReasonSnapshot;
 import com.example.mateon.matching.dto.snapshot.RecommendationSnapshot;
+import com.example.mateon.matching.dto.snapshot.SelectionSnapshot;
 import com.example.mateon.matching.dto.snapshot.TeamDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserDisplayInfo;
 import com.example.mateon.matching.dto.snapshot.UserRecommendationSnapshot;
@@ -600,6 +604,140 @@ class RecommendationQueryServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("선택 컨텍스트 수집 (선택 피드백)")
+    class GatherSelection {
+
+        @Test
+        @DisplayName("추천 이력이 없으면 빈 결과다 — 추천을 안 거친 지원도 정상 경로다")
+        void emptyWhenNeverRecommended() {
+            when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
+              .thenReturn(Optional.empty());
+
+            assertThat(service.gatherSelection(SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID))
+              .isEmpty();
+        }
+
+        @Test
+        @DisplayName("노출됐던 후보만 담는다 (shown_count 로 자른 목록을 그대로 쓴다)")
+        void carriesShownItemsOnly() {
+            givenUserToTeamSelection();
+
+            SelectionSnapshot snapshot = service.gatherSelection(
+              SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID).orElseThrow();
+
+            assertThat(snapshot.getShownCandidates()).hasSize(2);
+            assertThat(snapshot.getShownCandidates().get(0).getCandidateId()).isEqualTo(TEAM_ID);
+            assertThat(snapshot.getShownCandidates().get(0).getComponentScores())
+              .isEqualTo("{\"similarity\":0.8}");
+            assertThat(snapshot.getSelectedItemId()).isEqualTo(500L);
+            assertThat(snapshot.getSelectedCandidateId()).isEqualTo(TEAM_ID);
+        }
+
+        @Test
+        @DisplayName("추천은 됐지만 화면에 안 뜬 후보(rank > shown_count)면 빈 결과다")
+        void skipsCandidateThatWasNeverShown() {
+            // 지난 추천에서 50위였던 팀에 목록을 직접 둘러보다 지원한 상황.
+            // 이걸 선택으로 보내면 selected_candidate_id 가 shown_candidates 밖에 있게 된다.
+            UserToTeamRecommendationItem unshown = userToTeamItem(0.11, null);
+            TestEntities.withField(unshown, "rankNo", 50);
+            TestEntities.withField(unshown, "log", userToTeamLog());   // shownCount = 2
+            when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
+              .thenReturn(Optional.of(unshown));
+
+            assertThat(service.gatherSelection(SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID))
+              .isEmpty();
+            // 걸러졌으면 목록을 읽을 이유도 없다.
+            verify(userToTeamLogRepository, never()).findShownItems(anyLong());
+        }
+
+        @Test
+        @DisplayName("shown_count 가 없는 옛 로그(V32 이전)는 전부 노출된 것으로 본다")
+        void legacyLogWithoutShownCountIsNotSkipped() {
+            UserToTeamRecommendationItem item = userToTeamItem(0.11, null);
+            TestEntities.withField(item, "rankNo", 50);
+            UserToTeamRecommendationLog legacyLog
+              = new UserToTeamRecommendationLog(USER_ID, null, 50, null);
+            TestEntities.withField(item, "log", TestEntities.withId(legacyLog, 802L));
+
+            when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
+              .thenReturn(Optional.of(item));
+            when(userToTeamLogRepository.findShownItems(anyLong())).thenReturn(List.of(item));
+            when(slotRepository.findByUserId(USER_ID)).thenReturn(Optional.of(slot(USER_ID)));
+
+            assertThat(service.gatherSelection(SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID))
+              .isPresent();
+        }
+
+        @Test
+        @DisplayName("유저 쪽 chooser_fields 는 슬롯에서 온다")
+        void userChooserFieldsComeFromSlot() {
+            givenUserToTeamSelection();
+
+            SelectionSnapshot snapshot = service.gatherSelection(
+              SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID).orElseThrow();
+
+            assertThat(snapshot.getChooserFields())
+              .containsKeys("desired_roles", "experience_level");
+        }
+
+        @Test
+        @DisplayName("슬롯이 사라졌어도 빈 chooser_fields 로 진행한다 (선택 자체는 기록해야 한다)")
+        void missingSlotStillRecords() {
+            givenUserToTeamSelection();
+            when(slotRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
+
+            SelectionSnapshot snapshot = service.gatherSelection(
+              SelectionDirection.USER_TO_TEAM, USER_ID, TEAM_ID).orElseThrow();
+
+            assertThat(snapshot.getChooserFields()).isEmpty();
+            assertThat(snapshot.getShownCandidates()).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("팀 쪽 chooser_fields 는 모집 역할과 활동 분야다 (분야는 events 에서 온다)")
+        void teamChooserFieldsMixTwoSources() {
+            TeamToUserRecommendationItem item = teamToUserItem(0.9, null);
+            TestEntities.withField(item, "log", teamToUserLog());
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L)).thenReturn(Optional.of(item));
+            when(teamToUserLogRepository.findShownItems(anyLong())).thenReturn(List.of(item));
+
+            TeamEmbedding embedding = teamEmbedding(TEAM_ID);
+            embedding.setRecruitingRoles(List.of("BE"));
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.of(embedding));
+
+            Team team = team(TEAM_ID);
+            team.setEventId(7L);
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+            when(eventRepository.findById(7L)).thenReturn(Optional.of(eventWithField()));
+
+            SelectionSnapshot snapshot = service.gatherSelection(
+              SelectionDirection.TEAM_TO_USER, TEAM_ID, 2L).orElseThrow();
+
+            assertThat(snapshot.getChooserFields())
+              .containsEntry("recruiting_roles", List.of("BE"))
+              // enum 상수명 그대로여야 한다 — 한글 라벨을 보내면 AI 가 못 알아본다.
+              .containsEntry("contest_field", "SCIENCE_ENGINEERING_TECH_IT");
+        }
+
+        private void givenUserToTeamSelection() {
+            UserToTeamRecommendationItem selected = userToTeamItem(0.92, null);
+            TestEntities.withField(selected, "log", userToTeamLog());
+            TestEntities.withField(selected, "componentScores", "{\"similarity\":0.8}");
+
+            UserToTeamRecommendationItem other = userToTeamItem(0.26, null);
+            TestEntities.withId(other, 501L);
+            TestEntities.withField(other, "teamId", 42L);
+            TestEntities.withField(other, "rankNo", 2);
+
+            when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
+              .thenReturn(Optional.of(selected));
+            when(userToTeamLogRepository.findShownItems(anyLong()))
+              .thenReturn(List.of(selected, other));
+            when(slotRepository.findByUserId(USER_ID)).thenReturn(Optional.of(slot(USER_ID)));
+        }
+    }
+
     // --- 픽스처 -------------------------------------------------------------
 
     private User user(Long id) {
@@ -684,6 +822,31 @@ class RecommendationQueryServiceTest {
         Event event = new Event();
         TestEntities.withId(event, id);
         return event;
+    }
+
+    /** 분야 코드가 AI 로 나가는지 보려면 field 가 채워진 활동이 필요하다. */
+    private Event eventWithField() {
+        Event event = event(7L);
+        event.setField(Event.Field.SCIENCE_ENGINEERING_TECH_IT);
+        return event;
+    }
+
+    private TeamEmbedding teamEmbedding(Long teamId) {
+        return teamEmbedding(teamId, new float[]{0.3f, 0.4f});
+    }
+
+    /**
+     * 선택 컨텍스트 수집은 item → log 를 타고 shownCount 를 읽는다. 로그 헤더가 없으면
+     * 그 경로에서 NPE 가 나므로 픽스처가 반드시 붙여 줘야 한다.
+     */
+    private UserToTeamRecommendationLog userToTeamLog() {
+        UserToTeamRecommendationLog log = new UserToTeamRecommendationLog(USER_ID, null, 50, 2);
+        return TestEntities.withId(log, 800L);
+    }
+
+    private TeamToUserRecommendationLog teamToUserLog() {
+        TeamToUserRecommendationLog log = new TeamToUserRecommendationLog(TEAM_ID, USER_ID, 30, 1);
+        return TestEntities.withId(log, 801L);
     }
 
     private com.example.mateon.teams.domain.TeamApplication applicationTo(Team team) {

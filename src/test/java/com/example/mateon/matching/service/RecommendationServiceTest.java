@@ -228,7 +228,8 @@ class RecommendationServiceTest {
 
             ArgumentCaptor<List<RecommendationResponse.Recommendation>> ranked
               = ArgumentCaptor.forClass(List.class);
-            verify(logService).save(anyLong(), any(), org.mockito.ArgumentMatchers.eq(3), ranked.capture());
+            verify(logService).save(anyLong(), any(), org.mockito.ArgumentMatchers.eq(3),
+              org.mockito.ArgumentMatchers.eq(1), ranked.capture());
             assertThat(ranked.getValue()).hasSize(3);
         }
 
@@ -239,7 +240,7 @@ class RecommendationServiceTest {
             givenAiResponse(item(10L, 0.9));
             givenDisplayInfo(10L);
             doThrow(new RuntimeException("DB 다운"))
-              .when(logService).save(anyLong(), any(), anyInt(), anyList());
+              .when(logService).save(anyLong(), any(), anyInt(), anyInt(), anyList());
 
             assertThatCode(() -> assertThat(service.recommendTeams(USER_ID, null, 10)).hasSize(1))
               .doesNotThrowAnyException();

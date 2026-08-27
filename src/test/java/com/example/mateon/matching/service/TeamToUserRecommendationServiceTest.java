@@ -197,7 +197,7 @@ class TeamToUserRecommendationServiceTest {
 
             service.recommendUsers(TEAM_ID, LEADER_ID, 1);
 
-            verify(logService).saveTeamToUser(eq(TEAM_ID), eq(LEADER_ID), eq(3), anyList());
+            verify(logService).saveTeamToUser(eq(TEAM_ID), eq(LEADER_ID), eq(3), eq(1), anyList());
         }
 
         @Test
@@ -207,7 +207,7 @@ class TeamToUserRecommendationServiceTest {
             givenAiResponse(item(2L, 0.9));
             givenDisplayInfo(2L);
             doThrow(new RuntimeException("DB 다운"))
-              .when(logService).saveTeamToUser(anyLong(), anyLong(), anyInt(), anyList());
+              .when(logService).saveTeamToUser(anyLong(), anyLong(), anyInt(), anyInt(), anyList());
 
             assertThatCode(() -> assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10)).hasSize(1))
               .doesNotThrowAnyException();
@@ -237,7 +237,8 @@ class TeamToUserRecommendationServiceTest {
 
     private UserRecommendationSnapshot snapshot(List<UserRecommendationSnapshot.Candidate> candidates) {
         return new UserRecommendationSnapshot(new float[]{0.3f, 0.4f},
-          List.of("백엔드"), List.of("Spring"), "오프라인", true, candidates);
+          List.of("백엔드"), List.of("Spring"), "오프라인", true,
+          "SCIENCE_ENGINEERING_TECH_IT", candidates);
     }
 
     private UserRecommendationSnapshot.Candidate candidate(Long userId) {

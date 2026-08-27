@@ -29,4 +29,19 @@ public class UserMetadata {
 
     @JsonProperty("activity_style")
     private final String activityStyle;
+
+    /**
+     * 활동 가능 시간대 (예: "평일 저녁"). <b>지금은 항상 null 이다.</b>
+     *
+     * <p>
+     * 다른 필드와 달리 이건 AI 가 발화에서 추출해 주는 값이 아니라 <b>사용자가 직접 고르는
+     * 값</b>이다. 아직 이 값을 받는 화면이 없어 채울 데이터가 없다 (matching_intent_slots 에
+     * 컬럼도 없다). 필드를 미리 두는 이유는 AI 쪽 스키마가 이미 이 키를 기다리고 있어서다.
+     *
+     * <p>
+     * 이 값이 비어도 추천 순위는 바뀌지 않는다 — 명세상 activity_time_match 는 총점에
+     * 반영되지 않고 피드백 분석용으로만 반환된다.
+     */
+    @JsonProperty("activity_time")
+    private final String activityTime;
 }

@@ -44,23 +44,36 @@ public class TeamToUserRecommendationLog {
     @Column(name = "candidate_count", nullable = false)
     private int candidateCount;
 
+    /**
+     * 프론트에 실제로 내려간 상위 N 건. 의미와 쓰임은
+     * {@link UserToTeamRecommendationLog#getShownCount()} 와 같다.
+     */
+    @Column(name = "shown_count")
+    private Integer shownCount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "log", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TeamToUserRecommendationItem> items = new ArrayList<>();
 
-    public TeamToUserRecommendationLog(Long teamId, Long requestedByUserId, int candidateCount) {
+    public TeamToUserRecommendationLog(Long teamId, Long requestedByUserId, int candidateCount,
+      Integer shownCount) {
         this.teamId = teamId;
         this.requestedByUserId = requestedByUserId;
         this.candidateCount = candidateCount;
+        this.shownCount = shownCount;
     }
 
     /**
      * 점수 내림차순으로 이미 정렬된 결과를 1부터 순위를 매겨 담는다.
+     *
+     * @param componentScores AI 응답의 component_scores 원문 JSON. 없으면 null.
      */
-    public void addItem(Long userId, int rankNo, double score, String label) {
-        this.items.add(new TeamToUserRecommendationItem(this, userId, rankNo, score, label));
+    public void addItem(Long userId, int rankNo, double score, String label,
+      String componentScores) {
+        this.items.add(new TeamToUserRecommendationItem(this, userId, rankNo, score, label,
+          componentScores));
     }
 
     @PrePersist

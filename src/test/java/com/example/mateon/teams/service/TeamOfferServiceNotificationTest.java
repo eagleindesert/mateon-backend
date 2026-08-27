@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
@@ -67,7 +68,7 @@ class TeamOfferServiceNotificationTest {
         service = new TeamOfferService(offerRepository, mock(TeamRepository.class),
           mock(TeamMemberRepository.class), mock(TeamApplicationRepository.class),
           mock(TeamToUserRecommendationLogRepository.class), mock(UserRepository.class),
-          notificationService);
+          notificationService, mock(ApplicationEventPublisher.class));
 
         team = new Team();
         team.setId(TEAM_ID);

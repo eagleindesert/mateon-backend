@@ -55,16 +55,31 @@ public class TeamToUserRecommendationItem {
     @Column(name = "reason", columnDefinition = "text")
     private String reason;
 
+    /**
+     * 추천 시점의 컴포넌트별 점수 (원문 JSON 문자열). 의미와 보관 규칙은
+     * {@link UserToTeamRecommendationItem#getComponentScores()} 와 같다.
+     */
+    @Column(name = "component_scores", columnDefinition = "text")
+    private String componentScores;
+
+    /**
+     * 이 후보를 실제로 골라 제안을 보낸 시각. null 이면 목록에 뜨기만 했다는 뜻이다.
+     * 규칙은 {@link UserToTeamRecommendationItem#getSelectedAt()} 과 같다.
+     */
+    @Column(name = "selected_at")
+    private LocalDateTime selectedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     TeamToUserRecommendationItem(TeamToUserRecommendationLog log, Long userId,
-      int rankNo, double score, String label) {
+      int rankNo, double score, String label, String componentScores) {
         this.log = log;
         this.userId = userId;
         this.rankNo = rankNo;
         this.score = score;
         this.label = label;
+        this.componentScores = componentScores;
     }
 
     @PrePersist

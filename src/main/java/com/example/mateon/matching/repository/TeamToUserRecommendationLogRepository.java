@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface TeamToUserRecommendationLogRepository
@@ -35,4 +37,24 @@ public interface TeamToUserRecommendationLogRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE TeamToUserRecommendationItem i SET i.reason = :reason WHERE i.id = :itemId")
     int updateReason(@Param("itemId") Long itemId, @Param("reason") String reason);
+
+    /**
+     * 이 후보가 실제로 선택됐다고 표시한다 (제안 발송 시점). 정방향과 같은 규약이다 —
+     * {@code UserToTeamRecommendationLogRepository.markSelected} 주석 참고.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE TeamToUserRecommendationItem i SET i.selectedAt = :selectedAt WHERE i.id = :itemId")
+    int markSelected(@Param("itemId") Long itemId, @Param("selectedAt") LocalDateTime selectedAt);
+
+    /**
+     * 선택 당시 화면에 노출됐던 추천 결과. 정방향과 같은 규약이다 —
+     * {@code UserToTeamRecommendationLogRepository.findShownItems} 주석 참고.
+     */
+    @Query("""
+            SELECT i FROM TeamToUserRecommendationItem i
+             WHERE i.log.id = :logId
+               AND (i.log.shownCount IS NULL OR i.rankNo <= i.log.shownCount)
+             ORDER BY i.rankNo ASC
+            """)
+    List<TeamToUserRecommendationItem> findShownItems(@Param("logId") Long logId);
 }

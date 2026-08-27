@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -81,6 +82,7 @@ class TeamOfferServiceTest {
     private TeamToUserRecommendationLogRepository recommendationLogRepository;
     private UserRepository userRepository;
     private NotificationService notificationService;
+    private ApplicationEventPublisher eventPublisher;
     private TeamOfferService service;
 
     private Team team;
@@ -97,9 +99,11 @@ class TeamOfferServiceTest {
         userRepository = mock(UserRepository.class);
         notificationService = mock(NotificationService.class);
 
+        eventPublisher = mock(ApplicationEventPublisher.class);
+
         service = new TeamOfferService(offerRepository, teamRepository, teamMemberRepository,
           applicationRepository, recommendationLogRepository, userRepository,
-          notificationService);
+          notificationService, eventPublisher);
 
         leader = user(LEADER_ID, "팀장");
         target = user(TARGET_ID, "대상유저");

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -44,4 +46,31 @@ public interface UserToTeamRecommendationLogRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserToTeamRecommendationItem i SET i.reason = :reason WHERE i.id = :itemId")
     int updateReason(@Param("itemId") Long itemId, @Param("reason") String reason);
+
+    /**
+     * 이 후보가 실제로 선택됐다고 표시한다 (지원 발송 시점).
+     * {@code updateReason} 과 같은 이유로 엔티티를 로드하지 않고 UPDATE 를 직접 쏜다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE UserToTeamRecommendationItem i SET i.selectedAt = :selectedAt WHERE i.id = :itemId")
+    int markSelected(@Param("itemId") Long itemId, @Param("selectedAt") LocalDateTime selectedAt);
+
+    /**
+     * 선택 당시 <b>화면에 노출됐던</b> 추천 결과. 선택 피드백의 shown_candidates 를 만든다.
+     *
+     * <p>
+     * items 에는 AI 가 점수를 매긴 결과 전체(최대 200건)가 들어 있으므로 반드시 잘라야 한다 —
+     * 사용자가 본 적 없는 후보까지 보내면 "안 골랐다"로 집계돼 AI 의 선택 대비 분석이 오염된다.
+     *
+     * <p>
+     * {@code shownCount} 가 null 인 행(V32 이전)은 자를 기준이 없어 전체가 나온다.
+     * 그 판정은 호출자가 한다.
+     */
+    @Query("""
+            SELECT i FROM UserToTeamRecommendationItem i
+             WHERE i.log.id = :logId
+               AND (i.log.shownCount IS NULL OR i.rankNo <= i.log.shownCount)
+             ORDER BY i.rankNo ASC
+            """)
+    List<UserToTeamRecommendationItem> findShownItems(@Param("logId") Long logId);
 }

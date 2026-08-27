@@ -3,6 +3,7 @@ package com.example.mateon.teams.service;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.matching.domain.TeamToUserRecommendationItem;
+import com.example.mateon.matching.event.CandidateSelectedEvent;
 import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
 import com.example.mateon.notification.domain.Notification;
 import com.example.mateon.notification.service.NotificationService;
@@ -19,6 +20,7 @@ import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +57,7 @@ public class TeamOfferService {
     private final TeamToUserRecommendationLogRepository recommendationLogRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ── 팀장: 제안 발송 / 조회 / 취소 ────────────────────────────────────────
     /**
@@ -100,6 +103,12 @@ public class TeamOfferService {
             // 위 중복 검사와 INSERT 사이에 같은 제안이 들어온 경우. uq_team_offers_pair 가 막아 준다.
             throw new MateonException(ErrorCode.DUPLICATE_RESOURCE);
         }
+
+        // 추천 목록에서 고른 유저였다면 그 선택을 AI 에 피드백한다 (커밋 뒤 별도 스레드).
+        // 위에서 이미 findLatestItem 으로 추천 이력을 봤지만 그 결과를 넘기지는 않는다 —
+        // 수신 측은 선택된 한 건이 아니라 그때 노출된 목록 전체를 다시 읽어야 한다.
+        eventPublisher.publishEvent(CandidateSelectedEvent.teamToUser(
+          teamId, targetUserId, offer.getId()));
 
         notificationService.send(targetUser, "팀 제안 도착",
           String.format("[%s] 팀에서 함께하자는 제안이 왔습니다.", team.getTitle()),

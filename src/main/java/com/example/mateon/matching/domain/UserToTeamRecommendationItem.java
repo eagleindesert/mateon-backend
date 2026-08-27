@@ -46,6 +46,31 @@ public class UserToTeamRecommendationItem {
     private String label;
 
     /**
+     * 추천 시점의 컴포넌트별 점수 (AI 응답의 component_scores). <b>원문 JSON 문자열 그대로</b>다.
+     *
+     * <p>
+     * 파싱해서 담지 않는 이유는 명세가 "값을 재계산하거나 이름을 바꾸지 않고 선택 시점까지
+     * 보관"을 요구하기 때문이다. 선택 이벤트로 되보낼 때도 이 문자열을 그대로 본문에 박으므로
+     * 키 이름·순서·값이 왕복 과정에서 한 글자도 바뀌지 않는다.
+     *
+     * <p>
+     * AI 가 component_scores 를 안 준 응답이면 null 이다 (추천 자체는 유효하다).
+     */
+    @Column(name = "component_scores", columnDefinition = "text")
+    private String componentScores;
+
+    /**
+     * 이 후보를 실제로 골라 지원을 보낸 시각. null 이면 <b>목록에 뜨기만 했다</b>는 뜻이다.
+     *
+     * <p>
+     * AI 로 보내는 값은 아니다 — 명세의 shown_candidates 에는 이 필드가 없고 선택된 후보는
+     * 최상위 selected_candidate_id 로 식별된다. 우리 쪽 분석용이자, 선택 이벤트 전송이
+     * 실패했을 때 "무엇이 선택됐었는지"가 남는 자리다.
+     */
+    @Column(name = "selected_at")
+    private LocalDateTime selectedAt;
+
+    /**
      * AI 가 만든 추천 상세 이유 (POST /recommendations/reason). 사용자가 카드를 선택한 시점에
      * 채워지는 lazy 값이라, null 은 "이유가 없다"가 아니라 <b>"아직 만든 적 없다"</b>는 뜻이다.
      *
@@ -60,12 +85,13 @@ public class UserToTeamRecommendationItem {
     private LocalDateTime createdAt;
 
     UserToTeamRecommendationItem(UserToTeamRecommendationLog log, Long teamId,
-      int rankNo, double score, String label) {
+      int rankNo, double score, String label, String componentScores) {
         this.log = log;
         this.teamId = teamId;
         this.rankNo = rankNo;
         this.score = score;
         this.label = label;
+        this.componentScores = componentScores;
     }
 
     @PrePersist

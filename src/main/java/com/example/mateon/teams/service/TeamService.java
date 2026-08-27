@@ -4,6 +4,7 @@ import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.matching.event.CandidateSelectedEvent;
 import com.example.mateon.notification.domain.Notification;
 import com.example.mateon.notification.service.NotificationService;
 import com.example.mateon.teams.domain.ApplicationStatus;
@@ -273,6 +274,15 @@ public class TeamService {
           .build();
 
         applicationRepository.save(application);
+
+        // 추천 목록에서 고른 팀이었다면 그 선택을 AI 에 피드백한다 (커밋 뒤 별도 스레드).
+        // 추천을 거치지 않은 지원이면 수신 측이 이력을 못 찾아 조용히 끝나므로 여기서는
+        // 구분하지 않는다 — teams 도메인은 추천 로그를 알 이유가 없다.
+        //
+        // id 는 save() 반환값이 아니라 넘긴 인스턴스에서 읽는다 (IDENTITY 라 persist 시점에
+        // 바로 채워진다). TeamOfferService.createOffer 도 같은 방식이다.
+        eventPublisher.publishEvent(CandidateSelectedEvent.userToTeam(
+          applicant.getId(), teamId, application.getId()));
 
         // 팀장에게 알림. 역제안 발송(TeamOfferService.createOffer)의 반대 방향이다.
         // 팀장 계정이 사라진 팀이어도 지원 자체는 성립해야 하므로, 없으면 조용히 건너뛴다
