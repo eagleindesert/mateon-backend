@@ -1,4 +1,4 @@
-# 코드 포맷
+# .java 코드 포맷
 
 VSCode `Oracle.oracle-java` 포맷터 설정(`indent-shift-width: 4`,
 `continuationIndentSize: 2`)에 맞춘다. 저장 시 Format Document 가 도는 프로젝트라,
@@ -8,8 +8,8 @@ VSCode `Oracle.oracle-java` 포맷터 설정(`indent-shift-width: 4`,
 
 - 블록 들여쓰기는 스페이스 4칸. 탭 금지.
 - **줄이 넘쳐 이어질 때(continuation)는 문장 시작 줄 기준 2칸만 더 들여쓴다.** 8칸이 아니다.
-    - 메서드 체이닝, 대입문 우변 줄바꿈, 인자 목록 줄바꿈 모두 +2칸
-    - 이어지는 줄 사이에 낀 `//` 주석도 같은 +2칸에 맞춘다
+  - 메서드 체이닝, 대입문 우변 줄바꿈, 인자 목록 줄바꿈 모두 +2칸
+  - 이어지는 줄 사이에 낀 `//` 주석도 같은 +2칸에 맞춘다
 - 메서드 파라미터가 한 줄에 안 들어가면 파라미터마다 한 줄씩 +2칸,
   닫는 `) {` 는 메서드 선언과 같은 열에 둔다.
 
@@ -43,9 +43,3 @@ public ResponseEntity<BaseResponse<BookmarkToggleResponseDTO>> addBookmark(
       .body(BaseResponse.success(message, new BookmarkToggleResponseDTO(eventId, true)));
 }
 ```
-
-## 기존 파일
-
-기존 파일을 고칠 때는 그 파일이 이미 쓰는 스타일을 따른다.
-아직 포맷터를 거치지 않은 파일 다수는 연속 들여쓰기가 8칸인데,
-포맷만을 위해 일괄 수정하지 않는다.
