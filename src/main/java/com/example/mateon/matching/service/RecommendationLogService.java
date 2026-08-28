@@ -33,6 +33,13 @@ public class RecommendationLogService {
     private final TeamToUserRecommendationLogRepository teamToUserLogRepository;
 
     /**
+     * 유저→팀 추천 결과 기록.
+     *
+     * <p>
+     * AI 가 점수를 매긴 전체 결과를 순위대로 저장한다. 프론트에 내려간 상위 {@code shownCount}건은
+     * 나중에 사용자가 팀에 지원할 때 선택 피드백({@code POST /selection-events})을 전송하기 위한
+     * 기준 범위로 사용된다.
+     *
      * @param shownCount 프론트에 실제로 내려간 상위 건수 (선택 피드백이 이 값으로 자른다).
      * @param ranked 점수 내림차순으로 이미 정렬된 결과.
      */
