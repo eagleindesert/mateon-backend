@@ -10,6 +10,7 @@
 #   POST /proposals/team-to-user           (최종 역제안 조립 - 제안 문구 초안)
 #   POST /contests/extract-image           (포스터 이미지에서 공모전 정보 추출, multipart)
 #   POST /portfolios/summarize             (포트폴리오 PDF 요약, multipart)
+#   GET  /__stub                           (신원 확인 - LiveTest 가 실서버 오조준을 막는 데 쓴다)
 #
 # 실제 FastAPI 를 띄울 수 없는 상황에서 백엔드 연동을 검증하기 위한 도구다.
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
@@ -166,6 +167,19 @@ try {
         $path = $request.Url.AbsolutePath
         Write-Host ("-" * 70) -ForegroundColor DarkGray
         Write-Host ("[{0}] {1} {2}" -f (Get-Date -Format "HH:mm:ss"), $request.HttpMethod, $path) -ForegroundColor Cyan
+
+        # --- GET /__stub (신원 확인) ---
+        # LiveTest 가 "지금 붙은 게 정말 이 스텁인가"를 확인하는 자리다. 실수로 실서버 주소를
+        # AI_STUB_BASE_URL 에 넣어도 이 응답이 안 오므로 테스트가 호출을 시작하지 않는다.
+        # 아래 knownPaths 검사보다 앞에 둬야 한다 - POST 가 아니면 거기서 404 로 떨어진다.
+        if ($request.HttpMethod -eq "GET" -and $path -eq "/__stub") {
+            Write-Host "  -> 200 (신원 확인 - LiveTest 가 붙었다)" -ForegroundColor Green
+            Write-Json -Response $response -Object ([ordered]@{
+                stub = "mateon-ai-stub"
+                embedding_dimension = $EmbeddingDimension
+            })
+            continue
+        }
 
         $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh",
                         "/recommendations/user-to-team", "/recommendations/team-to-user",

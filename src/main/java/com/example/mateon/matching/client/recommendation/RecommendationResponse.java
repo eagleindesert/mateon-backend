@@ -2,9 +2,9 @@ package com.example.mateon.matching.client.recommendation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Getter;
 import lombok.Setter;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 
@@ -56,6 +56,19 @@ public class RecommendationResponse {
          * <p>
          * 저장도 이 노드의 문자열 표현 그대로 한다 — 명세가 요구하는 "값을 재계산하거나 이름을
          * 바꾸지 않고 보관"이 그래야 지켜진다.
+         *
+         * <p>
+         * <b>{@code tools.jackson}(Jackson 3) 의 JsonNode 여야 한다.</b> 이 프로젝트는 Jackson 2 와
+         * 3 이 함께 클래스패스에 있는데, {@code aiRestTemplate} 에서 실제로 이기는 컨버터는
+         * Jackson 3 이다. 여기에 {@code com.fasterxml.jackson.databind.JsonNode}(Jackson 2)를 쓰면
+         * Jackson 3 이 그 클래스를 노드가 아닌 평범한 추상 클래스로 보고
+         * "Type definition error" 로 실패하는데, 그 실패가 <b>추천 응답 전체</b>를 무너뜨린다 —
+         * 위 문단이 막으려던 바로 그 사고가 타입 선택으로 일어난다.
+         *
+         * <p>
+         * 애노테이션과 사정이 다르다는 점에 주의. {@code @JsonProperty} 는 jackson-annotations
+         * 한 벌을 양쪽이 공유해서 어느 컨버터가 이기든 동작하지만, JsonNode 는 공유 타입이
+         * 없어 한쪽을 골라야 한다. {@code RecommendationLogService} 의 import 도 같이 맞춘다.
          */
         @JsonProperty("component_scores")
         private JsonNode componentScores;

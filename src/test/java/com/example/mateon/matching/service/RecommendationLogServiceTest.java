@@ -6,13 +6,13 @@ import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import com.example.mateon.matching.domain.UserToTeamRecommendationLog;
 import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
 import com.example.mateon.matching.repository.UserToTeamRecommendationLogRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -283,14 +283,14 @@ class RecommendationLogServiceTest {
     /**
      * AI 응답을 흉내 내려면 JsonNode 로 넣어야 한다 — 문자열을 직접 세팅하면 실제 역직렬화
      * 경로를 건너뛰어 "원문 그대로인가"를 검증하지 못한다.
+     *
+     * <p>
+     * 매퍼는 Jackson 3 이어야 한다. {@code aiRestTemplate} 에서 이기는 컨버터가 Jackson 3 이라
+     * 운영에서 이 필드에 들어오는 노드도 Jackson 3 의 것이다 (RecommendationResponse 주석 참고).
      */
     private Recommendation withComponentScores(Long candidateId, Double score, String rawJson) {
         Recommendation recommendation = item(candidateId, score);
-        try {
-            recommendation.setComponentScores(new ObjectMapper().readTree(rawJson));
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        recommendation.setComponentScores(new ObjectMapper().readTree(rawJson));
         return recommendation;
     }
 

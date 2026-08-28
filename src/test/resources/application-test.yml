@@ -13,6 +13,21 @@ spring:
 cors:
   allowed-origins: "http://localhost:3000"
 
+# AI 서버 설정. 두 값 다 여기 있어야 한다.
+#
+# internal-secret: application.yml 은 기본값 없는 ${AI_INTERNAL_SECRET} 이고
+#   AiServerProperties.validateInternalSecret() 이 @PostConstruct 로 부팅을 막는다.
+#   여기서 주지 않으면 통합 테스트가 개발자 셸의 환경변수에 의존하게 되어,
+#   그 값이 없는 기계에서는 컨텍스트 기동부터 실패한다. 인증에 쓰이는 값이 아니다.
+#
+# base-url: 일부러 닿지 않는 주소다. 통합 테스트가 AI 를 부르는 건 그 자체로 사고인데,
+#   여기가 비어 있으면 application.yml 기본값(localhost:8000)을 집어 로컬에 떠 있는
+#   진짜 서버로 나갈 수 있다. LiveTest 는 이 빈을 쓰지 않고 AiStubSupport 로
+#   스텁을 향한 클라이언트를 따로 만들므로 영향받지 않는다.
+ai:
+  base-url: "http://ai.invalid"
+  internal-secret: "test-secret"
+
 # 평평한 키로 적는 이유는 프로필 파일들과 같다 (Boot 예약 프로퍼티 debug 와 자리가 겹친다).
 debug.oauth.enabled: false
 

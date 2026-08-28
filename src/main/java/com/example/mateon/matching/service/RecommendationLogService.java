@@ -6,11 +6,11 @@ import com.example.mateon.matching.domain.TeamToUserRecommendationLog;
 import com.example.mateon.matching.domain.UserToTeamRecommendationLog;
 import com.example.mateon.matching.repository.TeamToUserRecommendationLogRepository;
 import com.example.mateon.matching.repository.UserToTeamRecommendationLogRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
 import java.util.List;
