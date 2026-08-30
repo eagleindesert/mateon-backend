@@ -40,6 +40,7 @@
 | `03_00_user.ps1` | User `/api/users` | **필요** |
 | `04_00_event_init.ps1` | Event 데이터 준비 — 활동 3건 등록(POST `/api/events`), id 를 `.event-ids.json` 에 저장 | **필요** |
 | `04_01_event.ps1` | Event 조회 `/api/events` (검색·분야 필터·추천). `.event-ids.json` 이 있으면 등록분 포함/제외까지 검증 | 일부 필요 |
+| `20_contest_similarity_map.ps1` | 공모전 유사도 지도 `GET /api/events/{id}/similarity-map` — 등록 후 비동기 임베딩을 폴링해 좌표 응답을 검증 | **필요**(등록) / 조회는 비로그인 가능 |
 | `05_team.ps1` | Team `/api/teams` | **필요** |
 | `06_notification.ps1` | Notification `/api/notifications` | **필요** |
 | `auth/07_school_auth.ps1` | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify) | **필요** |

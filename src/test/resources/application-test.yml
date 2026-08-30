@@ -27,6 +27,7 @@ cors:
 ai:
   base-url: "http://ai.invalid"
   internal-secret: "test-secret"
+  event-embedding-backfill-enabled: false
 
 # 평평한 키로 적는 이유는 프로필 파일들과 같다 (Boot 예약 프로퍼티 debug 와 자리가 겹친다).
 debug.oauth.enabled: false

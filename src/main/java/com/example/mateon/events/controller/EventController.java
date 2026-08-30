@@ -3,6 +3,7 @@ package com.example.mateon.events.controller;
 import com.example.mateon.common.dto.BaseResponse;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.events.dto.ContestSimilarityMapResponseDTO;
 import com.example.mateon.events.dto.EventExtractionResponseDTO;
 import com.example.mateon.events.dto.EventRequestDTO;
 import com.example.mateon.events.dto.EventResponseDTO;
@@ -10,6 +11,7 @@ import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
 import com.example.mateon.events.service.EventExtractionService;
 import com.example.mateon.events.service.EventService;
+import com.example.mateon.events.service.EventSimilarityMapService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,7 +42,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Slf4j
-@Tag(name = "활동/공모전", description = "활동 등록·검색·추천. 포스터 이미지에서 AI 로 정보를 추출한다")
+@Tag(name = "활동/공모전", description = "활동 등록·검색·추천·유사도 지도. 포스터 이미지에서 AI 로 정보를 추출한다")
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
@@ -53,6 +56,7 @@ public class EventController {
 
     private final EventService eventService;
     private final EventExtractionService eventExtractionService;
+    private final EventSimilarityMapService eventSimilarityMapService;
 
     /**
      * 활동(공모전 등) 등록 [인증 필수]
@@ -246,6 +250,46 @@ public class EventController {
       Authentication authentication
     ) {
         return BaseResponse.success(eventService.findAllRandomly(size, currentUserId(authentication)));
+    }
+
+    /**
+     * 기준 활동과 다른 활동들의 유사도·방사형 그래프 좌표.
+     *
+     * <p>
+     * 비로그인도 그대로 쓸 수 있다(permitAll). 임베딩은 등록 커밋 후 비동기로 채워지므로,
+     * 방금 올린 활동을 바로 물으면 400 EVENT_EMBEDDING_NOT_READY 가 난다.
+     */
+    @Operation(summary = "공모전 유사도 지도",
+      description = """
+                    기준 활동과 임베딩이 있는 다른 활동들의 코사인 유사도·방사형 좌표를 내려준다.
+
+                    `radius` 와 `x`/`y` 는 이번 후보군 안의 **상대 순위**다. 서로 다른 요청의 점
+                    간 거리를 비교하면 안 된다. 색과 UI 는 `similarity` 또는 `rankPercentile` 로
+                    결정하면 된다.
+
+                    등록 직후처럼 기준 활동 임베딩이 아직이면 400 `EVENT_EMBEDDING_NOT_READY`.
+                    잠시 후 다시 호출하면 된다. 후보가 없으면 200 에 `points` 가 빈 배열이다.
+
+                    비로그인도 그대로 쓸 수 있다.""")
+    @ApiResponse(responseCode = "200", description = "기준 공모전과 유사도 순 후보 좌표")
+    @ApiResponse(responseCode = "400",
+      description = "EVENT_EMBEDDING_NOT_READY — 공모전 정보 분석이 아직 완료되지 않았습니다.")
+    @ApiResponse(responseCode = "404",
+      description = "EVENT_NOT_FOUND — 활동을 찾을 수 없습니다.")
+    @ApiResponse(responseCode = "502",
+      description = "AI_SERVER_ERROR — AI 서버 응답 처리에 실패했습니다.")
+    @ApiResponse(responseCode = "503",
+      description = "AI_SERVER_UNAVAILABLE — AI 서버에 연결할 수 없습니다.")
+    @Parameter(name = "eventId", description = "그래프 중심이 되는 기준 활동 ID")
+    @Parameter(name = "topN",
+      description = "반환할 최대 후보 수. 기본 500, 최소 1, 최대 500. 1 미만은 1 로, 500 초과는 500 으로 자른다.")
+    @SecurityRequirement(name = "")
+    @GetMapping("/{eventId}/similarity-map")
+    public BaseResponse<ContestSimilarityMapResponseDTO> similarityMap(
+      @PathVariable Long eventId,
+      @RequestParam(defaultValue = "500") int topN
+    ) {
+        return BaseResponse.success(eventSimilarityMapService.map(eventId, topN));
     }
 
     /**

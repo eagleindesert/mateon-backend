@@ -13,8 +13,9 @@ import java.time.Duration;
  * 별도 FastAPI AI 서버 설정. (common/config/JwtProperties 와 같은 형태)
  *
  * 처음엔 matching 도메인 전용이라 matching/config/ 에 뒀지만, 지금은 teams(팀 임베딩 갱신),
- * events(포스터 이미지 추출), portfolios(PDF 요약)가 모두 AI 서버를 호출한다. 특정 도메인의
- * 설정이 아니므로 {@link AiCallTemplate}·{@link AiRestTemplateConfig} 와 함께 common/ai 로 옮겼다.
+ * events(포스터 이미지 추출·공모전 임베딩·유사도 지도), portfolios(PDF 요약)가 모두 AI 서버를
+ * 호출한다. 특정 도메인의 설정이 아니므로 {@link AiCallTemplate}·{@link AiRestTemplateConfig} 와
+ * 함께 common/ai 로 옮겼다.
  */
 @Getter
 @Setter
@@ -49,7 +50,8 @@ public class AiServerProperties {
     private Duration sessionTtl = Duration.ofHours(24);
 
     /**
-     * 임베딩 차원. user_embeddings/team_embeddings 의 embedding 이 vector(1536) 이므로 반드시 일치해야 한다.
+     * 임베딩 차원. user_embeddings/team_embeddings/event_embeddings 의 embedding 이
+     * vector(1536) 이므로 반드시 일치해야 한다.
      */
     private int embeddingDimension = 1536;
 

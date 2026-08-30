@@ -63,6 +63,10 @@ public enum ErrorCode {
     // 질의 벡터로 쓸 수 없다. "없다"가 아니라 "아직 준비가 안 됐다"라 404 가 아닌 400 이다
     // (MATCHING_INTENT_REQUIRED 와 같은 성격).
     TEAM_EMBEDDING_NOT_READY("팀 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
+    // 공모전 임베딩은 등록 커밋 후 비동기로 계산된다. 아직이거나 실패한 상태에서는
+    // 유사도 지도의 질의 벡터로 쓸 수 없다. "없다"가 아니라 "아직 준비가 안 됐다"라
+    // 404 가 아닌 400 이다 (TEAM_EMBEDDING_NOT_READY 와 같은 성격).
+    EVENT_EMBEDDING_NOT_READY("공모전 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요."),
     TEAM_RECRUITMENT_CLOSED("모집이 마감되었거나 종료된 팀입니다."),
     OFFER_ALREADY_RESPONDED("이미 처리된 제안입니다."),
     // 지원서 쪽의 짝. 승인/거절은 한 번뿐이다 — 승인된 지원서를 거절로 되돌리면 지원서 상태만

@@ -6,6 +6,8 @@
 |---|---|
 | `POST /intents/extract` | 매칭 의도 추출 (`/api/matching/intents/**` 연동 검증) |
 | `POST /internal/teams/embedding:refresh` | 팀 임베딩 계산 (팀 생성/수정 시 비동기 호출 검증) |
+| `POST /internal/contests/embedding:refresh` | 공모전 임베딩 계산 (활동 등록 시 비동기 호출 검증) |
+| `POST /contests/similarity-map` | 공모전 유사도 지도 (기준+후보 벡터로 좌표 계산) |
 | `POST /recommendations/user-to-team` | 유저→팀 추천 점수 계산 |
 | `POST /recommendations/team-to-user` | 팀→유저 역제안 추천 점수 계산 |
 | `POST /recommendations/reason` | 선택된 한 쌍의 상세 이유 |
@@ -28,6 +30,7 @@
 - (intents) `id` 가 1 부터 연속 증가하는가 (백엔드가 DB 의 `seq` 대신 재채번하는지)
 - (intents) USER 발화만 들어있는가 (`assistant_message` 가 섞이지 않았는지), 호출할 때마다 누적되는가
 - (teams) `intro_text`/`recruiting_roles`/`required_skills`/`contest_field` 가 제대로 실려 오는가
+- (contests) `event_id`/`title`/`description` 이 실려 오는가, 유사도 지도에 후보마다 `embedding_vector` 가 붙는가
 - (recommendations) `query_metadata` 가 실려 오는가, 후보마다 1536 차원 벡터와 정규화 메타데이터가
   붙어 오는가, 제외 대상(내 팀/지원한 팀)이 빠졌는가
 - (selection-events) `component_scores` 가 추천 응답에서 준 것과 **키·값까지 똑같이** 돌아오는가.

@@ -26,4 +26,17 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     // (RANDOM() 은 호출마다 재정렬되므로 offset 페이징은 의미가 없다 — LIMIT 로 표본만 자른다.)
     @Query(value = "SELECT * FROM events ORDER BY RANDOM() LIMIT :size", nativeQuery = true)
     List<Event> findAllRandomly(@Param("size") int size);
+
+    /**
+     * 임베딩이 아직 없는 활동. 행 자체가 없거나 embedding 이 NULL 이면 대상이다.
+     * 백필 스케줄러가 한 틱에 처리할 상한만 가져온다.
+     */
+    @Query(value = """
+      SELECT e.id FROM events e
+      LEFT JOIN event_embeddings emb ON emb.event_id = e.id
+      WHERE emb.event_id IS NULL OR emb.embedding IS NULL
+      ORDER BY e.id
+      LIMIT :limit
+      """, nativeQuery = true)
+    List<Long> findIdsNeedingEmbedding(@Param("limit") int limit);
 }

@@ -9,11 +9,13 @@ import com.example.mateon.events.dto.EventResponseDTO;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.models.Event.Category;
 import com.example.mateon.events.models.Event.Field;
+import com.example.mateon.events.event.EventEmbeddingRefreshRequestedEvent;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.events.repository.EventSearchSpecs;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -51,17 +53,23 @@ public class EventService {
     private final EventMatchingService eventMatchingService;
     private final UserRepository userRepository;
     private final EventBookmarkRepository bookmarkRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 활동(공모전 등) 등록.
      * 중복 검사는 하지 않는다 — external_id 의 UNIQUE 제약을 V18 에서 해제했고,
      * 같은 활동을 두 번 올리는 것은 등록자가 판단할 문제다.
-     * embeddingVector 는 채우지 않는다. 추천 점수(EventMatchingService)는 키워드/전공/캠퍼스
-     * 문자열 매칭만 쓰므로 비어 있어도 정상 동작한다.
+     *
+     * <p>
+     * 등록 응답은 임베딩을 기다리지 않는다. 커밋 후 비동기로
+     * {@link EventEmbeddingRefreshRequestedEvent} 가 FastAPI 를 호출해 event_embeddings 에
+     * 저장한다. {@code events.embedding_vector}(text) 는 예전부터 비어 있고 계속 비운다.
      */
     @Transactional
     public EventResponseDTO createEvent(EventRequestDTO request) {
-        return new EventResponseDTO(eventRepository.save(request.toEntity()));
+        Event saved = eventRepository.save(request.toEntity());
+        eventPublisher.publishEvent(new EventEmbeddingRefreshRequestedEvent(saved.getId()));
+        return new EventResponseDTO(saved);
     }
 
     /**

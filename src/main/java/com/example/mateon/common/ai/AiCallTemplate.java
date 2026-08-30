@@ -26,8 +26,8 @@ import org.springframework.web.client.RestTemplate;
  * 사고가 난다.
  *
  * <p>
- * 지금은 matching 외에 events(포스터 이미지 추출)·portfolios(PDF 요약)·teams(임베딩 갱신)도
- * 이 한 벌을 쓴다. 특정 도메인 소유가 아니라서 common 에 둔다.
+ * 지금은 matching 외에 events(포스터 이미지 추출·공모전 임베딩·유사도 지도)·portfolios(PDF
+ * 요약)·teams(임베딩 갱신)도 이 한 벌을 쓴다. 특정 도메인 소유가 아니라서 common 에 둔다.
  *
  * <p>
  * 여기서 보는 건 "본문이 왔는가"까지다. 스키마별 필수 필드 검증은 각 클라이언트가 한다

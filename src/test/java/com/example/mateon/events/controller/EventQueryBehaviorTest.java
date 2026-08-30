@@ -19,6 +19,7 @@ import org.mockito.ArgumentMatchers;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
@@ -74,10 +75,11 @@ class EventQueryBehaviorTest {
         bookmarkRepository = mock(EventBookmarkRepository.class);
 
         EventService eventService
-          = new EventService(eventRepository, matchingService, userRepository, bookmarkRepository);
+          = new EventService(eventRepository, matchingService, userRepository, bookmarkRepository,
+            mock(ApplicationEventPublisher.class));
         mockMvc = MockMvcBuilders
-          // 이미지 추출은 조회 동작과 무관하다 (이 테스트는 /search, /recommended 만 친다).
-          .standaloneSetup(new EventController(eventService, null))
+          // 이미지 추출·유사도 지도는 조회 동작과 무관하다 (이 테스트는 /search, /recommended 만 친다).
+          .standaloneSetup(new EventController(eventService, null, null))
           .setControllerAdvice(new GlobalExceptionHandler())
           .build();
 

@@ -45,7 +45,7 @@ class EventControllerValidationTest {
     void setUp() {
         extractionService = mock(EventExtractionService.class);
         mockMvc = MockMvcBuilders
-          .standaloneSetup(new EventController(null, extractionService))
+          .standaloneSetup(new EventController(null, extractionService, null))
           .setControllerAdvice(new GlobalExceptionHandler())
           .build();
     }

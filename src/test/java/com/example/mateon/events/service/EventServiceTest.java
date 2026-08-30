@@ -3,6 +3,7 @@ package com.example.mateon.events.service;
 import com.example.mateon.bookmarks.repository.EventBookmarkRepository;
 import com.example.mateon.events.dto.EventRequestDTO;
 import com.example.mateon.events.dto.EventResponseDTO;
+import com.example.mateon.events.event.EventEmbeddingRefreshRequestedEvent;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.user.repository.UserRepository;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -58,6 +60,7 @@ class EventServiceTest {
     private EventMatchingService eventMatchingService;
     private UserRepository userRepository;
     private EventBookmarkRepository bookmarkRepository;
+    private ApplicationEventPublisher eventPublisher;
     private EventService service;
 
     @BeforeEach
@@ -66,8 +69,9 @@ class EventServiceTest {
         eventMatchingService = mock(EventMatchingService.class);
         userRepository = mock(UserRepository.class);
         bookmarkRepository = mock(EventBookmarkRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         service = new EventService(eventRepository, eventMatchingService, userRepository,
-          bookmarkRepository);
+          bookmarkRepository, eventPublisher);
     }
 
     @Nested
@@ -164,6 +168,23 @@ class EventServiceTest {
             service.createEvent(request());
 
             assertThat(capturedEvent().getEmbeddingVector()).isNull();
+        }
+
+        @Test
+        @DisplayName("커밋 후 임베딩 갱신 이벤트를 발행한다 (응답은 벡터를 기다리지 않는다)")
+        void publishesEmbeddingRefreshEvent() {
+            when(eventRepository.save(any())).thenAnswer(call -> {
+                Event event = call.getArgument(0);
+                event.setId(42L);
+                return event;
+            });
+
+            service.createEvent(request());
+
+            ArgumentCaptor<EventEmbeddingRefreshRequestedEvent> captor =
+              ArgumentCaptor.forClass(EventEmbeddingRefreshRequestedEvent.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().eventId()).isEqualTo(42L);
         }
 
         @Test

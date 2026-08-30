@@ -2,6 +2,8 @@
 # 별도 FastAPI AI 서버의 스텁. 처리하는 엔드포인트:
 #   POST /intents/extract                  (매칭 의도 추출)
 #   POST /internal/teams/embedding:refresh (팀 임베딩 계산)
+#   POST /internal/contests/embedding:refresh (공모전 임베딩 계산)
+#   POST /contests/similarity-map          (공모전 유사도 지도)
 #   POST /recommendations/user-to-team     (유저→팀 추천 점수 계산)
 #   POST /recommendations/team-to-user     (팀→유저 역제안 추천 점수 계산)
 #   POST /recommendations/reason           (선택된 한 쌍의 상세 이유)
@@ -76,6 +78,8 @@ Write-Host "    1개      -> missing_fields=['experience_level'], 임베딩 null
 Write-Host "    2개 이상 -> missing_fields=[], 임베딩 $EmbeddingDimension 개 (완료)" -ForegroundColor DarkGray
 Write-Host "  동작 (/internal/teams/embedding:refresh): 항상 임베딩 + metadata 반환" -ForegroundColor DarkGray
 Write-Host "    (missing_fields=['activity_intensity'] — 스펙상 미추출 항목이 있어도 벡터는 온다)" -ForegroundColor DarkGray
+Write-Host "  동작 (/internal/contests/embedding:refresh): event_id echo + 임베딩 $EmbeddingDimension 개" -ForegroundColor DarkGray
+Write-Host "  동작 (/contests/similarity-map): 후보마다 좌표를 돌려준다. 빈 후보면 points=[]" -ForegroundColor DarkGray
 Write-Host "  동작 (/recommendations/user-to-team): 역할 일치 여부로 점수 분기" -ForegroundColor DarkGray
 Write-Host "    desired_roles 와 recruiting_roles 가 겹치면 0.9x, 아니면 0.1x + label 생성" -ForegroundColor DarkGray
 Write-Host "    (일부러 점수 오름차순으로 돌려준다 — 백엔드가 내림차순 정렬하는지 확인용)" -ForegroundColor DarkGray
@@ -182,6 +186,8 @@ try {
         }
 
         $knownPaths = @("/intents/extract", "/internal/teams/embedding:refresh",
+                        "/internal/contests/embedding:refresh",
+                        "/contests/similarity-map",
                         "/recommendations/user-to-team", "/recommendations/team-to-user",
                         "/recommendations/reason",
                         "/selection-events",
@@ -351,6 +357,117 @@ try {
                 }
             }
             Write-Host "  -> 200 (missing_fields=['activity_intensity'], 임베딩 $EmbeddingDimension 개)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /internal/contests/embedding:refresh (공모전 임베딩 계산) ---
+        if ($path -eq "/internal/contests/embedding:refresh") {
+            Write-Host "  받은 요청:" -ForegroundColor White
+            Write-Host ("    event_id    = {0}" -f $body.event_id) -ForegroundColor Gray
+            Write-Host ("    title       = {0}" -f $body.title) -ForegroundColor Gray
+            $desc = $body.description
+            if ($null -eq $desc) {
+                Write-Host "    description = <키 없음 또는 null> - 실서버라면 422" -ForegroundColor Red
+            } else {
+                Write-Host ("    description = {0} chars" -f $desc.ToString().Length) -ForegroundColor Gray
+            }
+
+            $payload = [ordered]@{
+                event_id         = $body.event_id
+                embedding_vector = (New-StubVector -Dimension $EmbeddingDimension)
+            }
+            Write-Host "  -> 200 (event_id echo, 임베딩 $EmbeddingDimension 개)" -ForegroundColor Green
+            Write-Json -Response $response -Object $payload
+            continue
+        }
+
+        # --- POST /contests/similarity-map (공모전 유사도 지도) ---
+        if ($path -eq "/contests/similarity-map") {
+            $query = $body.query
+            $candidates = @($body.candidates)
+            if ($null -eq $body.candidates) { $candidates = @() }
+
+            Write-Host ("  query.id={0} title={1} field={2} vector={3}차원 top_n={4}" -f `
+              $query.id, $query.title, $query.field, @($query.embedding_vector).Count, $body.top_n) -ForegroundColor Gray
+            Write-Host ("  후보 {0}개" -f $candidates.Count) -ForegroundColor White
+
+            function Field-Label {
+                param($Field)
+                if ($null -eq $Field -or $Field -eq "") { return $null }
+                switch ($Field) {
+                    "EDUCATION" { return "교육" }
+                    "PLANNING_IDEA" { return "기획/아이디어" }
+                    default { return $Field }
+                }
+            }
+
+            $queryOut = [ordered]@{
+                id          = $query.id
+                title       = $query.title
+                organizer   = $query.organizer
+                category    = $query.category
+                field       = $query.field
+                field_label = (Field-Label $query.field)
+                detail_url  = $query.detail_url
+            }
+
+            if ($candidates.Count -eq 0) {
+                $payload = [ordered]@{
+                    query                 = $queryOut
+                    points                = @()
+                    max_radius            = 12.0
+                    min_radius            = 2.6
+                    radial_jitter         = 0.5
+                    reference_rings       = @()
+                    candidate_pool_total  = 0
+                }
+                Write-Host "  -> 200 (빈 후보)" -ForegroundColor Green
+                Write-Json -Response $response -Object $payload
+                continue
+            }
+
+            $points = [System.Collections.Generic.List[object]]::new()
+            $i = 0
+            $n = $candidates.Count
+            foreach ($c in $candidates) {
+                $pct = if ($n -le 1) { 0.0 } else { [Math]::Round($i / ($n - 1), 4) }
+                $radius = [Math]::Round(2.6 + $pct * (12.0 - 2.6), 3)
+                [void]$points.Add([ordered]@{
+                    id              = $c.id
+                    title           = $c.title
+                    organizer       = $c.organizer
+                    category        = $c.category
+                    field           = $c.field
+                    field_label     = (Field-Label $c.field)
+                    detail_url      = $c.detail_url
+                    similarity      = [Math]::Round(0.9 - ($i * 0.05), 3)
+                    rank_percentile = $pct
+                    radius          = $radius
+                    x               = [Math]::Round(-$radius, 3)
+                    y               = [Math]::Round(0.025 * ($i + 1), 3)
+                })
+                $i++
+            }
+            $pointList = @($points)
+
+            $rings = @(
+                [ordered]@{ percentile = 0.1; similarity_at_percentile = $pointList[0].similarity; radius = 3.54 },
+                [ordered]@{ percentile = 0.3; similarity_at_percentile = $pointList[0].similarity; radius = 5.42 },
+                [ordered]@{ percentile = 0.6; similarity_at_percentile = $pointList[0].similarity; radius = 8.24 },
+                [ordered]@{ percentile = 0.9; similarity_at_percentile = $pointList[0].similarity; radius = 11.06 }
+            )
+
+            $payload = [ordered]@{
+                query                 = $queryOut
+                points                = $pointList
+                max_radius            = 12.0
+                min_radius            = 2.6
+                radial_jitter         = 0.5
+                reference_rings       = $rings
+                candidate_pool_total  = $candidates.Count
+            }
+            Write-Host "  -> 200 (points=$($points.Count))" -ForegroundColor Green
             Write-Json -Response $response -Object $payload
             continue
         }

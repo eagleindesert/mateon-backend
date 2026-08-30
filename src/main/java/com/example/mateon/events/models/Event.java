@@ -80,6 +80,11 @@ public class Event {
     @Column(name = "external_id", length = 100)
     private String externalId; // varchar(100)
 
+    /**
+     * 미사용. 예전 text 컬럼이며 한 번도 채우지 않는다. 실제 1,536차원 벡터는
+     * {@code event_embeddings} 테이블(V33)에 저장한다. 목록/검색이 Event 를 통째로 읽기
+     * 때문에 여기 두면 검색마다 벡터가 따라온다.
+     */
     @Column(name = "embedding_vector", columnDefinition = "text")
     private String embeddingVector;
 
