@@ -1,0 +1,5 @@
+[permission]
+deny = [
+  "Read(**/.env.secret)",
+  "Edit(**/.env.secret)",
+]
