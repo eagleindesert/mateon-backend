@@ -13,7 +13,9 @@
 #        15_review          1회  (팀 생성 1 -> 비동기 임베딩 갱신)
 #        16_recommendation_reason 8회 (팀 1 + 의도 4 + 점수화 2 + 이유 2, 캐시 hit 는 제외)
 #        17_proposal_assembly    10회 (팀 1 + 의도 4 + 점수화 2 + 조립 3)
-#      -> 1회 전체 실행에 대략 46회 안팎. 반복 실행하면 그만큼 누적됩니다.
+#        20_contest_similarity_map 4회 안팎 (등록 3 임베딩 + 지도 1.
+#          폴링 중 DB 에 다른 후보가 있으면 조회마다 유사도 계산이 나간다)
+#      -> 1회 전체 실행에 대략 50회 안팎. 반복 실행하면 그만큼 누적됩니다.
 #         (PDF 요약은 페이지마다 이미지를 렌더링해 한 번에 보내므로 1회가 이미지 1장보다 비쌉니다.)
 #
 #      과금 없이 돌리려면 백엔드가 로컬 스텁을 보게 하세요:
@@ -48,7 +50,7 @@ Reset-TestResults
 
 # 과금 경고는 파일 상단 주석만으로는 놓치기 쉬워 실행 시에도 보여준다.
 Write-Host ""
-Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 46회 호출합니다 (과금 발생)." -ForegroundColor Yellow
+Write-Host "  [!] 이 실행은 실제 LLM/임베딩을 대략 50회 호출합니다 (과금 발생)." -ForegroundColor Yellow
 Write-Host "      과금을 피하려면 백엔드 AI_BASE_URL 을 로컬 스텁으로 돌려두세요 - 파일 상단 주석 참고." -ForegroundColor DarkGray
 Write-Host ""
 
@@ -103,6 +105,12 @@ Write-Host "`n===== 18) Bookmark (활동 북마크) =====" -ForegroundColor Mage
 # Event 계열(04) 바로 뒤에 둔다 — 04_00 이 남긴 .event-ids.json 에서 대상 활동을 고르기 때문이다.
 # LLM/임베딩 호출이 없어 상단 과금 표에 잡히지 않는다.
 & "$PSScriptRoot\18_bookmark.ps1"
+
+Write-Host "`n===== 20) Contest Similarity Map (공모전 유사도 지도) =====" -ForegroundColor Magenta
+# Event 계열 뒤에 둔다 — 활동 등록/임베딩이 전제라서다. 다만 04_00 잔존분에 의존하지 않고
+# 이 스크립트가 CONTEST 3건을 직접 등록한 뒤, 형제 2건이 points 에 들어올 때까지 폴링한다.
+# 19 번보다 앞에 두는 이유: 19.8 이 유저 A 의 매칭 작업을 덮어쓸 수 있어서, 상태 변질 전에 끝낸다.
+& "$PSScriptRoot\20_contest_similarity_map.ps1"
 
 Write-Host "`n===== 5) Team =====" -ForegroundColor Magenta
 & "$PSScriptRoot\05_team.ps1"
