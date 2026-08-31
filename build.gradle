@@ -94,6 +94,10 @@ tasks.register('fastTest', Test) {
 	group = 'verification'
 	description = 'Docker 없이 돌아가는 테스트만 실행한다 (통합 테스트 제외).'
 	useJUnitPlatform()
+	// Java 플러그인이 커스텀 Test 태스크에 기본 test 스위트를 복사하던 관례는
+	// Gradle 9 에서 사라진다. 안 적으면 테스트 0건을 조용히 건너뛴다.
+	testClassesDirs = testing.suites.test.sources.output.classesDirs
+	classpath = testing.suites.test.sources.runtimeClasspath
 	filter {
 		excludeTestsMatching '*IntegrationTest'
 		excludeTestsMatching '*LiveTest'
@@ -114,6 +118,10 @@ tasks.register('liveTest', Test) {
 	group = 'verification'
 	description = 'ai-stub 을 상대로 AI 응답 역직렬화와 DB 저장을 확인한다 (스텁+Docker 필요).'
 	useJUnitPlatform()
+	// Java 플러그인이 커스텀 Test 태스크에 기본 test 스위트를 복사하던 관례는
+	// Gradle 9 에서 사라진다. 안 적으면 테스트 0건을 조용히 건너뛴다.
+	testClassesDirs = testing.suites.test.sources.output.classesDirs
+	classpath = testing.suites.test.sources.runtimeClasspath
 	filter {
 		includeTestsMatching '*LiveTest'
 	}
