@@ -8,7 +8,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * <p>
  * 현재 사용처: 공모전 마감일이 지난 팀의 자동 종료(TeamCompletionScheduler) —
- * 팀장이 '종료' 버튼을 안 눌러도 협업 온도 평가가 열리게 하는 폴백이다.
+ * 팀장이 '종료' 버튼을 안 눌러도 협업 온도 평가가 열리게 하는 폴백이다. 공모전 임베딩이
+ * 비어 있는 활동을 메우는 EventEmbeddingBackfillScheduler 도 여기를 탄다.
  *
  * <p>
  * <b>주의: 단일 인스턴스 전제다.</b> 여러 대로 늘리면 모든 인스턴스가 같은 배치를 동시에 돌린다.

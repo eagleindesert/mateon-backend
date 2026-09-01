@@ -9,6 +9,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -17,6 +19,11 @@ import java.util.List;
  * <p>
  * 등록 경로의 @Async 는 앱이 재시작되면 큐가 사라지고, 이미 DB 에 있는 공모전은 이벤트가
  * 한 번도 안 나간다. 유사도 지도가 빈 그래프가 되지 않게 구멍을 메운다.
+ *
+ * <p>
+ * 벡터가 있는 활동은 후보가 아니다. 한 번도 성공하지 못한 행만 다시 집어 채우고, 연속 실패가
+ * 한도를 넘기면 그 행은 끝낸다. 빈 틱에서 스케줄을 끄지 않는다 — 재시작 후 큐 유실을
+ * 회수해야 하기 때문이다.
  *
  * <p>
  * 한 틱에 처리하는 건수를 묶는 이유: FastAPI 호출이 활동 수만큼 나가기 때문이다.
@@ -40,10 +47,21 @@ public class EventEmbeddingBackfillScheduler {
     @Value("${ai.event-embedding-backfill-batch-size:10}")
     private int batchSize;
 
+    @Value("${ai.event-embedding-backfill-max-failures:8}")
+    private int maxFailures;
+
+    @Value("${ai.event-embedding-backfill-retry-cooldown:10m}")
+    private Duration retryCooldown;
+
     @Scheduled(fixedDelayString = "${ai.event-embedding-backfill-delay:60s}")
     public void backfill() {
         int limit = Math.max(batchSize, 1);
-        List<Long> ids = eventRepository.findIdsNeedingEmbedding(limit);
+        int failuresCap = Math.max(maxFailures, 1);
+        Duration cooldown = retryCooldown == null || retryCooldown.isNegative()
+          ? Duration.ofMinutes(10)
+          : retryCooldown;
+        LocalDateTime retryBefore = LocalDateTime.now().minus(cooldown);
+        List<Long> ids = eventRepository.findIdsNeedingEmbedding(limit, failuresCap, retryBefore);
         if (ids.isEmpty()) {
             return;
         }

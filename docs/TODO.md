@@ -42,3 +42,11 @@
     고아 팀이 남음. 임베딩 재계산 이벤트도 존재하지 않는 팀에 대해 발행됨
   - 고칠 때: `requireSchoolVerified` 직후로 `eventRepository.findById` 를 올리기.
     `TeamServiceCrudTest.unknownEventFailsAfterSave` 가 지금 순서를 고정하고 있으므로 함께 뒤집기
+
+- [x] !!중요!! 공모전 임베딩 백필 스케줄러 종료 조건 추가
+  - 벡터가 있는 활동은 후보가 아니다 (성공이든, 성공 후 실패한 낡은 값이든). 재임베딩이 아님
+  - 행이 없거나 embedding 이 NULL 인 것만 집어 채운다
+  - 연속 실패가 `event-embedding-backfill-max-failures`(기본 8) 이상이면 그 행은 끝낸다
+  - `last_attempted_at` 이 `event-embedding-backfill-retry-cooldown`(기본 10m) 안이면 이번 틱 스킵.
+    앞 id 가 고여 뒤가 LIMIT 밖으로 밀리는 것을 막는다
+  - 빈 틱에서 스케줄을 끄지 않는다. 재시작 후 @Async 큐 유실을 회수해야 한다

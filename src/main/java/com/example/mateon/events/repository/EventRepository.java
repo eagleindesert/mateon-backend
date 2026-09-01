@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -28,15 +30,31 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     List<Event> findAllRandomly(@Param("size") int size);
 
     /**
-     * 임베딩이 아직 없는 활동. 행 자체가 없거나 embedding 이 NULL 이면 대상이다.
-     * 백필 스케줄러가 한 틱에 처리할 상한만 가져온다.
+     * 임베딩 벡터가 없는 활동만 가져온다. 한 틱에 처리할 상한만 자른다.
+     *
+     * <p>
+     * 벡터가 있으면 후보가 아니다 — 성공이든, 성공 후 실패한 낡은 값이든. 재임베딩이 아니다.
+     * 행이 없으면 아직 시도 전이라 무조건 넣는다. 행은 있는데 embedding 이 NULL 이면 한 번도
+     * 성공하지 못한 것이고, 연속 실패가 한도 미만이며 마지막 시도가 retryBefore 이전이면
+     * 다시 집어 채운다. 한도를 넘긴 행은 여기서 끝나 뒤 id 가 LIMIT 안으로 들어온다.
      */
     @Query(value = """
       SELECT e.id FROM events e
       LEFT JOIN event_embeddings emb ON emb.event_id = e.id
-      WHERE emb.event_id IS NULL OR emb.embedding IS NULL
+      WHERE (emb.event_id IS NULL OR emb.embedding IS NULL)
+        AND (
+          emb.event_id IS NULL
+          OR (
+            emb.consecutive_failures < :maxFailures
+            AND (emb.last_attempted_at IS NULL
+              OR emb.last_attempted_at < :retryBefore)
+          )
+        )
       ORDER BY e.id
       LIMIT :limit
       """, nativeQuery = true)
-    List<Long> findIdsNeedingEmbedding(@Param("limit") int limit);
+    List<Long> findIdsNeedingEmbedding(
+      @Param("limit") int limit,
+      @Param("maxFailures") int maxFailures,
+      @Param("retryBefore") LocalDateTime retryBefore);
 }

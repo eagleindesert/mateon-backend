@@ -165,9 +165,12 @@ ai:
   # 가서 터진다. 바꾸려면 마이그레이션과 함께 바꿔야 하므로 코드에 둔다.
   embedding-dimension: 1536
   # 이미 DB 에 있는 공모전·비동기 큐 유실분을 조금씩 메운다. 통합 테스트는 끈다.
+  # 벡터가 있는 행은 후보가 아니다. 한 번도 성공 못 한 행만 재시도하고, 한도를 넘기면 끝낸다.
   event-embedding-backfill-enabled: "${AI_EVENT_EMBEDDING_BACKFILL_ENABLED:true}"
   event-embedding-backfill-delay: "${AI_EVENT_EMBEDDING_BACKFILL_DELAY:60s}"
   event-embedding-backfill-batch-size: "${AI_EVENT_EMBEDDING_BACKFILL_BATCH_SIZE:10}"
+  event-embedding-backfill-max-failures: "${AI_EVENT_EMBEDDING_BACKFILL_MAX_FAILURES:8}"
+  event-embedding-backfill-retry-cooldown: "${AI_EVENT_EMBEDDING_BACKFILL_RETRY_COOLDOWN:10m}"
 
 # --- OCI Object Storage (S3 호환 API) ---
 # Customer Secret Key 방식. 엔드포인트는 S3ClientConfig 가 namespace/region 으로 조립한다.
