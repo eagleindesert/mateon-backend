@@ -67,7 +67,12 @@ public class EventController {
                     공모전·대외활동·교내 활동을 새로 올린다. 포스터 이미지가 있으면
                     `POST /api/events/extract-image` 로 초안을 받아 채운 뒤 여기로 보내면 된다.
 
-                    등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.""")
+                    등록된 활동은 팀 모집글(`POST /api/teams`)의 eventId 로 연결할 수 있다.
+
+                    201 응답 계약(`EventResponseDTO`)은 그대로다. 임베딩은 커밋 뒤 비동기로
+                    채워지므로, 방금 올린 활동으로 `GET /api/events/{eventId}/similarity-map`
+                    을 치면 400 `EVENT_EMBEDDING_NOT_READY` 가 날 수 있다. 잠시 후 다시
+                    호출하면 된다. 임베딩 실패가 등록 자체를 막지는 않는다.""")
     @PostMapping
     @ApiResponse(responseCode = "201", description = "등록된 활동. 팀 모집글의 eventId 로 연결할 수 있다.")
     public ResponseEntity<BaseResponse<EventResponseDTO>> createEvent(
