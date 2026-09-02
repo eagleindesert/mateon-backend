@@ -83,6 +83,12 @@ public class TeamEmbeddingService {
 
             TeamEmbeddingRefreshResponse ai = client.refresh(request); // TX 밖 — 최대 60초
 
+            // AI 호출 동안 팀이 지워질 수 있다. 시작 시점 조회만으로는
+            // team_embeddings insert 의 FK 위반을 막지 못한다.
+            if (skipIfTeamMissing(teamId)) {
+                return;
+            }
+
             upsert(teamId, ai, sourceUpdatedAt);
         } catch (Exception e) {
             // 실패를 행에 남긴 뒤 그대로 재던진다 — 호출부(TeamEmbeddingRefreshListener)의
@@ -218,7 +224,7 @@ public class TeamEmbeddingService {
      * mutator 는 재시도 시 다시 읽은 엔티티에 대해 재실행되므로, 엔티티 현재 값에서 파생되는
      * 변경(연속 실패 횟수 등)도 그대로 맞는다.
      *
-     * @return 저장했으면 true, 낡은 결과라 버렸으면 false
+     * @return 저장했으면 true, 낡은 결과라 버렸거나 팀이 없어 스킵했으면 false
      */
     private boolean saveIfFresh(Long teamId, LocalDateTime sourceUpdatedAt, Consumer<TeamEmbedding> mutator) {
         for (int attempt = 1;; attempt++) {
@@ -239,14 +245,31 @@ public class TeamEmbeddingService {
                 teamEmbeddingRepository.save(entity);
                 return true;
             } catch (OptimisticLockingFailureException | DataIntegrityViolationException e) {
-                // DataIntegrityViolationException 에는 "팀이 삭제된 뒤 도착한 insert"의 FK 위반도
-                // 섞여 든다. 그건 재시도해도 같은 실패라 한 번 더 시도하고 그대로 던진다 (V8 주석).
+                // DataIntegrityViolationException 에는 PK 중복(첫 갱신 경합)과
+                // "팀이 삭제된 뒤 도착한 insert"의 FK 위반이 섞여 든다.
+                // 팀이 없으면 재시도해도 FK 가 같다 — 호출부에 올리면 리스너가
+                // 삭제된 일회용 팀을 실제 장애처럼 스택으로 남긴다.
+                if (skipIfTeamMissing(teamId)) {
+                    return false;
+                }
                 if (attempt >= MAX_SAVE_ATTEMPTS) {
                     throw e;
                 }
                 log.debug("팀 임베딩 저장 충돌 — 다시 읽어 재판정: teamId={}", teamId);
             }
         }
+    }
+
+    /**
+     * 팀이 이미 없으면 임베딩을 남길 행도, 실패를 적을 행도 없다 (FK CASCADE).
+     * 호출부가 예외를 올리지 않도록 true 를 돌려 조용히 빠져나오게 한다.
+     */
+    private boolean skipIfTeamMissing(Long teamId) {
+        if (teamRepository.existsById(teamId)) {
+            return false;
+        }
+        log.warn("팀 임베딩 갱신 스킵: 팀이 존재하지 않음 (teamId={})", teamId);
+        return true;
     }
 
     private TeamEmbedding loadOrCreate(Long teamId) {

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
@@ -198,6 +199,40 @@ class TeamEmbeddingServiceTest {
     }
 
     @Nested
+    @DisplayName("팀 삭제 레이스")
+    class TeamDeletedDuringRefresh {
+
+        @Test
+        @DisplayName("AI 호출 중 팀이 삭제되면 저장하지 않고 예외도 올리지 않는다")
+        void skipsWhenTeamDeletedDuringAiCall() {
+            givenTeam(CREATED_AT);
+            givenAiResponse(List.of("Java", "Redis"));
+            when(teamRepository.existsById(TEAM_ID)).thenReturn(false);
+
+            service.refresh(TEAM_ID);
+
+            verify(client).refresh(any(TeamEmbeddingRefreshRequest.class));
+            verify(teamEmbeddingRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("저장 시점 FK 위반은 팀 삭제로 보고 예외를 올리지 않는다")
+        void skipsWhenSaveHitsFkAfterTeamDelete() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            givenAiResponse(List.of("Java", "Redis"));
+            when(teamEmbeddingRepository.save(any()))
+              .thenThrow(new DataIntegrityViolationException("fk_team_embeddings_team"));
+            // AI 직후엔 팀이 남아 저장을 시도하고, insert 실패 뒤에야 삭제가 보인다.
+            when(teamRepository.existsById(TEAM_ID)).thenReturn(true, false);
+
+            service.refresh(TEAM_ID);
+
+            verify(teamEmbeddingRepository).save(any());
+        }
+    }
+
+    @Nested
     @DisplayName("판정과 저장 사이의 충돌")
     class SaveConflict {
 
@@ -293,6 +328,7 @@ class TeamEmbeddingServiceTest {
         team.setRequiredSkills(List.of("Spring Boot", "PostgreSQL"));
         team.setUpdatedAt(updatedAt);
         when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+        when(teamRepository.existsById(TEAM_ID)).thenReturn(true);
     }
 
     /**
