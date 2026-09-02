@@ -133,6 +133,7 @@ tasks.register('liveTest', Test) {
 			logger.lifecycle('AI_STUB_BASE_URL 이 없어 전건 skip 됩니다. 먼저 스텁을 띄우세요:')
 			logger.lifecycle('  pwsh -File scripts/test/debug/ai-stub/stub-ai-server.ps1 -Port 8000')
 			logger.lifecycle('  $env:AI_STUB_BASE_URL = "http://localhost:8000"')
+			logger.lifecycle('  ./gradlew liveTest')
 		}
 	}
 }
