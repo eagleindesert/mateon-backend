@@ -180,8 +180,9 @@ public class Event {
     // 엔티티가 저장되기 전에 실행
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     // 엔티티가 업데이트되기 전에 실행
