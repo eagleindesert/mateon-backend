@@ -8,6 +8,8 @@ import com.example.mateon.aichat.domain.TaskCloseReason;
 import com.example.mateon.aichat.repository.AiChatSessionRepository;
 import com.example.mateon.aichat.repository.AiDomainTaskRepository;
 import com.example.mateon.common.ai.AiServerProperties;
+import com.example.mateon.common.exception.ErrorCode;
+import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.support.TestEntities;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -209,6 +212,60 @@ class AiDomainTaskServiceTest {
             service.close(TASK_ID, TaskCloseReason.ABANDONED);
 
             assertThat(task.getClosedReason()).isEqualTo(TaskCloseReason.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("없는 작업을 닫으면 RESOURCE_NOT_FOUND 다")
+        void unknownTask() {
+            when(taskRepository.findById(TASK_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.close(TASK_ID, TaskCloseReason.COMPLETED))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("진행 중 조회")
+    class FindActive {
+
+        @Test
+        @DisplayName("사용자·도메인으로 진행 중인 작업을 그대로 돌려준다")
+        void returnsActiveTask() {
+            AiDomainTask active = taskIn(session);
+            givenActiveTask(active);
+
+            assertThat(service.findActive(USER_ID, DOMAIN)).containsSame(active);
+        }
+    }
+
+    @Nested
+    @DisplayName("작업 확보 실패")
+    class OpenOrResumeMissingRows {
+
+        @Test
+        @DisplayName("대화 세션이 없으면 AI_CHAT_SESSION_NOT_FOUND")
+        void missingSession() {
+            when(taskRepository.findByUserIdAndDomainAndStatus(USER_ID, DOMAIN, AiDomainTaskStatus.ACTIVE))
+              .thenReturn(Optional.empty());
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.openOrResume(SESSION_ID, USER_ID, DOMAIN))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.AI_CHAT_SESSION_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("사용자가 없으면 USER_NOT_FOUND")
+        void missingUser() {
+            when(taskRepository.findByUserIdAndDomainAndStatus(USER_ID, DOMAIN, AiDomainTaskStatus.ACTIVE))
+              .thenReturn(Optional.empty());
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.openOrResume(SESSION_ID, USER_ID, DOMAIN))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 

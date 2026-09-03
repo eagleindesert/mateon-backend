@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -59,6 +60,8 @@ class UserProfileControllerTest {
     private UserCollaborationScoreRepository collaborationScoreRepository;
     private EventRepository eventRepository;
     private MatchingIntentSlotRepository slotRepository;
+    private PasswordEncoder passwordEncoder;
+    private RefreshTokenRepository refreshTokenRepository;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -68,6 +71,8 @@ class UserProfileControllerTest {
         collaborationScoreRepository = mock(UserCollaborationScoreRepository.class);
         eventRepository = mock(EventRepository.class);
         slotRepository = mock(MatchingIntentSlotRepository.class);
+        passwordEncoder = mock(PasswordEncoder.class);
+        refreshTokenRepository = mock(RefreshTokenRepository.class);
 
         UserService userService = new UserService(
           userRepository,
@@ -75,8 +80,8 @@ class UserProfileControllerTest {
           collaborationScoreRepository,
           eventRepository,
           slotRepository,
-          mock(PasswordEncoder.class),
-          mock(RefreshTokenRepository.class));
+          passwordEncoder,
+          refreshTokenRepository);
 
         mockMvc = MockMvcBuilders
           .standaloneSetup(new UserController(userService, mock(ProfileImageService.class)))
@@ -405,6 +410,64 @@ class UserProfileControllerTest {
               .andExpect(status().isBadRequest())
               .andExpect(jsonPath("$.success").value(false))
               .andExpect(jsonPath("$.data.portfolio").value("포트폴리오는 5000자 이하여야 합니다."));
+        }
+    }
+
+    /**
+     * 폐기 예정이지만 응답은 /me 와 같아야 한다. 프론트가 아직 부를 수 있어서 필드가 빠지면
+     * 마이페이지 화면에서 협업 온도·참여 활동이 사라진다.
+     */
+    @Nested
+    @DisplayName("GET /api/users/mypage")
+    class MyPage {
+
+        @BeforeEach
+        void stubSelf() {
+            when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(targetUser()));
+        }
+
+        @Test
+        @DisplayName("이름·협업 온도·참여 활동이 실린다")
+        void returnsSummaryFields() throws Exception {
+            mockMvc.perform(get("/api/users/mypage").principal(auth(TARGET_ID)))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.name").value("김루미"))
+              .andExpect(jsonPath("$.data.school").value("단국대학교"))
+              .andExpect(jsonPath("$.data.collaborationTemperature").value(36.5))
+              .andExpect(jsonPath("$.data.collaborationReviewCount").value(0))
+              .andExpect(jsonPath("$.data.participatedActivities").isArray());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/users/password/change")
+    class ChangePassword {
+
+        @BeforeEach
+        void stubSelf() {
+            User self = targetUser();
+            when(userRepository.findById(TARGET_ID)).thenReturn(Optional.of(self));
+            when(userRepository.save(any(User.class))).thenReturn(self);
+            when(passwordEncoder.matches("old-password", "encoded-secret")).thenReturn(true);
+            when(passwordEncoder.encode("new-password1")).thenReturn("encoded-new");
+        }
+
+        @Test
+        @DisplayName("성공하면 다시 로그인하라는 안내가 나간다")
+        void changesPassword() throws Exception {
+            mockMvc.perform(post("/api/users/password/change")
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("""
+                {"currentPassword":"old-password",
+                 "newPassword":"new-password1",
+                 "newPasswordConfirm":"new-password1"}
+                """))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.message").value("비밀번호가 변경되었습니다. 다시 로그인해주세요."))
+              .andExpect(jsonPath("$.data").doesNotExist());
         }
     }
 

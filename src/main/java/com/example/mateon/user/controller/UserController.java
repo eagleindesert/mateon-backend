@@ -198,6 +198,6 @@ public class UserController {
       @Valid @RequestBody PasswordChangeRequest request) {
         Long userId = Long.valueOf(authentication.getName());
         userService.changePassword(userId, request);
-        return ResponseEntity.ok(BaseResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요."));
+        return ResponseEntity.ok(BaseResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요.", null));
     }
 }

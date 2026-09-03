@@ -298,6 +298,21 @@ class TeamEmbeddingServiceTest {
         }
 
         @Test
+        @DisplayName("모집 정원이 있으면 intro_text 에 자연어로 붙는다")
+        void includesCapacityInIntroText() {
+            givenTeam(CREATED_AT);
+            Team team = teamRepository.findById(TEAM_ID).orElseThrow();
+            team.setCapacity(4);
+            team.setCharacteristic("   ");
+            givenAiResponse(List.of("Spring Boot"));
+
+            service.refresh(TEAM_ID);
+
+            assertThat(captureRequest().getIntroText()).contains("모집 정원: 4명");
+            assertThat(captureRequest().getIntroText()).doesNotContain("팀 특성");
+        }
+
+        @Test
         @DisplayName("연결된 활동이 사라졌어도 임베딩 갱신은 계속된다 (contest_field 만 null)")
         void sendsNullContestFieldWhenEventRowMissing() {
             givenTeam(CREATED_AT, EVENT_ID);
@@ -310,6 +325,46 @@ class TeamEmbeddingServiceTest {
             assertThat(captureRequest().getContestField()).isNull();
             // 공모전 하나가 지워졌다고 그 팀들의 임베딩이 통째로 실패하면 안 된다.
             assertThat(captureSaved().getRefreshStatus()).isEqualTo(TeamEmbeddingRefreshStatus.SUCCESS);
+        }
+    }
+
+    @Nested
+    @DisplayName("차원 검증")
+    class Dimension {
+
+        @Test
+        @DisplayName("벡터 길이가 컬럼과 다르면 저장하지 않고 실패만 남긴다")
+        void skipsWhenDimensionMismatches() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            TeamEmbeddingRefreshResponse response = new TeamEmbeddingRefreshResponse();
+            response.setEmbeddingVector(new double[]{0.1, 0.2});
+            when(client.refresh(any())).thenReturn(response);
+
+            service.refresh(TEAM_ID);
+
+            ArgumentCaptor<TeamEmbedding> captor = ArgumentCaptor.forClass(TeamEmbedding.class);
+            verify(teamEmbeddingRepository).save(captor.capture());
+            assertThat(captor.getValue().getRefreshStatus())
+              .isEqualTo(TeamEmbeddingRefreshStatus.FAILED);
+            assertThat(captor.getValue().getEmbedding()).isNull();
+        }
+
+        @Test
+        @DisplayName("벡터가 없으면 같은 실패 경로다")
+        void skipsWhenVectorIsNull() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            TeamEmbeddingRefreshResponse response = new TeamEmbeddingRefreshResponse();
+            response.setEmbeddingVector(null);
+            when(client.refresh(any())).thenReturn(response);
+
+            service.refresh(TEAM_ID);
+
+            ArgumentCaptor<TeamEmbedding> captor = ArgumentCaptor.forClass(TeamEmbedding.class);
+            verify(teamEmbeddingRepository).save(captor.capture());
+            assertThat(captor.getValue().getRefreshStatus())
+              .isEqualTo(TeamEmbeddingRefreshStatus.FAILED);
         }
     }
 

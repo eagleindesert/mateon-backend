@@ -454,6 +454,32 @@ class TeamOfferServiceTest {
             verify(offerRepository, never()).findByTeamIdOrderByCreatedAtDesc(anyLong());
         }
 
+        @Test
+        @DisplayName("팀장은 그 팀이 보낸 제안을 시간 역순으로 본다")
+        void teamOffersReturnMappedRows() {
+            TeamOffer offer = offer(team, target);
+            when(offerRepository.findByTeamIdOrderByCreatedAtDesc(TEAM_ID))
+              .thenReturn(List.of(offer));
+
+            List<TeamOfferResponseDTO> offers = service.getTeamOffers(TEAM_ID, LEADER_ID);
+
+            assertThat(offers).hasSize(1);
+            assertThat(offers.get(0).getTeamId()).isEqualTo(TEAM_ID);
+            assertThat(offers.get(0).getTargetUserId()).isEqualTo(TARGET_ID);
+            assertThat(offers.get(0).getTargetUserName()).isEqualTo("대상유저");
+            assertThat(offers.get(0).getLeaderName()).isEqualTo("팀장");
+        }
+
+        @Test
+        @DisplayName("없는 팀은 RESOURCE_NOT_FOUND 다")
+        void teamOffersMissingTeam() {
+            when(teamRepository.findById(99L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.getTeamOffers(99L, LEADER_ID))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
         /**
          * 제안마다 팀장을 조회하면 받은 제안 화면에서 N+1 이 된다. 서로 다른 팀에서 온 제안
          * 두 건을 주고 조회가 <b>한 번</b>만 나가는지 본다.

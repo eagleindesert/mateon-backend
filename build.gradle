@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '4.0.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -12,6 +13,16 @@ java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
+}
+
+// lombok.config 는 소스도 리소스도 아니라, 안 적으면 설정만 바꾸고 클래스가
+// 그대로라 @lombok.Generated 가 안 붙는다.
+tasks.named('compileJava') {
+	inputs.file('lombok.config')
+}
+
+jacoco {
+	toolVersion = '0.8.15'
 }
 
 configurations {
@@ -84,6 +95,9 @@ tasks.named('test') {
 	filter {
 		excludeTestsMatching '*LiveTest'
 	}
+	// 커버리지는 관문과 같은 집합만 잰다. dependsOn 을 걸면 테스트 실패 시
+	// 리포트가 SKIPPED 가 되므로, 실패 후에도 남기려면 finalizedBy 만 쓴다.
+	finalizedBy tasks.named('jacocoTestReport')
 }
 
 // 개발 루프용 단축 태스크. Docker(Testcontainers)가 필요한 테스트만 빼고 돌린다 —
@@ -103,6 +117,9 @@ tasks.register('fastTest', Test) {
 		excludeTestsMatching '*LiveTest'
 		excludeTestsMatching 'com.example.mateon.MateonBackendApplicationTests'
 	}
+	// 단축 태스크라 커버리지에 넣지 않는다. 넣으면 Docker 통합 테스트가 빠져
+	// 과소측정되고, 로컬에서 뭘 돌렸느냐에 숫자가 흔들린다.
+	jacoco.enabled = false
 }
 
 // AI 서버 스텁을 상대로 응답 역직렬화와 DB 저장까지 확인하는 태스크.
@@ -136,4 +153,49 @@ tasks.register('liveTest', Test) {
 			logger.lifecycle('  ./gradlew liveTest')
 		}
 	}
+	// 관문에도 없고 밖에 뜬 스텁에 숫자가 묶이므로 커버리지에 넣지 않는다.
+	jacoco.enabled = false
 }
+
+// 커버리지는 측정만 한다. 임계값 게이트(jacocoTestCoverageVerification)는
+// 베이스라인을 보기 전에는 걸지 않는다.
+//
+// 제외 원칙: 실행 경로가 의미 없는 것(엔트리, 순수 설정, debug, DTO/페이로드,
+// JPA 모델이 domain 밖에 있는 Event). domain 패키지는 빼지 않는다 —
+// isFullWith / isExpired / isOwnedBy 같은 행동이 엔티티에 있다.
+// *Request$*.class 는 IntentExtractRequest$Message 같은 내부 클래스용이다.
+// *Request* 로 넓히면 TeamEmbeddingRefreshRequestedEvent 까지 빠진다.
+def jacocoExcludes = [
+	'**/MateonBackendApplication.class',
+	'**/dto/**',
+	'**/debug/**',
+	'**/*Properties.class',
+	'**/*Request.class',
+	'**/*Request$*.class',
+	'**/*Response.class',
+	'**/*Response$*.class',
+	'**/common/config/AsyncConfig.class',
+	'**/common/config/OpenApiConfig.class',
+	'**/common/config/RestTemplateConfig.class',
+	'**/common/config/SchedulingConfig.class',
+	'**/common/ai/AiRestTemplateConfig.class',
+	'**/common/storage/S3ClientConfig.class',
+	'**/events/models/**',
+]
+
+tasks.named('jacocoTestReport', JacocoReport) {
+	// test.finalizedBy 가 실행을 붙인다. 여기다 dependsOn test 를 걸면
+	// 테스트 실패 시 리포트가 SKIPPED 가 되어 CI 아티팩트가 비어 남는다.
+	mustRunAfter tasks.named('test')
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+	classDirectories.setFrom(
+		sourceSets.main.output.classesDirs.asFileTree.matching {
+			exclude jacocoExcludes
+		}
+	)
+}
+

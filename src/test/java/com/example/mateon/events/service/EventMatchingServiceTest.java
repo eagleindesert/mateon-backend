@@ -128,6 +128,137 @@ class EventMatchingServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("희망직무 매칭 가산점")
+    class InterestJobMatching {
+
+        private static final int SCORE_PRIMARY = 30;
+        private static final int SCORE_SECONDARY = 20;
+        private static final int SCORE_TERTIARY = 10;
+
+        @Test
+        @DisplayName("제목에 희망직무가 그대로 있으면 1순위 만점이다")
+        void exactMatchInTitleScoresFull() {
+            User user = User.builder().interestJobPrimary("백엔드 개발자").build();
+            Event event = textEvent("백엔드 개발자 모집", null, null);
+
+            assertThat(score(user, event)).isEqualTo(SCORE_PRIMARY);
+        }
+
+        @Test
+        @DisplayName("설명·요약 어디에 있어도 같은 만점이다 — 제목만 보지 않는다")
+        void matchesDescriptionAndSummary() {
+            User user = User.builder().interestJobPrimary("기획").build();
+
+            assertThat(score(user, textEvent(null, "기획 파트 구합니다", null)))
+              .isEqualTo(SCORE_PRIMARY);
+            assertThat(score(user, textEvent(null, null, "기획 역량 우대")))
+              .isEqualTo(SCORE_PRIMARY);
+        }
+
+        @Test
+        @DisplayName("키워드 일부만 맞으면 비례 점수다 (백엔드 개발자 → 백엔드만 맞으면 절반)")
+        void partialKeywordScoresProportionally() {
+            User user = User.builder().interestJobPrimary("백엔드 개발자").build();
+            Event event = textEvent("백엔드 스터디", null, null);
+
+            assertThat(score(user, event)).isEqualTo(SCORE_PRIMARY / 2);
+        }
+
+        @Test
+        @DisplayName("한 글자 토큰은 세지 않는다 — 오탐(AI ↔ email)을 줄이기 위해서다")
+        void ignoresSingleCharacterTokens() {
+            User user = User.builder().interestJobPrimary("A 백엔드").build();
+            Event event = textEvent("백엔드 모집", null, null);
+
+            // "A" 는 버리고 "백엔드" 만 맞아서 1/2.
+            assertThat(score(user, event)).isEqualTo(SCORE_PRIMARY / 2);
+        }
+
+        @Test
+        @DisplayName("1·2·3순위가 각각 본문에 있으면 점수를 더한다")
+        void sumsPrimarySecondaryTertiary() {
+            User user = User.builder()
+              .interestJobPrimary("백엔드")
+              .interestJobSecondary("기획")
+              .interestJobTertiary("디자인")
+              .build();
+            Event event = textEvent("백엔드 기획 디자인 해커톤", null, null);
+
+            assertThat(score(user, event))
+              .isEqualTo(SCORE_PRIMARY + SCORE_SECONDARY + SCORE_TERTIARY);
+        }
+
+        @Test
+        @DisplayName("본문에 희망직무가 없으면 이 축은 0점이다")
+        void noKeywordScoresNothing() {
+            User user = User.builder().interestJobPrimary("서버 운영자").build();
+            Event event = textEvent("프론트엔드 해커톤", "React", "UI");
+
+            assertThat(score(user, event)).isZero();
+        }
+
+        @Test
+        @DisplayName("공백만 있는 희망직무는 점수를 주지 않는다")
+        void blankInterestJobScoresNothing() {
+            User user = User.builder().interestJobPrimary("   ").build();
+            Event event = textEvent("백엔드 모집", null, null);
+
+            assertThat(score(user, event)).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("전공/단과대 매칭 가산점 (폐기 예정이지만 기존 데이터에 남아 있다)")
+    class MajorCollegeMatching {
+
+        private static final int SCORE_MAJOR = 15;
+        private static final int SCORE_COLLEGE = 10;
+
+        @Test
+        @DisplayName("전공이 target_colleges 에 있으면 가산점을 준다")
+        void majorMatches() {
+            User user = User.builder().major("소프트웨어학과").build();
+            Event event = collegesEvent("소프트웨어학과,컴퓨터공학과");
+
+            assertThat(score(user, event)).isEqualTo(SCORE_MAJOR);
+        }
+
+        @Test
+        @DisplayName("단과대가 target_colleges 에 있으면 가산점을 준다")
+        void collegeMatches() {
+            User user = User.builder().college("SW융합대학").build();
+            Event event = collegesEvent("SW융합대학");
+
+            assertThat(score(user, event)).isEqualTo(SCORE_COLLEGE);
+        }
+
+        @Test
+        @DisplayName("전공과 단과대가 둘 다 맞으면 점수를 더한다")
+        void majorAndCollegeStack() {
+            User user = User.builder().major("소프트웨어학과").college("SW융합대학").build();
+            Event event = collegesEvent("SW융합대학 소프트웨어학과");
+
+            assertThat(score(user, event)).isEqualTo(SCORE_MAJOR + SCORE_COLLEGE);
+        }
+
+        @Test
+        @DisplayName("target_colleges 가 비어 있으면 이 축은 0점이다")
+        void blankTargetCollegesScoresNothing() {
+            User user = User.builder().major("소프트웨어학과").college("SW융합대학").build();
+
+            assertThat(score(user, collegesEvent(null))).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("유저의 학교/캠퍼스가 공백이면 campusScope 대조는 하지 않는다")
+    void blankSchoolAndCampusDoNotMatchScope() {
+        User user = user("  ", "  ");
+
+        assertThat(score(user, event("단국대학교"))).isZero();
+    }
+
     private int score(User user, Event event) {
         return service.calculateRelevanceScore(user, event);
     }
@@ -151,6 +282,21 @@ class EventMatchingServiceTest {
     private Event schoolEvent(String targetSchool) {
         Event event = new Event();
         event.setTargetSchool(targetSchool);
+        return event;
+    }
+
+    private Event textEvent(String title, String description, String summarized) {
+        Event event = new Event();
+        event.setTitle(title);
+        event.setDescription(description);
+        event.setSummarizedDescription(summarized);
+        return event;
+    }
+
+    @SuppressWarnings("deprecation")
+    private Event collegesEvent(String targetColleges) {
+        Event event = new Event();
+        event.setTarget_colleges(targetColleges);
         return event;
     }
 }

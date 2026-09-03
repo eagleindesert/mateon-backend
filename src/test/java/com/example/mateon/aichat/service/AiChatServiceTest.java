@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -297,6 +298,54 @@ class AiChatServiceTest {
             assertThat(service.findOrCreateLatestSession(USER_ID)).isSameAs(session);
             verify(sessionRepository, never()).save(any());
             verify(userRepository, never()).findById(anyLong());
+        }
+
+        @Test
+        @DisplayName("레거시 경로에 대화 세션이 하나도 없으면 새로 연다")
+        void legacyPathCreatesWhenNoneExist() {
+            when(sessionRepository.findFirstByUserIdOrderByUpdatedAtDesc(USER_ID))
+              .thenReturn(Optional.empty());
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(sessionRepository.save(any()))
+              .thenAnswer(i -> TestEntities.withId(i.getArgument(0), SESSION_ID));
+
+            AiChatSession created = service.findOrCreateLatestSession(USER_ID);
+
+            assertThat(created.getId()).isEqualTo(SESSION_ID);
+            assertThat(created.getTitle()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("목록과 작업별 대화")
+    class Reads {
+
+        @Test
+        @DisplayName("사이드바 목록은 사용자 id 로만 조회한다")
+        void listSessionsDelegatesToRepository() {
+            service.listSessions(USER_ID);
+
+            verify(sessionRepository).findSummariesByUserId(eq(USER_ID), any());
+        }
+
+        @Test
+        @DisplayName("작업 대화는 작업 id 로 시간순 조회한다")
+        void findTaskMessagesDelegatesToRepository() {
+            service.findTaskMessages(TASK_ID);
+
+            verify(messageRepository).findByTaskIdOrderBySeqAsc(TASK_ID);
+        }
+
+        @Test
+        @DisplayName("없는 작업에 도장을 찍으면 RESOURCE_NOT_FOUND 다")
+        void assignTaskOnUnknownTask() {
+            AiChatMessage message = new AiChatMessage(session, 1, AiChatRole.USER, "안녕");
+            when(messageRepository.findById(200L)).thenReturn(Optional.of(message));
+            when(taskRepository.findById(TASK_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.assignTask(200L, TASK_ID))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 

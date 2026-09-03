@@ -272,4 +272,87 @@ class BucketCapacityGuardTest {
         // 확인만으로 자리가 줄었다면 여기서 거절됐을 것이다.
         assertThatCode(() -> guard.reserve(100)).doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("여유 확인도 한도를 넘으면 STORAGE_QUOTA_EXCEEDED 로 거절한다")
+    void checkRoomForRejectsOverLimit() {
+        BucketCapacityGuard guard = syncedGuard(100, 90);
+
+        assertThatThrownBy(() -> guard.checkRoomFor(11))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.STORAGE_QUOTA_EXCEEDED);
+    }
+
+    @Test
+    @DisplayName("실측 전 여유 확인도 막는다 — 접수 단계에서 실패를 알려야 한다")
+    void checkRoomForBlocksBeforeFirstMeasurement() {
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+          .thenThrow(SdkException.builder().message("boom").build());
+        BucketCapacityGuard guard = guard(100);
+        guard.syncOnStartup();
+
+        assertThatThrownBy(() -> guard.checkRoomFor(1))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.STORAGE_QUOTA_EXCEEDED);
+    }
+
+    @Test
+    @DisplayName("목록이 여러 페이지여도 크기를 모두 더한다")
+    void measuresAcrossPages() {
+        ListObjectsV2Response page1 = ListObjectsV2Response.builder()
+          .contents(S3Object.builder().key("a").size(10L).build())
+          .nextContinuationToken("page-2")
+          .build();
+        ListObjectsV2Response page2 = ListObjectsV2Response.builder()
+          .contents(S3Object.builder().key("b").size(20L).build())
+          .build();
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenReturn(page1, page2);
+
+        BucketCapacityGuard guard = guard(100);
+        guard.syncOnStartup();
+
+        assertThatThrownBy(() -> guard.reserve(71)).isInstanceOf(MateonException.class);
+        assertThatCode(() -> guard.reserve(70)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("HEAD 가 일시 실패해도 삭제를 막지 않는다")
+    void treatsHeadFailureAsZero() {
+        BucketCapacityGuard guard = syncedGuard(100, 40);
+        when(s3Client.headObject(any(HeadObjectRequest.class)))
+          .thenThrow(SdkException.builder().message("timeout").build());
+
+        assertThat(guard.sizeOf("profile-images/2026/07/x.png")).isZero();
+    }
+
+    @Test
+    @DisplayName("상한이 null 이면 가드가 꺼진다 (0 과 같다)")
+    void nullMaxBytesDisablesGuard() {
+        ObjectStorageProperties properties = new ObjectStorageProperties();
+        properties.setNamespace("ns");
+        properties.setRegion("ap-chuncheon-1");
+        properties.setBucket(BUCKET);
+        properties.setMaxBytes(null);
+
+        BucketCapacityGuard guard = new BucketCapacityGuard(s3Client, properties);
+
+        assertThat(guard.isEnabled()).isFalse();
+        assertThatCode(() -> guard.reserve(Long.MAX_VALUE)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("기동 로그는 GB/MB/KB 단위로 한도를 찍을 수 있게 실측을 통과시킨다")
+    void syncsWithLargerUnits() {
+        // humanReadable 이 로그에만 쓰이므로, 단위별 한도로 기동 실측을 한 번씩 태운다.
+        bucketContains(1L << 30);
+        guard(2L << 30).syncOnStartup();
+
+        bucketContains(3L << 20);
+        guard(5L << 20).syncOnStartup();
+
+        bucketContains(512);
+        guard(2L << 10).syncOnStartup();
+    }
 }
