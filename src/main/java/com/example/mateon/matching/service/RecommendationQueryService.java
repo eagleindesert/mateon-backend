@@ -93,9 +93,9 @@ public class RecommendationQueryService {
         // 하나만 있는 상태는 정상 흐름에서 나오지 않지만(같은 트랜잭션에서 함께 저장된다),
         // 어느 쪽이 없든 사용자가 할 일은 "의도 추출 완료" 하나뿐이라 같은 에러로 묶는다.
         UserEmbedding userEmbedding = userEmbeddingRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
         MatchingIntentSlot slot = slotRepository.findByUserId(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
 
         // ── 후보 쪽 ────────────────────────────────────────────────────────────
         List<Team> teams = eventId != null
@@ -227,7 +227,7 @@ public class RecommendationQueryService {
     public UserRecommendationSnapshot gatherForTeam(Long teamId, Long leaderUserId) {
         // ── 질의 쪽: 팀 + 팀 임베딩 ────────────────────────────────────────────
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         if (!team.getLeaderUserId().equals(leaderUserId)) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
         }
@@ -360,7 +360,7 @@ public class RecommendationQueryService {
         // 추천 이력이 이유의 근거다. 없으면 "추천받은 적 없는 팀의 이유를 요청"한 것이라 404 다.
         UserToTeamRecommendationItem item = userToTeamLogRepository
           .findLatestItem(userId, teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+          .orElseThrow(ErrorCode.RECOMMENDATION_NOT_FOUND::toException);
 
         // 캐시가 있으면 요약을 조립할 이유도, 나머지를 읽을 이유도 없다.
         if (item.getReason() != null && !item.getReason().isBlank()) {
@@ -368,9 +368,9 @@ public class RecommendationQueryService {
         }
 
         MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         // 추천 시점엔 있었어도 그 뒤 사라졌을 수 있다. 요약 조립이 null 을 견디므로 그대로 넘긴다.
         TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
 
@@ -391,21 +391,21 @@ public class RecommendationQueryService {
       Long leaderUserId) {
         // 팀장 검증이 먼저다. 남의 팀 추천 이력을 캐시 hit 로 흘리지 않으려면 순서가 중요하다.
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         if (!team.getLeaderUserId().equals(leaderUserId)) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
         }
 
         TeamToUserRecommendationItem item = teamToUserLogRepository
           .findLatestItem(teamId, targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+          .orElseThrow(ErrorCode.RECOMMENDATION_NOT_FOUND::toException);
 
         if (item.getReason() != null && !item.getReason().isBlank()) {
             return new ReasonSnapshot(item.getId(), null, null, null, item.getReason());
         }
 
         MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
         TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
 
         return new ReasonSnapshot(item.getId(),
@@ -439,12 +439,12 @@ public class RecommendationQueryService {
         // 없으면 조립 자체가 불가능하다 — 추천을 거치지 않은 지원은 기존 /apply 로 하면 된다.
         UserToTeamRecommendationItem item = userToTeamLogRepository
           .findLatestItem(userId, teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+          .orElseThrow(ErrorCode.RECOMMENDATION_NOT_FOUND::toException);
 
         MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         // 추천 시점엔 있었어도 그 뒤 사라졌을 수 있다. 요약 조립이 null 을 견딘다.
         TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
 
@@ -465,17 +465,17 @@ public class RecommendationQueryService {
       Long leaderUserId) {
         // 팀장 검증이 먼저다. 남의 팀 추천 이력의 존재 여부를 404/200 차이로 흘리지 않는다.
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         if (!team.getLeaderUserId().equals(leaderUserId)) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);
         }
 
         TeamToUserRecommendationItem item = teamToUserLogRepository
           .findLatestItem(teamId, targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RECOMMENDATION_NOT_FOUND));
+          .orElseThrow(ErrorCode.RECOMMENDATION_NOT_FOUND::toException);
 
         MatchingIntentSlot slot = slotRepository.findByUserIdWithUser(targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.MATCHING_INTENT_REQUIRED));
+          .orElseThrow(ErrorCode.MATCHING_INTENT_REQUIRED::toException);
         TeamEmbedding teamEmbedding = teamEmbeddingRepository.findById(teamId).orElse(null);
 
         return new ProposalSnapshot(targetUserId, teamId,

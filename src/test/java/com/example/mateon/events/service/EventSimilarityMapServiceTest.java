@@ -171,8 +171,13 @@ class EventSimilarityMapServiceTest {
     @DisplayName("길이·null 이 어긋난 벡터는 코사인을 -∞ 로 두어 후보에서 밀려난다")
     void cosineRejectsInvalidVectors() {
         assertThat(EventSimilarityMapService.cosine(null, new float[]{1f})).isInfinite();
+        assertThat(EventSimilarityMapService.cosine(new float[]{1f}, null)).isInfinite();
         assertThat(EventSimilarityMapService.cosine(new float[]{}, new float[]{})).isInfinite();
         assertThat(EventSimilarityMapService.cosine(new float[]{1f}, new float[]{1f, 0f})).isInfinite();
+        assertThat(EventSimilarityMapService.cosine(new float[]{0f, 0f}, new float[]{1f, 0f}))
+          .isZero();
+        assertThat(EventSimilarityMapService.cosine(new float[]{1f, 0f}, new float[]{0f, 0f}))
+          .isZero();
     }
 
     @Test
@@ -206,7 +211,15 @@ class EventSimilarityMapServiceTest {
         complete.setRadius(4.0);
         ContestSimilarityMapResponse.ReferenceRing incomplete = new ContestSimilarityMapResponse.ReferenceRing();
         incomplete.setPercentile(0.9);
-        ai.setReferenceRings(List.of(complete, incomplete));
+        ContestSimilarityMapResponse.ReferenceRing missingPercentile
+          = new ContestSimilarityMapResponse.ReferenceRing();
+        missingPercentile.setSimilarityAtPercentile(0.6);
+        missingPercentile.setRadius(5.0);
+        ContestSimilarityMapResponse.ReferenceRing missingRadius
+          = new ContestSimilarityMapResponse.ReferenceRing();
+        missingRadius.setPercentile(0.3);
+        missingRadius.setSimilarityAtPercentile(0.4);
+        ai.setReferenceRings(List.of(complete, incomplete, missingPercentile, missingRadius));
         when(client.map(any())).thenReturn(ai);
 
         ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
@@ -233,6 +246,128 @@ class EventSimilarityMapServiceTest {
         assertThat(dto.getPoints()).singleElement()
           .extracting(ContestSimilarityMapResponseDTO.Point::getFieldLabel)
           .isEqualTo("교육");
+    }
+
+    @Test
+    @DisplayName("좌표가 빠진 포인트는 버리고, 반경 기본값을 채운다")
+    void dropsIncompletePointsAndFillsDefaults() {
+        Event query = event(QUERY_ID, "기준");
+        query.setCategory(null);
+        query.setField(null);
+        when(eventRepository.findById(QUERY_ID)).thenReturn(Optional.of(query));
+        when(eventEmbeddingRepository.findById(QUERY_ID))
+          .thenReturn(Optional.of(embedding(QUERY_ID, new float[]{1f, 0f})));
+        Event candidate = event(CANDIDATE_A, "후보A");
+        candidate.setField(null);
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+
+        Point complete = point(String.valueOf(CANDIDATE_A), 0.8);
+        complete.setFieldLabel(null);
+        Point missingXy = point(String.valueOf(CANDIDATE_A), 0.7);
+        missingXy.setX(null);
+        Point nullId = point(null, 0.6);
+        ContestSimilarityMapResponse ai = aiResponse(complete, missingXy, nullId);
+        ai.setMaxRadius(null);
+        ai.setMinRadius(null);
+        ai.setRadialJitter(null);
+        ai.setCandidatePoolTotal(null);
+        ai.setReferenceRings(null);
+        when(client.map(any())).thenReturn(ai);
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).hasSize(1);
+        assertThat(dto.getPoints().get(0).getFieldLabel()).isNull();
+        assertThat(dto.getQuery().getCategory()).isNull();
+        assertThat(dto.getQuery().getField()).isNull();
+        assertThat(dto.getMaxRadius()).isEqualTo(12.0);
+        assertThat(dto.getMinRadius()).isEqualTo(2.6);
+        assertThat(dto.getRadialJitter()).isEqualTo(0.5);
+        assertThat(dto.getReferenceRings()).isEmpty();
+        assertThat(dto.getCandidatePoolTotal()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("활동이 없거나 벡터가 비면 후보에서 빼고, 남으면 빈 지도를 준다")
+    void skipsRowsWithoutEventOrVector() {
+        givenQueryReady();
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(
+            embedding(CANDIDATE_A, null),
+            embedding(CANDIDATE_B, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(any()))
+          .thenReturn(List.of(event(CANDIDATE_A, "후보A")));
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        verify(client, never()).map(any());
+        assertThat(dto.getPoints()).isEmpty();
+        assertThat(dto.getCandidatePoolTotal()).isZero();
+    }
+
+    @Test
+    @DisplayName("AI 가 points 를 비우면 빈 배열로 본다")
+    void nullPointsBecomeEmpty() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+        ContestSimilarityMapResponse ai = aiResponse();
+        ai.setPoints(null);
+        when(client.map(any())).thenReturn(ai);
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("유사도·순위·반경·y 가 빠진 포인트도 버린다")
+    void dropsPointsMissingSimilarityRankRadiusOrY() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+
+        Point missingSimilarity = point(String.valueOf(CANDIDATE_A), 0.8);
+        missingSimilarity.setSimilarity(null);
+        Point missingRank = point(String.valueOf(CANDIDATE_A), 0.8);
+        missingRank.setRankPercentile(null);
+        Point missingRadius = point(String.valueOf(CANDIDATE_A), 0.8);
+        missingRadius.setRadius(null);
+        Point missingY = point(String.valueOf(CANDIDATE_A), 0.8);
+        missingY.setY(null);
+        Point complete = point(String.valueOf(CANDIDATE_A), 0.8);
+        when(client.map(any())).thenReturn(aiResponse(
+          missingSimilarity, missingRank, missingRadius, missingY, complete));
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).hasSize(1);
+        assertThat(dto.getPoints().get(0).getSimilarity()).isEqualTo(0.8);
+    }
+
+    @Test
+    @DisplayName("AI 가 준 field_label 을 우리 분야 표기보다 앞세운다")
+    void prefersAiFieldLabel() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+        Point aiPoint = point(String.valueOf(CANDIDATE_A), 0.8);
+        aiPoint.setFieldLabel("AI표기");
+        when(client.map(any())).thenReturn(aiResponse(aiPoint));
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).singleElement()
+          .extracting(ContestSimilarityMapResponseDTO.Point::getFieldLabel)
+          .isEqualTo("AI표기");
     }
 
     private void givenQueryReady() {

@@ -373,6 +373,20 @@ class TeamOfferServiceTest {
         }
 
         @Test
+        @DisplayName("팀장 계정이 사라져도 수락 자체는 성립한다 (알림만 건너뛴다)")
+        void acceptsWithoutLeaderAccount() {
+            givenPendingOffer();
+            when(userRepository.findById(LEADER_ID)).thenReturn(Optional.empty());
+            when(teamMemberRepository.findByTeamIdAndUserId(TEAM_ID, TARGET_ID))
+              .thenReturn(Optional.empty());
+
+            TeamOfferResponseDTO responded = service.respond(OFFER_ID, true, TARGET_ID);
+
+            assertThat(responded.getLeaderName()).isNull();
+            verify(notificationService, never()).send(any(), any(), any(), any());
+        }
+
+        @Test
         @DisplayName("이미 응답한 제안은 다시 응답할 수 없다")
         void alreadyResponded() {
             TeamOffer offer = givenPendingOffer();

@@ -56,9 +56,9 @@ public class EventSimilarityMapService {
         int clampedTopN = clampTopN(topN);
 
         Event queryEvent = eventRepository.findById(eventId)
-          .orElseThrow(() -> new MateonException(ErrorCode.EVENT_NOT_FOUND));
+          .orElseThrow(ErrorCode.EVENT_NOT_FOUND::toException);
         EventEmbedding queryEmbedding = eventEmbeddingRepository.findById(eventId)
-          .orElseThrow(() -> new MateonException(ErrorCode.EVENT_EMBEDDING_NOT_READY));
+          .orElseThrow(ErrorCode.EVENT_EMBEDDING_NOT_READY::toException);
         if (queryEmbedding.getEmbedding() == null) {
             throw new MateonException(ErrorCode.EVENT_EMBEDDING_NOT_READY);
         }

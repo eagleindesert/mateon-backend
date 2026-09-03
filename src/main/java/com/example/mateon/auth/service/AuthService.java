@@ -87,7 +87,7 @@ public class AuthService {
     // 인증된 유저가 학교 이메일 인증코드를 검증하면 재학생 상태로 전환한다.
     public void verifySchoolEmail(Long userId, SchoolEmailVerifyRequest request) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         String schoolEmail = request.getSchoolEmail();
 
@@ -132,7 +132,7 @@ public class AuthService {
     // 반환값은 발급된 일회용 티켓(회원가입 주체 식별용). 학교 이메일 경로는 이 값을 사용하지 않는다.
     private String verifyCode(String email, String code) {
         EmailVerification verification = emailVerificationRepository.findByEmail(email)
-          .orElseThrow(() -> new MateonException(ErrorCode.INVALID_VERIFICATION_CODE));
+          .orElseThrow(ErrorCode.INVALID_VERIFICATION_CODE::toException);
 
         if (!verification.isValid()) {
             throw new MateonException(ErrorCode.INVALID_VERIFICATION_CODE);
@@ -161,7 +161,7 @@ public class AuthService {
 
         // 이메일 인증 확인
         EmailVerification verification = emailVerificationRepository.findByEmail(request.getEmail())
-          .orElseThrow(() -> new MateonException(ErrorCode.EMAIL_NOT_VERIFIED));
+          .orElseThrow(ErrorCode.EMAIL_NOT_VERIFIED::toException);
 
         // 인증 티켓 검증: 이 이메일 인증을 완료한 주체만(= 티켓 소유자만) 가입할 수 있다.
         // 이메일이 verified 라는 사실만으로 통과시키면, 인증을 마친 이메일을 제3자가 선점(도용)할 수 있다.
@@ -195,7 +195,7 @@ public class AuthService {
 
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-          .orElseThrow(() -> new MateonException(ErrorCode.INVALID_CREDENTIALS));
+          .orElseThrow(ErrorCode.INVALID_CREDENTIALS::toException);
 
         if (user.getPassword() == null
           || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -270,7 +270,7 @@ public class AuthService {
         }
 
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-          .orElseThrow(() -> new MateonException(ErrorCode.TOKEN_NOT_FOUND));
+          .orElseThrow(ErrorCode.TOKEN_NOT_FOUND::toException);
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
@@ -294,7 +294,7 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new MateonException(ErrorCode.PASSWORD_MISMATCH);
@@ -309,7 +309,7 @@ public class AuthService {
 
     public void logout(LogoutRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
         refreshTokenRepository.deleteByUserId(user.getId());
     }
 

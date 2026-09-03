@@ -8,14 +8,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -130,7 +133,8 @@ class AiRouterClientTest {
             "죄송하지만 JSON 으로 답할 수 없습니다", // JSON 이 아님
             "{\"assistantMessage\":\"문구만 있음\"}", // domain 누락
             "{}", // 빈 객체
-            "" // 빈 응답
+            "", // 빈 응답
+            "null" // JSON null → decision 자체가 null
         })
         @DisplayName("망가진 응답은 매칭으로 통과시킨다")
         void brokenResponsesPassThrough(String body) {
@@ -156,6 +160,19 @@ class AiRouterClientTest {
         @DisplayName("Spring AI 모델 빈이 없으면 모델을 부르지 않고 통과시킨다 (키 없는 환경에서도 앱은 뜬다)")
         void noModelMeansPassThrough() {
             AiRouterClient disabled = new AiRouterClient((ChatModel) null);
+
+            assertThat(disabled.classify("백엔드 팀 찾아요").domain())
+              .isEqualTo(RoutableDomain.MATCHING_INTENT);
+        }
+
+        @Test
+        @DisplayName("ObjectProvider 가 비어 있어도 부팅은 되고 통과시킨다")
+        void emptyObjectProviderMeansPassThrough() {
+            @SuppressWarnings("unchecked")
+            ObjectProvider<ChatClient.Builder> provider = mock(ObjectProvider.class);
+            when(provider.stream()).thenReturn(Stream.empty());
+
+            AiRouterClient disabled = new AiRouterClient(provider);
 
             assertThat(disabled.classify("백엔드 팀 찾아요").domain())
               .isEqualTo(RoutableDomain.MATCHING_INTENT);

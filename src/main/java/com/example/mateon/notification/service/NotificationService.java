@@ -144,7 +144,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationResponseDTO> getMyNotifications(Long userId) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         return notificationRepository.findAllByReceiverIdOrderByCreatedAtDesc(user.getId())
           .stream()

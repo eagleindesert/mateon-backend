@@ -106,10 +106,8 @@ public class EventMatchingService {
         }
 
         // 키워드 부분 매칭 (예: "백엔드 개발자" -> "백엔드", "개발자")
+        // interestJob 이 비면 위에서 이미 돌아갔고, 비지 않은 문자열의 split 은 최소 1토큰이다.
         String[] keywords = extractKeywords(interestJobLower);
-        if (keywords.length == 0) {
-            return 0;
-        }
 
         int matchCount = 0;
         for (String keyword : keywords) {

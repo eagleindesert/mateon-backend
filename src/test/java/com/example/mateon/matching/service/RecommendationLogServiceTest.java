@@ -181,6 +181,16 @@ class RecommendationLogServiceTest {
         }
 
         @Test
+        @DisplayName("JSON null 노드도 없는 것으로 본다 (필드가 온 것과 값이 null 인 것은 다르다)")
+        void jsonNullNodeBecomesNull() {
+            Recommendation recommendation = item(10L, 0.9);
+            recommendation.setComponentScores(new ObjectMapper().readTree("null"));
+            service.save(1L, null, 1, 1, List.of(recommendation));
+
+            assertThat(componentScores(captureUserToTeamLog())).containsExactly((String) null);
+        }
+
+        @Test
         @DisplayName("역제안도 같은 규칙이다 (한쪽만 고치는 사고 방지)")
         void teamToUserStoresRawJsonToo() {
             String raw = "{\"similarity\":0.77}";

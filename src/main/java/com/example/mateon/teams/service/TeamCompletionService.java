@@ -43,7 +43,7 @@ public class TeamCompletionService {
     @Transactional
     public void completeByLeader(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         if (!team.getLeaderUserId().equals(userId)) {
             throw new MateonException(ErrorCode.FORBIDDEN_ACCESS);

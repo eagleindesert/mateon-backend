@@ -7,8 +7,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * 이미지 업로드의 입구를 고정한다. 공모전 포스터와 프로필 사진이 이 판정을 공유하므로,
@@ -114,6 +118,21 @@ class ImageFileValidatorTest {
           .isInstanceOf(MateonException.class)
           .extracting(ImageFileValidatorTest::errorCodeOf)
           .isEqualTo(ErrorCode.IMAGE_TOO_LARGE);
+    }
+
+    @Test
+    @DisplayName("바이트를 읽다 실패하면 400 (형식 오류와 같은 코드다)")
+    void rejectsUnreadableFile() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getSize()).thenReturn(3L);
+        when(file.getOriginalFilename()).thenReturn("profile.png");
+        when(file.getBytes()).thenThrow(new IOException("디스크 오류"));
+
+        assertThatThrownBy(() -> ImageFileValidator.validate(file, MAX))
+          .isInstanceOf(MateonException.class)
+          .extracting(ImageFileValidatorTest::errorCodeOf)
+          .isEqualTo(ErrorCode.INVALID_IMAGE_FILE);
     }
 
     @Test

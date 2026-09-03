@@ -124,4 +124,12 @@ public enum ErrorCode {
         this.status = status;
         this.message = message;
     }
+
+    /**
+     * 이 코드에 해당하는 예외. {@code Optional.orElseThrow} 에 메서드 레퍼런스로 넘긴다.
+     */
+    public MateonException toException() {
+        return new MateonException(this);
+    }
 }
+

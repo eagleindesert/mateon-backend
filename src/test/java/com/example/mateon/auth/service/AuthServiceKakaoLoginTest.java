@@ -111,6 +111,18 @@ class AuthServiceKakaoLoginTest {
     }
 
     @Test
+    @DisplayName("검증됐더라도 이메일이 없으면 연동 후보로 쓰지 않는다")
+    void verifiedFlagWithoutEmailNeverLinks() {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.KAKAO, PROVIDER_ID))
+          .thenReturn(Optional.empty());
+
+        authService.kakaoLogin(new KakaoUserInfo(PROVIDER_ID, null, true, "김카카오"));
+
+        verify(userRepository, never()).findByEmail(anyString());
+        assertThat(captureSavedUser().getEmail()).isNull();
+    }
+
+    @Test
     @DisplayName("미검증 이메일은 연동 후보로도 쓰지 않는다 — 남의 이메일을 적어 두고 계정을 가로채는 걸 막는다")
     void unverifiedEmailNeverLinks() {
         when(userRepository.findByProviderAndProviderId(AuthProvider.KAKAO, PROVIDER_ID))

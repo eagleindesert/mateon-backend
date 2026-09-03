@@ -11,6 +11,7 @@ import com.example.mateon.teams.domain.TeamMember;
 import com.example.mateon.teams.domain.TeamMemberRole;
 import com.example.mateon.teams.repository.TeamMemberRepository;
 import com.example.mateon.user.domain.User;
+import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.dto.MyPageResponseDTO;
 import com.example.mateon.user.dto.PasswordChangeRequest;
 import com.example.mateon.user.repository.UserCollaborationScoreRepository;
@@ -257,6 +258,33 @@ class UserServiceTest {
             assertThat(service.getMyPage(USER_ID).getParticipatedActivities()).isEmpty();
 
             verify(teamMemberRepository).findByUserIdAndLeftAtIsNull(USER_ID);
+        }
+
+        @Test
+        @DisplayName("집계 행이 있으면 그 온도와 건수를 싣는다")
+        void myPageUsesScoreWhenPresent() {
+            UserCollaborationScore score = UserCollaborationScore.init(USER_ID);
+            score.addRating(5);
+            when(collaborationScoreRepository.findById(USER_ID)).thenReturn(Optional.of(score));
+            when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID)).thenReturn(List.of());
+
+            MyPageResponseDTO page = service.getMyPage(USER_ID);
+
+            assertThat(page.getCollaborationTemperature()).isEqualByComparingTo(score.getTemperature());
+            assertThat(page.getCollaborationReviewCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("활동은 있는데 카테고리가 비어 있으면 '기타' 다")
+        void nullCategoryFallsBackToEtc() {
+            when(teamMemberRepository.findByUserIdAndLeftAtIsNull(USER_ID))
+              .thenReturn(List.of(membership(team(10L, "팀A", 100L), TeamMemberRole.MEMBER)));
+            when(eventRepository.findAllById(any())).thenReturn(List.of(event(100L, null)));
+
+            assertThat(service.getMyPage(USER_ID).getParticipatedActivities())
+              .singleElement()
+              .extracting(MyPageResponseDTO.ActivitySummaryDTO::getCategory)
+              .isEqualTo("기타");
         }
 
         @Test

@@ -228,17 +228,17 @@ public class TeamOfferService {
     // ── 공통 ─────────────────────────────────────────────────────────────────
     private TeamOffer getOfferById(Long offerId) {
         return offerRepository.findById(offerId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
     }
 
     private Team getTeamById(Long teamId) {
         return teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
     }
 
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
     }
 
     private void requireLeader(Team team, Long userId) {

@@ -161,6 +161,14 @@ class KakaoOAuthClientTest {
         }
 
         @Test
+        @DisplayName("본문이 JSON null 이면 id 가 없는 것과 같다")
+        void nullBody() {
+            respondWith("null");
+
+            assertKakaoAuthFailed();
+        }
+
+        @Test
         @DisplayName("401 — 토큰 만료·위조. RestClientResponseException 이 새어 500 이 되면 안 된다")
         void unauthorized() {
             server.expect(requestTo(USER_ME_URL))

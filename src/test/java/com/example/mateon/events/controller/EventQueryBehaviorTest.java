@@ -20,8 +20,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -171,6 +173,29 @@ class EventQueryBehaviorTest {
             mockMvc.perform(get("/api/events/search").param("college", "SW융합대학"))
               .andExpect(status().isOk());
         }
+
+        @Test
+        @DisplayName("college 가 공백이면 deprecated 로그를 남기지 않는다")
+        void ignoresBlankCollegeParam() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+              .thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/events/search").param("college", "   "))
+              .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("익명 토큰이면 비로그인으로 본다")
+        void treatsAnonymousTokenAsLoggedOut() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+              .thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/events/search")
+              .principal(new AnonymousAuthenticationToken(
+                "anonymous", "anonymousUser",
+                List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")))))
+              .andExpect(status().isOk());
+        }
     }
 
     @Nested
@@ -280,6 +305,53 @@ class EventQueryBehaviorTest {
               .andExpect(status().isOk())
               .andExpect(header().string("Deprecation", "true"))
               .andExpect(header().exists("Sunset"));
+        }
+
+        @Test
+        @DisplayName("같은 카테고리에서 점수가 낮은 후보는 대표를 바꾸지 않는다")
+        void keepsCurrentWhenCandidateLoses() throws Exception {
+            Event contestHigh = event(1L, Category.CONTEST, null);
+            Event contestLow = event(2L, Category.CONTEST, null);
+            when(eventRepository.findAll()).thenReturn(List.of(contestHigh, contestLow));
+            score(contestHigh, 30);
+            score(contestLow, 10);
+
+            mockMvc.perform(get("/api/events/recommended").principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.length()").value(1))
+              .andExpect(jsonPath("$.data[0].id").value(1));
+        }
+
+        @Test
+        @DisplayName("점수가 같으면 등록일이 늦은 활동을 앞에 둔다")
+        void equalScoresPreferLaterCreatedAt() throws Exception {
+            Event older = event(1L, Category.CONTEST, null, LocalDateTime.of(2026, 1, 1, 0, 0));
+            Event newer = event(2L, Category.CONTEST, null, LocalDateTime.of(2026, 6, 1, 0, 0));
+            when(eventRepository.findByCategory(Category.CONTEST)).thenReturn(List.of(older, newer));
+            score(older, 10);
+            score(newer, 10);
+
+            mockMvc.perform(get("/api/events/recommended")
+              .param("category", "CONTEST")
+              .principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data[0].id").value(2));
+        }
+
+        @Test
+        @DisplayName("점수가 같고 등록일이 없으면 입력 순서를 유지한다")
+        void equalScoresWithNullCreatedAtKeepOriginalOrder() throws Exception {
+            Event first = event(1L, Category.CONTEST, null, LocalDateTime.of(2026, 1, 1, 0, 0));
+            Event second = event(2L, Category.CONTEST, null, null);
+            when(eventRepository.findByCategory(Category.CONTEST)).thenReturn(List.of(first, second));
+            score(first, 10);
+            score(second, 10);
+
+            mockMvc.perform(get("/api/events/recommended")
+              .param("category", "CONTEST")
+              .principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data[0].id").value(1));
         }
     }
 

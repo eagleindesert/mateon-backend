@@ -298,6 +298,23 @@ class MatchingIntentSessionServiceTest {
         }
 
         @Test
+        @DisplayName("extracted 직렬화가 실패해도 대화는 이어진다 — JSON 만 비게 된다")
+        void serializationFailureDoesNotBreakTheFlow() throws Exception {
+            MatchingIntentSession session = givenSessionExists();
+
+            ObjectMapper failingMapper = mock(ObjectMapper.class);
+            when(failingMapper.writeValueAsString(any()))
+              .thenThrow(new RuntimeException("직렬화 실패"));
+            service = new MatchingIntentSessionService(sessionRepository, chatService, taskService,
+              slotRepository, userRepository, userEmbeddingRepository, properties, failingMapper);
+
+            service.applyResult(SESSION_ID, USER_ID, incomplete("어떤 기술을 쓰시나요?"));
+
+            assertThat(session.getLastExtractedJson()).isNull();
+            verify(taskService, never()).close(anyLong(), any());
+        }
+
+        @Test
         @DisplayName("완료라면서 extracted 가 없으면 502 — AI 가 계약을 어긴 것이다")
         void completedWithoutExtractedIs502() {
             givenSessionExists();

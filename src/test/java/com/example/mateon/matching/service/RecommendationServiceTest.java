@@ -145,6 +145,16 @@ class RecommendationServiceTest {
         }
 
         @Test
+        @DisplayName("요청한 limit 을 이미 채웠으면 AI 가 후보를 덜 점수화해도 경고 대상이 아니다")
+        void fillingLimitDoesNotWarnEvenIfAiDroppedCandidates() {
+            givenCandidates(10L, 11L, 12L);
+            givenAiResponse(item(10L, 0.9));
+            givenDisplayInfo(10L);
+
+            assertThat(service.recommendTeams(USER_ID, null, 1)).hasSize(1);
+        }
+
+        @Test
         @DisplayName("limit=0 이어도 최소 1건은 준다 (Math.max(limit,1))")
         void zeroLimitStillReturnsOne() {
             givenCandidates(10L, 11L);

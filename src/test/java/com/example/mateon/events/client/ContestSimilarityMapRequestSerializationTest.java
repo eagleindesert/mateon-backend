@@ -2,6 +2,8 @@ package com.example.mateon.events.client;
 
 import com.example.mateon.common.ai.AiCallTemplate;
 import com.example.mateon.common.ai.AiServerProperties;
+import com.example.mateon.common.exception.ErrorCode;
+import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.client.ContestSimilarityMapRequest.ContestItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -137,5 +140,33 @@ class ContestSimilarityMapRequestSerializationTest {
           1));
 
         server.verify();
+    }
+
+    @Test
+    @DisplayName("query 나 points 가 없으면 502")
+    void missingQueryOrPointsIs502() {
+        server.expect(requestTo(MAP_URL))
+          .andRespond(withSuccess("{\"query\":{\"id\":\"1\"}}", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.map(new ContestSimilarityMapRequest(
+          new ContestItem("1", new float[]{0.1f}, "기준", null, null, null, null),
+          List.of(),
+          1)))
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("points 는 있는데 query 가 없어도 502")
+    void missingQueryWithPointsIs502() {
+        server.expect(requestTo(MAP_URL))
+          .andRespond(withSuccess("{\"points\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.map(new ContestSimilarityMapRequest(
+          new ContestItem("1", new float[]{0.1f}, "기준", null, null, null, null),
+          List.of(),
+          1)))
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
     }
 }

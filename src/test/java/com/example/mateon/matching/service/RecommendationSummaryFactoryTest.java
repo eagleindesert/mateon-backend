@@ -101,6 +101,16 @@ class RecommendationSummaryFactoryTest {
         }
 
         @Test
+        @DisplayName("리스트 원소가 전부 공백이면 그 항목은 없는 것으로 본다")
+        void blankListElementsAreSkipped() {
+            MatchingIntentSlot slot = slot(List.of("  ", ""), List.of("BE"), null, null, null,
+              null, null);
+
+            assertThat(RecommendationSummaryFactory.userSummary(slot, emptyUser()))
+              .isEqualTo("BE");
+        }
+
+        @Test
         @DisplayName("3층: 슬롯이 통째로 비면 users 행(전공/관심직무/한 줄 소개)으로 내려간다")
         void fallsBackToUserProfile() {
             User user = new User();

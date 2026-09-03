@@ -450,6 +450,29 @@ class TeamServiceApplicationFlowTest {
         verify(applicationRepository).findByApplicantId(APPLICANT_ID);
     }
 
+    @Test
+    @DisplayName("내 지원 목록에 지원서가 있으면 DTO 로 옮긴다")
+    void myApplicationsMapsItems() {
+        TeamApplication application = givenApplication(ApplicationStatus.PENDING);
+        when(applicationRepository.findByApplicantId(APPLICANT_ID))
+          .thenReturn(List.of(application));
+
+        assertThat(service.getMyApplications(APPLICANT_ID))
+          .singleElement()
+          .extracting("teamTitle")
+          .isEqualTo("테스트 팀");
+    }
+
+    @Test
+    @DisplayName("팀장 지원서 목록도 건수를 그대로 옮긴다")
+    void applicationsForMyTeamMapsItems() {
+        TeamApplication application = givenApplication(ApplicationStatus.PENDING);
+        when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+        when(applicationRepository.findByTeamId(TEAM_ID)).thenReturn(List.of(application));
+
+        assertThat(service.getApplicationsForMyTeam(TEAM_ID, LEADER_ID)).hasSize(1);
+    }
+
     // --- 픽스처 -------------------------------------------------------------
     private TeamApplication givenApplication(ApplicationStatus status) {
         TeamApplication application = TeamApplication.builder()

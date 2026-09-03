@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,9 +26,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.exc.InvalidFormatException;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -192,6 +198,33 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
+        @DisplayName("InvalidFormat 인데 경로가 비면 필드를 특정하지 않는다")
+        void unreadableWithEmptyPathHasEmptyData() {
+            InvalidFormatException cause = InvalidFormatException.from(
+              null, "bad value", "FOO", Kind.class);
+            HttpMessageNotReadableException e = new HttpMessageNotReadableException(
+              "JSON parse error", cause, new MockHttpInputMessage(new byte[0]));
+
+            ResponseEntity<BaseResponse<Map<String, String>>> response = handler.handleNotReadable(e);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody().getData()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("변환 목표 타입이 없으면 허용값 없이 형식 안내만 준다")
+        void typeMismatchWithNullRequiredType() {
+            MethodArgumentTypeMismatchException e = new MethodArgumentTypeMismatchException(
+              "abc", null, "id", null, new IllegalArgumentException("x"));
+
+            ResponseEntity<BaseResponse<Map<String, String>>> response = handler.handleTypeMismatch(e);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody().getData().get("id"))
+              .isEqualTo("'abc' 는 형식이 올바르지 않습니다.");
+        }
+
+        @Test
         @DisplayName("깨진 JSON 은 필드를 특정할 수 없어 data 가 빈 맵이다 (그래도 400 봉투는 유지)")
         void malformedJsonHasEmptyData() throws Exception {
             mockMvc.perform(post("/probe/body")
@@ -257,6 +290,13 @@ class GlobalExceptionHandlerTest {
         @DisplayName("클라이언트가 끊은 async 요청은 응답을 만들지 않는다 (본문 없음)")
         void asyncRequestNotUsableProducesNoBody() throws Exception {
             mockMvc.perform(get("/probe/async-gone"))
+                    .andExpect(content().string(""));
+        }
+
+        @Test
+        @DisplayName("async 타임아웃도 응답을 만들지 않는다")
+        void asyncTimeoutProducesNoBody() throws Exception {
+            mockMvc.perform(get("/probe/async-timeout"))
                     .andExpect(content().string(""));
         }
     }
@@ -367,6 +407,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/probe/async-gone")
         void asyncGone() throws IOException {
             throw new AsyncRequestNotUsableException("클라이언트가 연결을 끊었습니다");
+        }
+
+        @GetMapping("/probe/async-timeout")
+        void asyncTimeout() {
+            throw new AsyncRequestTimeoutException();
         }
     }
 }

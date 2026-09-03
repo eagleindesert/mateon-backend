@@ -199,6 +199,15 @@ class IntentExtractionClientTest {
         }
 
         @Test
+        @DisplayName("본문이 JSON null 이면 502")
+        void nullBodyIs502() {
+            server.expect(requestTo(EXTRACT_URL))
+                    .andRespond(withSuccess("null", MediaType.APPLICATION_JSON));
+
+            assertExtractFails(ErrorCode.AI_SERVER_ERROR);
+        }
+
+        @Test
         @DisplayName("연결 실패는 503 (재시도 가능)")
         void connectionFailureIs503() {
             server.expect(requestTo(EXTRACT_URL))
@@ -220,6 +229,31 @@ class IntentExtractionClientTest {
         void unprocessableIs502() {
             server.expect(requestTo(EXTRACT_URL))
                     .andRespond(withStatus(HttpStatus.UNPROCESSABLE_CONTENT));
+
+            assertExtractFails(ErrorCode.AI_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("403 도 시크릿 거절이라 502")
+        void forbiddenIs502() {
+            server.expect(requestTo(EXTRACT_URL)).andRespond(withStatus(HttpStatus.FORBIDDEN));
+
+            assertExtractFails(ErrorCode.AI_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("그 외 5xx 도 502")
+        void otherHttpErrorIs502() {
+            server.expect(requestTo(EXTRACT_URL)).andRespond(withStatus(HttpStatus.BAD_GATEWAY));
+
+            assertExtractFails(ErrorCode.AI_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("본문이 깨져 있어도 502")
+        void malformedBodyIs502() {
+            server.expect(requestTo(EXTRACT_URL))
+                    .andRespond(withSuccess("{", MediaType.APPLICATION_JSON));
 
             assertExtractFails(ErrorCode.AI_SERVER_ERROR);
         }

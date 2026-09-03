@@ -96,7 +96,7 @@ public class TeamService {
     public TeamDetailResponseDTO getTeamDetail(Long teamId, Long userId) {
         // 1. 팀 조회
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         // 2. 이벤트 조회
         Event event = null;
@@ -131,7 +131,7 @@ public class TeamService {
           .map(TeamMember::getUser)
           .findFirst()
           .orElseGet(() -> userRepository.findById(team.getLeaderUserId())
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND)));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException));
 
         // 6. 팀장의 협업 온도. 평가를 안 받았으면 행이 없고, 그건 0건과 같으므로 기준점을 내려보낸다.
         BigDecimal leaderTemperature = collaborationScoreRepository.findById(leaderUser.getId())
@@ -159,7 +159,7 @@ public class TeamService {
         Event event = null;
         if (request.getEventId() != null) {
             event = eventRepository.findById(request.getEventId())
-              .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+              .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         }
         // 갓 만든 팀의 인원은 팀장 1명.
         return new TeamResponseDTO(team, event, 1);
@@ -167,7 +167,7 @@ public class TeamService {
 
     public TeamResponseDTO updateTeam(Long teamId, TeamRequestDTO request, Long userId) {
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         User user = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(user.getId())) {
@@ -196,7 +196,7 @@ public class TeamService {
 
     public void deleteTeam(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         User user = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(user.getId())) {
@@ -252,7 +252,7 @@ public class TeamService {
         User applicant = getUserById(userId);
         requireSchoolVerified(applicant); // 팀 지원은 학교 인증(재학생) 필요
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         if (team.getLeaderUserId().equals(applicant.getId())) {
             throw new IllegalArgumentException("본인이 개설한 팀에는 지원할 수 없습니다.");
@@ -305,7 +305,7 @@ public class TeamService {
     @Transactional(readOnly = true)
     public List<TeamApplicationResponseDTO> getApplicationsForMyTeam(Long teamId, Long userId) {
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         User leader = getUserById(userId);
 
         if (!team.getLeaderUserId().equals(leader.getId())) {
@@ -322,7 +322,7 @@ public class TeamService {
     public TeamApplicationResponseDTO getApplicationDetail(Long applicationId, Long userId) {
         // 1. 지원서 찾기
         TeamApplication application = applicationRepository.findById(applicationId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         // 2. 현재 요청한 사람(로그인 유저) 찾기
         User currentUser = getUserById(userId);
@@ -345,7 +345,7 @@ public class TeamService {
     // 지원자 승인/거절 처리 + 알림 발송
     public void processApplication(Long applicationId, boolean isApproved, Long userId) {
         TeamApplication application = applicationRepository.findById(applicationId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         User leader = getUserById(userId);
         Team team = application.getTeam();
 
@@ -400,7 +400,7 @@ public class TeamService {
     public void updateApplication(Long applicationId, TeamApplicationRequestDTO request, Long userId) {
         User applicant = getUserById(userId);
         TeamApplication application = applicationRepository.findById(applicationId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         // 1. 작성자 본인인지 확인
         if (!application.getApplicant().getId().equals(applicant.getId())) {
@@ -425,7 +425,7 @@ public class TeamService {
     public void cancelApplication(Long applicationId, Long userId) {
         User applicant = getUserById(userId);
         TeamApplication application = applicationRepository.findById(applicationId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         // 1. 작성자 본인인지 확인
         if (!application.getApplicant().getId().equals(applicant.getId())) {
@@ -452,7 +452,7 @@ public class TeamService {
 
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
     }
 
     // 학교 인증(재학생) 이 완료된 유저만 허용. 소셜만 로그인한 미인증 유저는 차단.

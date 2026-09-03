@@ -77,7 +77,7 @@ public class ProfileImageService {
      */
     public void delete(Long userId) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         String currentUrl = user.getProfileImageUrl();
         if (currentUrl == null) {

@@ -113,6 +113,31 @@ class NotificationServiceTest {
 
             assertThat(emitterRepository.get(USER_ID)).isSameAs(second).isNotSameAs(first);
         }
+
+        @Test
+        @DisplayName("연결이 끝나면 emitter 를 저장소에서 뺀다")
+        void completionRemovesEmitter() {
+            SseEmitter emitter = notificationService.subscribe(USER_ID);
+            Runnable completion =
+              (Runnable) ReflectionTestUtils.getField(emitter, "completionCallback");
+
+            assertThat(completion).isNotNull();
+            completion.run();
+
+            assertThat(emitterRepository.get(USER_ID)).isNull();
+        }
+
+        @Test
+        @DisplayName("타임아웃도 emitter 를 저장소에서 뺀다")
+        void timeoutRemovesEmitter() {
+            SseEmitter emitter = notificationService.subscribe(USER_ID);
+            Runnable timeout = (Runnable) ReflectionTestUtils.getField(emitter, "timeoutCallback");
+
+            assertThat(timeout).isNotNull();
+            timeout.run();
+
+            assertThat(emitterRepository.get(USER_ID)).isNull();
+        }
     }
 
     @Nested
