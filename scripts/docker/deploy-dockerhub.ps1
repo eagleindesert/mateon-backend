@@ -88,6 +88,7 @@ function Invoke-DockerQuiet {
 # DockerHub 에 이미 올라온 semver 태그 중 최고 버전을 찾아 patch +1 한 다음 태그를 반환.
 # public 레포지토리라 인증 없이 조회 가능. 실패/미존재 시 StartVersion 으로 시작.
 # 반환: @{ Tag = "<다음 태그>"; Prev = "<직전 태그 또는 $null>" }
+# CI 의 scripts/docker/next-dockerhub-tag.sh 와 규칙을 맞춰 둔다. 여기를 바꾸면 그쪽도 같이.
 function Get-NextDockerHubTag {
     param([string]$Repo, [string]$StartVersion = "v1.0.0")
 

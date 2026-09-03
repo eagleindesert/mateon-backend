@@ -39,6 +39,35 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - pgAdmin: `http://localhost:5050` (admin@admin.com / admin)
 
+## CI / CD
+
+`main` 으로 열린 PR 과 `main` 머지는 GitHub Actions
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) 가 처리합니다.
+
+| 이벤트 | 하는 일 |
+| --- | --- |
+| `main` 으로 PR | `./gradlew test` (Testcontainers Postgres). `*LiveTest` 는 관문에서 빠져 있습니다 |
+| `main` 에 머지 | 같은 테스트를 다시 돌린 뒤, DockerHub 의 다음 semver 를 계산해 `linux/arm64` 이미지를 `:vX.Y.Z` 와 `:latest` 로 푸시합니다 |
+
+로컬에서 같은 관문을 보려면 Docker 가 켜져 있어야 합니다. 통합 테스트가 Testcontainers 를 씁니다.
+
+```bash
+./gradlew test
+```
+
+`fastTest` 는 Docker 없는 단축이고, `liveTest` 는 밖에 떠 있는 AI 스텁을 상대합니다. 둘 다 CI 관문이 아닙니다.
+
+이미지 푸시에는 레포 Secrets 가 필요합니다. PR 테스트는 시크릿 없이 돕니다.
+
+| Secret | 값 |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | DockerHub 사용자명 (`eagleindesert`) |
+| `DOCKERHUB_TOKEN` | DockerHub Access Token (계정 비밀번호 쓰지 않음) |
+
+머지 전에 GitHub → Settings → Secrets and variables → Actions 에 이 두 키를 넣지 않으면
+`docker` job 만 실패합니다. 수동으로 특정 태그를 올릴 때는 여전히
+[scripts/docker/deploy-dockerhub.ps1](scripts/docker/deploy-dockerhub.ps1) 을 씁니다.
+
 ## 프로필 (dev / prod)
 
 환경은 프로필 두 개로만 나뉩니다. **디버그 기능은 프로필이 아니라 별도 스위치**라서,
