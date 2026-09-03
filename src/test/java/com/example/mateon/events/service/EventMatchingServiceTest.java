@@ -249,6 +249,42 @@ class EventMatchingServiceTest {
 
             assertThat(score(user, collegesEvent(null))).isZero();
         }
+
+        @Test
+        @DisplayName("전공이 target_colleges 에 없으면 이 축은 0점이다")
+        void majorMismatchScoresNothing() {
+            User user = User.builder().major("경영학과").build();
+
+            assertThat(score(user, collegesEvent("소프트웨어학과,컴퓨터공학과"))).isZero();
+        }
+
+        @Test
+        @DisplayName("단과대가 target_colleges 에 없으면 이 축은 0점이다")
+        void collegeMismatchScoresNothing() {
+            User user = User.builder().college("경영대학").build();
+
+            assertThat(score(user, collegesEvent("SW융합대학"))).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("희망직무가 null 이면 0점이다")
+    void nullInterestJobScoresNothing() throws Exception {
+        var method = EventMatchingService.class.getDeclaredMethod(
+          "matchInterestJob", String.class, Event.class, int.class);
+        method.setAccessible(true);
+
+        assertThat(method.invoke(service, null, new Event(), 30)).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("키워드 추출은 빈 문자열을 버린다")
+    void extractKeywordsDropsBlank() throws Exception {
+        var method = EventMatchingService.class.getDeclaredMethod("extractKeywords", String.class);
+        method.setAccessible(true);
+
+        assertThat((String[]) method.invoke(service, new Object[]{null})).isEmpty();
+        assertThat((String[]) method.invoke(service, "   ")).isEmpty();
     }
 
     @Test

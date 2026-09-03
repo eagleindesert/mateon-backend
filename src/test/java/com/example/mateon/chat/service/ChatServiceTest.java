@@ -332,6 +332,22 @@ class ChatServiceTest {
         }
 
         @Test
+        @DisplayName("DM 방에 상대가 없으면 title 과 partnerId 를 비운다")
+        void dmWithoutPartnerLeavesTitleEmpty() {
+            ChatRoom dm = room(RoomType.DM, ROOM_ID);
+            ChatRoomMember mine = member(dm, user(ME, "나"), null);
+            when(chatRoomMemberRepository.findAllByUserId(ME)).thenReturn(List.of(mine));
+            when(chatRoomMemberRepository.findAllByRoomId(ROOM_ID)).thenReturn(List.of(mine));
+            when(chatMessageRepository.findFirstByRoomIdOrderByIdDesc(ROOM_ID)).thenReturn(Optional.empty());
+            when(chatMessageRepository.countByRoomId(ROOM_ID)).thenReturn(0L);
+
+            ChatRoomResponse response = chatService.getMyRooms(ME).get(0);
+
+            assertThat(response.getPartnerId()).isNull();
+            assertThat(response.getTitle()).isNull();
+        }
+
+        @Test
         @DisplayName("GROUP 방은 방 이름을 유지하고 partnerId 가 없다 (멤버를 훑지도 않는다)")
         void groupRoomKeepsItsTitle() {
             ChatRoom group = TestEntities.withId(

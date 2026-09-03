@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -139,6 +141,101 @@ class EventEmbeddingServiceTest {
         assertThat(saved.getRefreshStatus()).isEqualTo(EventEmbeddingRefreshStatus.FAILED);
         assertThat(saved.getSourceUpdatedAt()).isEqualTo(CREATED_AT);
         assertThat(saved.getEmbedding()).containsExactly(0.9f, 0.8f, 0.7f, 0.6f);
+    }
+
+    @Test
+    @DisplayName("응답에 event_id 가 없어도 우리가 아는 id 로 저장한다")
+    void ignoresMissingEchoedEventId() {
+        givenEvent(CREATED_AT, "설명");
+        when(eventEmbeddingRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+        ContestEmbeddingRefreshResponse response = new ContestEmbeddingRefreshResponse();
+        response.setEventId(null);
+        response.setEmbeddingVector(new double[]{0.1, 0.2, 0.3, 0.4});
+        when(client.refresh(any())).thenReturn(response);
+
+        service.refresh(EVENT_ID);
+
+        assertThat(captureSaved().getEventId()).isEqualTo(EVENT_ID);
+    }
+
+    @Test
+    @DisplayName("응답 event_id 가 달라도 우리가 아는 id 로 저장한다")
+    void ignoresMismatchedEchoedEventId() {
+        givenEvent(CREATED_AT, "설명");
+        when(eventEmbeddingRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+        ContestEmbeddingRefreshResponse response = new ContestEmbeddingRefreshResponse();
+        response.setEventId(EVENT_ID + 1);
+        response.setEmbeddingVector(new double[]{0.1, 0.2, 0.3, 0.4});
+        when(client.refresh(any())).thenReturn(response);
+
+        service.refresh(EVENT_ID);
+
+        assertThat(captureSaved().getEventId()).isEqualTo(EVENT_ID);
+    }
+
+    @Test
+    @DisplayName("벡터가 없으면 저장하지 않고 FAILED 를 남긴다")
+    void skipsSaveWhenVectorIsNull() {
+        givenEvent(CREATED_AT, "설명");
+        when(eventEmbeddingRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+        givenAiResponse(null);
+
+        service.refresh(EVENT_ID);
+
+        EventEmbedding saved = captureSaved();
+        assertThat(saved.getRefreshStatus()).isEqualTo(EventEmbeddingRefreshStatus.FAILED);
+        assertThat(saved.getEmbedding()).isNull();
+        assertThat(saved.getLastError()).contains("actual=null");
+    }
+
+    @Test
+    @DisplayName("활동 수정 시각이 없으면 낡은 결과로 보지 않는다")
+    void savesWhenSourceTimestampUnknown() {
+        givenEvent(null, "설명");
+        givenStoredRow(UPDATED_AT, vector(0.9, 0.8, 0.7, 0.6));
+        givenAiResponse(new double[]{0.1, 0.2, 0.3, 0.4});
+
+        service.refresh(EVENT_ID);
+
+        EventEmbedding saved = captureSaved();
+        assertThat(saved.getEmbedding()).containsExactly(0.1f, 0.2f, 0.3f, 0.4f);
+        assertThat(saved.getSourceUpdatedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("저장이 두 번 충돌하면 예외를 올리고 실패 기록은 삼킨다")
+    void rethrowsAfterSaveConflictsAndSwallowsFailureRecording() {
+        givenEvent(CREATED_AT, "설명");
+        when(eventEmbeddingRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+        givenAiResponse(new double[]{0.1, 0.2, 0.3, 0.4});
+        when(eventEmbeddingRepository.save(any()))
+          .thenThrow(new OptimisticLockingFailureException("버전 충돌"));
+
+        assertThatThrownBy(() -> service.refresh(EVENT_ID))
+          .isInstanceOf(OptimisticLockingFailureException.class);
+
+        verify(eventEmbeddingRepository, times(4)).save(any());
+    }
+
+    @Test
+    @DisplayName("실패 사유는 500자로 자른다")
+    void truncatesLongFailureReason() {
+        givenEvent(CREATED_AT, "설명");
+        when(eventEmbeddingRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
+        when(client.refresh(any())).thenThrow(new RuntimeException("e".repeat(600)));
+
+        assertThatThrownBy(() -> service.refresh(EVENT_ID)).isInstanceOf(RuntimeException.class);
+
+        assertThat(captureSaved().getLastError()).hasSize(500);
+    }
+
+    @Test
+    @DisplayName("실패 사유가 없으면 last_error 도 비운다")
+    void truncateNullReasonReturnsNull() throws Exception {
+        var method = EventEmbeddingService.class.getDeclaredMethod("truncate", String.class);
+        method.setAccessible(true);
+
+        assertThat(method.invoke(service, new Object[]{null})).isNull();
     }
 
     private void givenEvent(LocalDateTime updatedAt, String description) {

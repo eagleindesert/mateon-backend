@@ -6,6 +6,7 @@ import com.example.mateon.events.dto.EventResponseDTO;
 import com.example.mateon.events.event.EventEmbeddingRefreshRequestedEvent;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,7 +19,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -271,6 +274,36 @@ class EventServiceTest {
 
             assertThat(service.findAllRandomly(5, USER_ID)).singleElement()
               .extracting(EventResponseDTO::isBookmarked).isEqualTo(true);
+        }
+    }
+
+    @Nested
+    @DisplayName("추천 정렬 — 점수가 같으면 등록일, 없으면 원래 순서")
+    class RecommendTieBreak {
+
+        @Test
+        @DisplayName("점수가 같고 한쪽만 등록일이 있으면 순서를 바꾸지 않는다")
+        void equalScoreWithOneMissingCreatedAtKeepsOrder() {
+            User user = User.builder().id(USER_ID).build();
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(eventMatchingService.calculateRelevanceScore(any(), any())).thenReturn(10);
+
+            Event dated = event(1L);
+            dated.setCreatedAt(LocalDateTime.of(2020, 1, 1, 0, 0));
+            Event undated = event(2L);
+            when(eventRepository.findByCategory(Event.Category.CONTEST))
+              .thenReturn(List.of(dated, undated));
+
+            assertThat(service.recommend(Event.Category.CONTEST, USER_ID))
+              .extracting(EventResponseDTO::getId)
+              .containsExactly(1L);
+
+            when(eventRepository.findByCategory(Event.Category.CONTEST))
+              .thenReturn(List.of(undated, dated));
+
+            assertThat(service.recommend(Event.Category.CONTEST, USER_ID))
+              .extracting(EventResponseDTO::getId)
+              .containsExactly(2L);
         }
     }
 

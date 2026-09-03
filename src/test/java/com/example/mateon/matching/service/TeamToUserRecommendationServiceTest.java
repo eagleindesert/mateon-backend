@@ -98,6 +98,18 @@ class TeamToUserRecommendationServiceTest {
 
             assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10)).hasSize(1);
         }
+
+        @Test
+        @DisplayName("candidate_id 가 null 이어도 버리고, 점수화된 건이 후보·limit 둘 다에 못 미치면 경고한다")
+        void dropsNullCandidateIdAndWarnsWhenTooFewScored() {
+            givenCandidates(2L, 3L);
+            givenAiResponse(item(null, 0.99), item(3L, null), item(999L, 0.5), item(2L, 0.9));
+            givenDisplayInfo(2L);
+
+            assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 10))
+              .extracting(UserRecommendationResponseDTO::getUserId)
+              .containsExactly(2L);
+        }
     }
 
     @Nested
@@ -114,6 +126,16 @@ class TeamToUserRecommendationServiceTest {
             assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 2))
               .extracting(UserRecommendationResponseDTO::getScore)
               .containsExactly(0.9, 0.5);
+        }
+
+        @Test
+        @DisplayName("요청한 limit 을 이미 채웠으면 AI 가 후보를 덜 점수화해도 경고 대상이 아니다")
+        void fillingLimitDoesNotWarnEvenIfAiDroppedCandidates() {
+            givenCandidates(2L, 3L, 4L);
+            givenAiResponse(item(2L, 0.9));
+            givenDisplayInfo(2L);
+
+            assertThat(service.recommendUsers(TEAM_ID, LEADER_ID, 1)).hasSize(1);
         }
 
         @Test

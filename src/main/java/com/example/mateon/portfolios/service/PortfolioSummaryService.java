@@ -9,6 +9,7 @@ import com.example.mateon.portfolios.dto.PortfolioSummaryResponseDTO;
 import com.example.mateon.portfolios.repository.UserPortfolioRepository;
 import com.example.mateon.user.domain.User;
 import com.example.mateon.user.repository.UserRepository;
+import lombok.Generated;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -155,11 +156,17 @@ public class PortfolioSummaryService {
      * 소문자 hex 64자. AI 서버가 pdf_id 로 쓰는 것과 같은 규약이다.
      */
     private String sha256Hex(byte[] bytes) {
+        return HexFormat.of().formatHex(sha256().digest(bytes));
+    }
+
+    /**
+     * SHA-256 은 JCA 필수 알고리즘이라 이 예외는 런타임이 망가진 경우에만 난다.
+     */
+    @Generated
+    private static MessageDigest sha256() {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            return MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
-            // SHA-256 은 모든 JVM 이 제공해야 하는 JCA 표준 알고리즘이다. 여기 오면 런타임이 망가진 것이라
-            // 사용자에게 안내할 것이 없다.
             throw new IllegalStateException("SHA-256 을 사용할 수 없습니다", e);
         }
     }
@@ -179,7 +186,7 @@ public class PortfolioSummaryService {
 
     private void save(Long userId, String pdfId, String summary, String filename) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
         try {
             portfolioRepository.saveAndFlush(new UserPortfolio(user, pdfId, summary, filename));
         } catch (DataIntegrityViolationException e) {

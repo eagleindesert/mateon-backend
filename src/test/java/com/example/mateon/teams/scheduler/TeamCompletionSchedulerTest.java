@@ -62,6 +62,16 @@ class TeamCompletionSchedulerTest {
     }
 
     @Test
+    @DisplayName("종료된 팀이 있으면 그대로 정상 종료한다")
+    void completedCountIsFine() {
+        when(completionService.completeExpiredTeams(any())).thenReturn(3);
+
+        assertThatCode(() -> scheduler.completeExpiredTeams()).doesNotThrowAnyException();
+
+        verify(completionService).completeExpiredTeams(any());
+    }
+
+    @Test
     @DisplayName("종료된 팀이 없어도 정상 종료한다 (0건은 흔한 상태다)")
     void zeroIsFine() {
         when(completionService.completeExpiredTeams(any())).thenReturn(0);

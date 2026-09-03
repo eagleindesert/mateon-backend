@@ -206,6 +206,21 @@ class EventExtractionServiceTest {
     }
 
     @Test
+    @DisplayName("category·field 가 비어 있으면 ETC 로 채운다")
+    void fallsBackToEtcWhenCodesBlank() {
+        ContestExtractResponse response = fullResponse();
+        response.setCategory(null);
+        response.setField("  ");
+        when(extractionClient.extract(any(), anyString(), anyString())).thenReturn(response);
+        when(objectStorageService.upload(anyString(), any(), anyString())).thenReturn(UPLOADED_URL);
+
+        EventExtractionResponseDTO draft = service.extractFromImage(image("poster.png"));
+
+        assertThat(draft.getCategory()).isEqualTo(Category.ETC);
+        assertThat(draft.getField()).isEqualTo(Field.ETC);
+    }
+
+    @Test
     @DisplayName("날짜를 못 읽었거나 형식이 깨졌으면 그 필드만 비운다")
     void leavesUnparsableDatesEmpty() {
         ContestExtractResponse response = fullResponse();

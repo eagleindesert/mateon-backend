@@ -90,7 +90,7 @@ public class TeamReviewService {
         requireMember(teamId, reviewerId);
 
         User reviewer = userRepository.findById(reviewerId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         // 팀원 전원을 한 번에 읽어 두고 검증에 재사용한다 (대상마다 조회하면 N+1).
         Map<Long, User> membersById = teamMemberRepository.findActiveMembersWithUser(teamId).stream()
@@ -146,7 +146,7 @@ public class TeamReviewService {
      */
     private Team requireReviewableTeam(Long teamId) {
         Team team = teamRepository.findById(teamId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
 
         if (!team.isEnded()) {
             throw new MateonException(ErrorCode.TEAM_NOT_ENDED);

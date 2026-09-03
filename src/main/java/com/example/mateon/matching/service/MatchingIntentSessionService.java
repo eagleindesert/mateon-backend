@@ -100,7 +100,7 @@ public class MatchingIntentSessionService {
      */
     public MatchingIntentResponseDTO applyResult(Long sessionId, Long userId, IntentExtractResponse ai) {
         MatchingIntentSession session = sessionRepository.findById(sessionId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         Long taskId = session.getTask().getId();
 
         chatService.appendDomainReply(taskId, ai.getAssistantMessage());
@@ -215,7 +215,7 @@ public class MatchingIntentSessionService {
 
     private User requireUser(Long userId) {
         return userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
     }
 
     private String writeExtractedJson(ExtractedDTO extracted) {

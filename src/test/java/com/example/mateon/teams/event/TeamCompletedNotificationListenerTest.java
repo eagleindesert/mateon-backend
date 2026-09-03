@@ -19,10 +19,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -48,6 +50,7 @@ class TeamCompletedNotificationListenerTest {
     private static final long LEADER_ID = 1L;
     private static final String TEAM_TITLE = "종료 테스트 팀";
 
+    private TeamRepository teamRepository;
     private TeamMemberRepository teamMemberRepository;
     private UserRepository userRepository;
     private NotificationService notificationService;
@@ -58,7 +61,7 @@ class TeamCompletedNotificationListenerTest {
 
     @BeforeEach
     void setUp() {
-        TeamRepository teamRepository = mock(TeamRepository.class);
+        teamRepository = mock(TeamRepository.class);
         teamMemberRepository = mock(TeamMemberRepository.class);
         userRepository = mock(UserRepository.class);
         notificationService = mock(NotificationService.class);
@@ -126,6 +129,27 @@ class TeamCompletedNotificationListenerTest {
         verify(notificationService, times(2)).send(any(), eq("팀원 평가 요청"),
           contains("14일 안에"), eq(Notification.NotificationType.INFO));
         verify(notificationService, never()).send(any(), eq("활동 자동 종료"), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("종료 직후 팀이 사라졌으면 알림을 보내지 않는다")
+    void skipsWhenTeamGone() {
+        when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+
+        listener.onTeamCompleted(new TeamCompletedEvent(TEAM_ID, true));
+
+        verify(notificationService, never()).send(any(), anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("알림 발송이 실패해도 예외를 밖으로 내보내지 않는다")
+    void swallowsNotificationFailure() {
+        givenMembers(leader, givenUser(2L, "팀원"));
+        doThrow(new RuntimeException("SSE 실패"))
+          .when(notificationService).send(any(), anyString(), anyString(), any());
+
+        assertThatCode(() -> listener.onTeamCompleted(new TeamCompletedEvent(TEAM_ID, false)))
+          .doesNotThrowAnyException();
     }
 
     // ── 준비 헬퍼 ────────────────────────────────────────────────────────────

@@ -111,6 +111,18 @@ class BookmarkServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("찜한 활동 id 전량은 페이징 없이 그대로 준다")
+    void bookmarkedEventIdsAreUnpaged() {
+        Long first = saveEvent(null);
+        Long second = saveEvent(null);
+        bookmarkService.addBookmark(userId, first);
+        bookmarkService.addBookmark(userId, second);
+
+        assertThat(bookmarkService.getMyBookmarkedEventIds(userId))
+          .containsExactlyInAnyOrder(first, second);
+    }
+
+    @Test
     @DisplayName("북마크 목록에 실린 활동은 전부 bookmarked=true 다")
     void listedEventsAreMarkedBookmarked() {
         bookmarkService.addBookmark(userId, saveEvent(null));

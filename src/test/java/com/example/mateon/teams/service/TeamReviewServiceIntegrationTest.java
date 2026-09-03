@@ -164,6 +164,35 @@ class TeamReviewServiceIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("한 요청 안에서 같은 대상을 두 번 넣으면 ALREADY_REVIEWED 다")
+    void duplicateInSameRequest() {
+        endTeam();
+        TeamReviewSubmitRequestDTO.Item first = new TeamReviewSubmitRequestDTO.Item();
+        first.setRevieweeId(memberA.getId());
+        first.setRating(5);
+        TeamReviewSubmitRequestDTO.Item second = new TeamReviewSubmitRequestDTO.Item();
+        second.setRevieweeId(memberA.getId());
+        second.setRating(4);
+        TeamReviewSubmitRequestDTO dto = new TeamReviewSubmitRequestDTO();
+        dto.setReviews(List.of(first, second));
+
+        assertThatThrownBy(() -> teamReviewService.submit(team.getId(), leader.getId(), dto))
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ALREADY_REVIEWED);
+    }
+
+    @Test
+    @DisplayName("1~5 밖 점수는 INVALID_RATING 이다")
+    void rejectsInvalidRating() {
+        endTeam();
+
+        assertThatThrownBy(() -> teamReviewService.submit(
+          team.getId(), leader.getId(), request(memberA.getId(), 0)))
+          .isInstanceOf(MateonException.class)
+          .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_RATING);
+    }
+
+    @Test
     @DisplayName("같은 대상을 두 번 평가할 수 없다")
     void cannotReviewSameTargetTwice() {
         endTeam();

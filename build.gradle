@@ -157,9 +157,9 @@ tasks.register('liveTest', Test) {
 	jacoco.enabled = false
 }
 
-// 커버리지는 측정만 한다. 임계값 게이트(jacocoTestCoverageVerification)는
-// 베이스라인을 보기 전에는 걸지 않는다.
-//
+// 커버리지 게이트는 측정 집합 기준 90% 다. exclude 로 숫자를 맞추지 않는다.
+def jacocoMinimum = 0.90
+
 // 제외 원칙: 실행 경로가 의미 없는 것(엔트리, 순수 설정, debug, DTO/페이로드,
 // JPA 모델이 domain 밖에 있는 Event). domain 패키지는 빼지 않는다 —
 // isFullWith / isExpired / isOwnedBy 같은 행동이 엔티티에 있다.
@@ -197,5 +197,48 @@ tasks.named('jacocoTestReport', JacocoReport) {
 			exclude jacocoExcludes
 		}
 	)
+	// CI 는 `test` 만 돌리므로, 리포트 뒤에 게이트를 붙인다.
+	finalizedBy tasks.named('jacocoTestCoverageVerification')
+}
+
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+	mustRunAfter tasks.named('jacocoTestReport')
+	classDirectories.setFrom(
+		sourceSets.main.output.classesDirs.asFileTree.matching {
+			exclude jacocoExcludes
+		}
+	)
+	violationRules {
+		rule {
+			limit {
+				counter = 'INSTRUCTION'
+				minimum = jacocoMinimum
+			}
+			limit {
+				counter = 'BRANCH'
+				minimum = jacocoMinimum
+			}
+			limit {
+				counter = 'LINE'
+				minimum = jacocoMinimum
+			}
+			limit {
+				counter = 'COMPLEXITY'
+				minimum = jacocoMinimum
+			}
+			limit {
+				counter = 'METHOD'
+				minimum = jacocoMinimum
+			}
+			limit {
+				counter = 'CLASS'
+				minimum = jacocoMinimum
+			}
+		}
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('jacocoTestCoverageVerification')
 }
 

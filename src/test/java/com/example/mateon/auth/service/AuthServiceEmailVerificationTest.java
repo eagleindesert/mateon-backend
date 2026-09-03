@@ -298,6 +298,21 @@ class AuthServiceEmailVerificationTest {
         }
 
         @Test
+        @DisplayName("비어 있는 학교 이메일이면 코드를 저장하고 발송한다")
+        void issuesSchoolEmailCode() {
+            when(userRepository.existsById(USER_ID)).thenReturn(true);
+            when(userRepository.existsBySchoolEmail(EMAIL)).thenReturn(false);
+            when(emailVerificationRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+            authService.requestSchoolEmailVerification(USER_ID, schoolRequest(EMAIL));
+
+            EmailVerification saved = captureSaved();
+            assertThat(saved.getEmail()).isEqualTo(EMAIL);
+            assertThat(saved.getCode()).matches("\\d{6}");
+            verify(eventPublisher).publishEvent(any(VerificationCodeIssuedEvent.class));
+        }
+
+        @Test
         @DisplayName("검증 성공하면 유저가 재학생 상태로 바뀐다")
         void verifyMarksUserAsSchoolVerified() {
             User user = User.builder().id(USER_ID).email("kakao@x.com").name("김학생").build();

@@ -52,7 +52,7 @@ public class AiChatService {
      */
     public AiChatSession createSession(Long userId) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
         return sessionRepository.save(new AiChatSession(user));
     }
 
@@ -87,7 +87,7 @@ public class AiChatService {
      */
     public void assignTask(Long messageId, Long taskId) {
         AiChatMessage message = messageRepository.findById(messageId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
         message.assignTask(requireTask(taskId));
     }
 
@@ -176,7 +176,7 @@ public class AiChatService {
      */
     private AiChatSession requireSession(Long chatSessionId) {
         return sessionRepository.findWithLockById(chatSessionId)
-          .orElseThrow(() -> new MateonException(ErrorCode.AI_CHAT_SESSION_NOT_FOUND));
+          .orElseThrow(ErrorCode.AI_CHAT_SESSION_NOT_FOUND::toException);
     }
 
     private AiChatSession requireOwnedSession(Long userId, Long chatSessionId) {
@@ -189,11 +189,11 @@ public class AiChatService {
      */
     private AiChatSession requireOwnership(Long userId, Optional<AiChatSession> found) {
         return found.filter(session -> session.isOwnedBy(userId))
-          .orElseThrow(() -> new MateonException(ErrorCode.AI_CHAT_SESSION_NOT_FOUND));
+          .orElseThrow(ErrorCode.AI_CHAT_SESSION_NOT_FOUND::toException);
     }
 
     private AiDomainTask requireTask(Long taskId) {
         return taskRepository.findById(taskId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND));
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
     }
 }

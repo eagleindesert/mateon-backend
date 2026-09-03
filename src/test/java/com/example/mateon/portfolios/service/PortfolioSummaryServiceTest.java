@@ -15,8 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -183,6 +185,63 @@ class PortfolioSummaryServiceTest {
     }
 
     @Test
+    @DisplayName("파일이 null 이면 400")
+    void rejectsNullFile() {
+        assertThatThrownBy(() -> service.summarize(USER_ID, null))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_PDF_FILE);
+
+        verifyNoInteractions(summaryClient, portfolioRepository);
+    }
+
+    @Test
+    @DisplayName("파일명이 비어 있으면 400")
+    void rejectsBlankFilename() {
+        MultipartFile file = new MockMultipartFile(
+          "pdf_file", "", "application/pdf", PDF_BYTES);
+
+        assertThatThrownBy(() -> service.summarize(USER_ID, file))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_PDF_FILE);
+
+        verifyNoInteractions(summaryClient);
+    }
+
+    @Test
+    @DisplayName("시그니처보다 짧은 파일은 400")
+    void rejectsShorterThanPdfMagic() {
+        MultipartFile file = new MockMultipartFile(
+          "pdf_file", "portfolio.pdf", "application/pdf",
+          "%PD".getBytes(StandardCharsets.US_ASCII));
+
+        assertThatThrownBy(() -> service.summarize(USER_ID, file))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_PDF_FILE);
+
+        verifyNoInteractions(summaryClient);
+    }
+
+    @Test
+    @DisplayName("바이트를 읽다 실패하면 400")
+    void rejectsUnreadableFile() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getSize()).thenReturn((long) PDF_BYTES.length);
+        when(file.getOriginalFilename()).thenReturn("portfolio.pdf");
+        when(file.getBytes()).thenThrow(new IOException("디스크 오류"));
+
+        assertThatThrownBy(() -> service.summarize(USER_ID, file))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.INVALID_PDF_FILE);
+
+        verifyNoInteractions(summaryClient);
+    }
+
+    @Test
     @DisplayName("빈 파일은 400")
     void rejectsEmptyFile() {
         MultipartFile empty = new MockMultipartFile(
@@ -264,5 +323,14 @@ class PortfolioSummaryServiceTest {
         ArgumentCaptor<UserPortfolio> saved = ArgumentCaptor.forClass(UserPortfolio.class);
         verify(portfolioRepository).saveAndFlush(saved.capture());
         assertThat(saved.getValue().getFilename()).hasSize(255);
+    }
+
+    @Test
+    @DisplayName("파일명이 null 이면 자르지 않고 그대로 둔다")
+    void truncateFilenameKeepsNull() {
+        String truncated = ReflectionTestUtils.invokeMethod(
+          service, "truncateFilename", new Object[]{null});
+
+        assertThat(truncated).isNull();
     }
 }

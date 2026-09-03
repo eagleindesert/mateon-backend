@@ -171,6 +171,39 @@ class BucketCapacityGuardTest {
     }
 
     @Test
+    @DisplayName("예약 CAS 가 실패하면 재시도해 자리를 잡는다")
+    void retriesReserveWhenCasLoses() throws Exception {
+        // reserve 와 rollback 이 동시에 카운터를 건드리면 CAS 가 한 번은 반드시 깨진다.
+        BucketCapacityGuard guard = syncedGuard(1_000_000);
+        int threads = 32;
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+        try {
+            for (int i = 0; i < threads; i++) {
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                        for (int n = 0; n < 200; n++) {
+                            guard.reserve(1);
+                            guard.rollback(1);
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            assertThat(done.await(10, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
     @DisplayName("사용량을 아직 실측하지 못했으면 업로드를 막는다 (fail-closed)")
     void blocksUploadBeforeFirstMeasurement() {
         when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
@@ -233,11 +266,47 @@ class BucketCapacityGuardTest {
         guard.syncOnStartup();
 
         assertThat(guard.isEnabled()).isFalse();
+        assertThatCode(() -> guard.syncPeriodically()).doesNotThrowAnyException();
         assertThatCode(() -> guard.reserve(Long.MAX_VALUE)).doesNotThrowAnyException();
         assertThatCode(() -> guard.checkRoomFor(Long.MAX_VALUE)).doesNotThrowAnyException();
+        assertThatCode(() -> guard.release(10)).doesNotThrowAnyException();
+        assertThatCode(() -> guard.commit(10)).doesNotThrowAnyException();
+        assertThatCode(() -> guard.rollback(10)).doesNotThrowAnyException();
         assertThat(guard.sizeOf("any/key.png")).isZero();
         verify(s3Client, never()).listObjectsV2(any(ListObjectsV2Request.class));
         verify(s3Client, never()).headObject(any(HeadObjectRequest.class));
+    }
+
+    @Test
+    @DisplayName("반납할 바이트가 0 이하면 카운터를 건드리지 않는다")
+    void releaseIgnoresNonPositiveBytes() {
+        BucketCapacityGuard guard = syncedGuard(100, 90);
+
+        guard.release(0);
+        guard.release(-10);
+
+        // 90 을 그대로 두었으므로 11 은 거절되고 10 은 통과해야 한다.
+        assertThatThrownBy(() -> guard.reserve(11)).isInstanceOf(MateonException.class);
+        assertThatCode(() -> guard.reserve(10)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("페이지 상한을 넘기면 실측 실패로 취급한다 — 덜 센 값으로 한도를 열지 않는다")
+    void treatsTruncatedListingAsMeasurementFailure() {
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+          .thenAnswer(invocation -> ListObjectsV2Response.builder()
+            .contents(S3Object.builder().key("a").size(1L).build())
+            .nextContinuationToken("more")
+            .build());
+
+        BucketCapacityGuard guard = guard(100);
+        guard.syncOnStartup();
+
+        // 덜 센 1B 를 그대로 쓰면 여기서 통과한다. 실측 실패라 업로드를 막아야 한다.
+        assertThatThrownBy(() -> guard.reserve(1))
+          .isInstanceOf(MateonException.class)
+          .extracting(e -> ((MateonException) e).getErrorCode())
+          .isEqualTo(ErrorCode.STORAGE_QUOTA_EXCEEDED);
     }
 
     @Test

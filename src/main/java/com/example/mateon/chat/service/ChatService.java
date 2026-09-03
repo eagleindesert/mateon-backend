@@ -49,9 +49,9 @@ public class ChatService {
         }
 
         User me = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
         User target = userRepository.findById(targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         // 기존 DM 방이 있으면 그대로 반환
         return chatRoomRepository.findDmRoom(RoomType.DM, userId, targetUserId)
@@ -74,7 +74,7 @@ public class ChatService {
         }
 
         ChatRoomMember senderMembership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, senderId)
-          .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
+          .orElseThrow(ErrorCode.NOT_ROOM_MEMBER::toException);
 
         ChatRoom room = senderMembership.getRoom();
         User sender = senderMembership.getUser();
@@ -180,7 +180,7 @@ public class ChatService {
     @Transactional
     public void markAsRead(Long userId, Long roomId, Long lastReadMessageId) {
         ChatRoomMember membership = chatRoomMemberRepository.findByRoomIdAndUserId(roomId, userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.NOT_ROOM_MEMBER));
+          .orElseThrow(ErrorCode.NOT_ROOM_MEMBER::toException);
         membership.updateLastReadMessageId(lastReadMessageId);
     }
 

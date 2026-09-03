@@ -82,6 +82,38 @@ class EventEmbeddingBackfillSchedulerTest {
     }
 
     @Test
+    @DisplayName("쿨다운이 없으면 10분으로 본다")
+    void defaultsCooldownWhenNull() {
+        when(eventRepository.findIdsNeedingEmbedding(anyInt(), anyInt(), any()))
+          .thenReturn(List.of());
+        ReflectionTestUtils.setField(scheduler, "retryCooldown", null);
+
+        LocalDateTime before = LocalDateTime.now().minusMinutes(10);
+        scheduler.backfill();
+        LocalDateTime after = LocalDateTime.now().minusMinutes(10);
+
+        ArgumentCaptor<LocalDateTime> retryBefore = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(eventRepository).findIdsNeedingEmbedding(eq(10), eq(8), retryBefore.capture());
+        assertThat(retryBefore.getValue()).isBetween(before.minusSeconds(1), after.plusSeconds(1));
+    }
+
+    @Test
+    @DisplayName("쿨다운이 음수면 10분으로 본다")
+    void defaultsCooldownWhenNegative() {
+        when(eventRepository.findIdsNeedingEmbedding(anyInt(), anyInt(), any()))
+          .thenReturn(List.of());
+        ReflectionTestUtils.setField(scheduler, "retryCooldown", Duration.ofMinutes(-1));
+
+        LocalDateTime before = LocalDateTime.now().minusMinutes(10);
+        scheduler.backfill();
+        LocalDateTime after = LocalDateTime.now().minusMinutes(10);
+
+        ArgumentCaptor<LocalDateTime> retryBefore = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(eventRepository).findIdsNeedingEmbedding(eq(10), eq(8), retryBefore.capture());
+        assertThat(retryBefore.getValue()).isBetween(before.minusSeconds(1), after.plusSeconds(1));
+    }
+
+    @Test
     @DisplayName("한도와 쿨다운 기준 시각을 쿼리에 실어 보낸다")
     void passesFailureCapAndRetryCutoff() {
         when(eventRepository.findIdsNeedingEmbedding(anyInt(), anyInt(), any()))

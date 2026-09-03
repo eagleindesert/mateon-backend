@@ -10,6 +10,10 @@ import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
+import com.example.mateon.common.exception.ErrorCode;
+import com.example.mateon.common.exception.MateonException;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -85,5 +89,19 @@ class ContestEmbeddingRefreshRequestSerializationTest {
         client.refresh(new ContestEmbeddingRefreshRequest(1L, "제목만 있는 공모전", ""));
 
         server.verify();
+    }
+
+    @Test
+    @DisplayName("embedding_vector 가 없으면 502 — 저장부가 NPE 를 내기 전에 자른다")
+    void missingVectorIs502() {
+        server.expect(requestTo(REFRESH_URL))
+          .andRespond(withSuccess("""
+            {"event_id": 1}
+            """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.refresh(
+          new ContestEmbeddingRefreshRequest(1L, "제목", "")))
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.AI_SERVER_ERROR);
     }
 }

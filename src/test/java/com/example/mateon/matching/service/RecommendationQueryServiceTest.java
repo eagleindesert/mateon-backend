@@ -220,6 +220,17 @@ class RecommendationQueryServiceTest {
         }
 
         @Test
+        @DisplayName("모집 중인 팀은 있는데 임베딩이 하나도 없으면 후보가 비다 (사고 경로)")
+        void recruitingTeamsWithoutEmbeddingsYieldEmptyCandidates() {
+            givenQuerySide();
+            when(teamRepository.findByIsRecruitingTrue()).thenReturn(List.of(team(10L)));
+            when(teamEmbeddingRepository.findAllById(anyList()))
+              .thenReturn(List.of(teamEmbedding(10L, null)));
+
+            assertThat(service.gather(USER_ID, null).getCandidates()).isEmpty();
+        }
+
+        @Test
         @DisplayName("질의 쪽 값은 사용자 임베딩과 슬롯에서 그대로 실려 나간다")
         void carriesQuerySide() {
             givenQuerySide();
@@ -472,6 +483,22 @@ class RecommendationQueryServiceTest {
         }
 
         @Test
+        @DisplayName("캐시가 null 이면 요약을 조립한다 (아직 만든 적 없다는 뜻이다)")
+        void nullCacheAssemblesSummaries() {
+            when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
+              .thenReturn(Optional.of(userToTeamItem(0.9, null)));
+            when(slotRepository.findByUserIdWithUser(USER_ID)).thenReturn(Optional.of(slot(USER_ID)));
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team(TEAM_ID)));
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+
+            ReasonSnapshot snapshot = service.gatherReasonForUserToTeam(USER_ID, TEAM_ID);
+
+            assertThat(snapshot.hasCachedReason()).isFalse();
+            assertThat(snapshot.getCandidateSummary()).isNotBlank();
+            assertThat(snapshot.getTargetSummary()).isNotBlank();
+        }
+
+        @Test
         @DisplayName("공백뿐인 캐시는 없는 것으로 본다 (빈 이유를 그대로 보여줄 수는 없다)")
         void blankCacheIsTreatedAsAbsent() {
             when(userToTeamLogRepository.findLatestItem(USER_ID, TEAM_ID))
@@ -520,6 +547,38 @@ class RecommendationQueryServiceTest {
                     .isEqualTo("캐시된 이유");
 
             verifyNoInteractions(slotRepository);
+        }
+
+        @Test
+        @DisplayName("팀→유저: 캐시가 없으면 요약을 조립한다 — candidate 는 유저, target 은 팀이다")
+        void teamToUserCacheMissAssemblesSummaries() {
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(teamLedBy(TEAM_ID, USER_ID)));
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L))
+              .thenReturn(Optional.of(teamToUserItem(0.8, null)));
+            when(slotRepository.findByUserIdWithUser(2L)).thenReturn(Optional.of(slot(2L)));
+            when(teamEmbeddingRepository.findById(TEAM_ID))
+              .thenReturn(Optional.of(summarizableTeamEmbedding()));
+
+            ReasonSnapshot snapshot = service.gatherReasonForTeamToUser(TEAM_ID, 2L, USER_ID);
+
+            assertThat(snapshot.hasCachedReason()).isFalse();
+            assertThat(snapshot.getCandidateSummary()).isEqualTo("USER-SUMMARY");
+            assertThat(snapshot.getTargetSummary()).isEqualTo("TEAM-SUMMARY");
+        }
+
+        @Test
+        @DisplayName("팀→유저도 공백뿐인 캐시는 없는 것으로 본다")
+        void teamToUserBlankCacheIsTreatedAsAbsent() {
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(teamLedBy(TEAM_ID, USER_ID)));
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L))
+              .thenReturn(Optional.of(teamToUserItem(0.8, "   ")));
+            when(slotRepository.findByUserIdWithUser(2L)).thenReturn(Optional.of(slot(2L)));
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+
+            ReasonSnapshot snapshot = service.gatherReasonForTeamToUser(TEAM_ID, 2L, USER_ID);
+
+            assertThat(snapshot.hasCachedReason()).isFalse();
+            assertThat(snapshot.getCandidateSummary()).isNotBlank();
         }
     }
 
@@ -695,6 +754,29 @@ class RecommendationQueryServiceTest {
         }
 
         @Test
+        @DisplayName("역제안도 추천 이력이 없으면 빈 결과다")
+        void teamToUserEmptyWhenNeverRecommended() {
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L)).thenReturn(Optional.empty());
+
+            assertThat(service.gatherSelection(SelectionDirection.TEAM_TO_USER, TEAM_ID, 2L))
+              .isEmpty();
+        }
+
+        @Test
+        @DisplayName("역제안도 화면에 안 뜬 후보(rank > shown_count)면 빈 결과다")
+        void teamToUserSkipsCandidateThatWasNeverShown() {
+            TeamToUserRecommendationItem unshown = teamToUserItem(0.11, null);
+            TestEntities.withField(unshown, "rankNo", 50);
+            TestEntities.withField(unshown, "log", teamToUserLog());
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L))
+              .thenReturn(Optional.of(unshown));
+
+            assertThat(service.gatherSelection(SelectionDirection.TEAM_TO_USER, TEAM_ID, 2L))
+              .isEmpty();
+            verify(teamToUserLogRepository, never()).findShownItems(anyLong());
+        }
+
+        @Test
         @DisplayName("팀 쪽 chooser_fields 는 모집 역할과 활동 분야다 (분야는 events 에서 온다)")
         void teamChooserFieldsMixTwoSources() {
             TeamToUserRecommendationItem item = teamToUserItem(0.9, null);
@@ -718,6 +800,25 @@ class RecommendationQueryServiceTest {
               .containsEntry("recruiting_roles", List.of("BE"))
               // enum 상수명 그대로여야 한다 — 한글 라벨을 보내면 AI 가 못 알아본다.
               .containsEntry("contest_field", "SCIENCE_ENGINEERING_TECH_IT");
+        }
+
+        @Test
+        @DisplayName("모집 역할과 분야가 없으면 빈 값으로 보낸다 (AI 는 null 보다 빈 값을 더 잘 다룬다)")
+        void nullChooserFieldsBecomeEmpty() {
+            TeamToUserRecommendationItem item = teamToUserItem(0.9, null);
+            TestEntities.withField(item, "log", teamToUserLog());
+            when(teamToUserLogRepository.findLatestItem(TEAM_ID, 2L)).thenReturn(Optional.of(item));
+            when(teamToUserLogRepository.findShownItems(anyLong())).thenReturn(List.of(item));
+            when(teamEmbeddingRepository.findById(TEAM_ID))
+              .thenReturn(Optional.of(teamEmbedding(TEAM_ID)));
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team(TEAM_ID)));
+
+            SelectionSnapshot snapshot = service.gatherSelection(
+              SelectionDirection.TEAM_TO_USER, TEAM_ID, 2L).orElseThrow();
+
+            assertThat(snapshot.getChooserFields())
+              .containsEntry("recruiting_roles", List.of())
+              .containsEntry("contest_field", "");
         }
 
         private void givenUserToTeamSelection() {

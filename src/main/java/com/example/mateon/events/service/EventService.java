@@ -118,7 +118,7 @@ public class EventService {
     @Transactional(readOnly = true)
     public List<EventResponseDTO> recommend(Category category, Long userId) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         List<Event> candidates = category != null
           ? eventRepository.findByCategory(category)

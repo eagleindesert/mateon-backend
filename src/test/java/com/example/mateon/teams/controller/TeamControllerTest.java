@@ -7,6 +7,7 @@ import com.example.mateon.events.models.Event;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamMember;
 import com.example.mateon.teams.domain.TeamMemberRole;
+import com.example.mateon.teams.dto.response.TeamApplicationResponseDTO;
 import com.example.mateon.teams.dto.response.TeamDetailResponseDTO;
 import com.example.mateon.teams.dto.response.TeamResponseDTO;
 import com.example.mateon.teams.service.CollaborationTemperatureCalculator;
@@ -457,6 +458,17 @@ class TeamControllerTest {
             mockMvc.perform(get("/api/teams/applications/30").principal(auth()))
               .andExpect(status().isBadRequest())
               .andExpect(jsonPath("$.message").value(ErrorCode.FORBIDDEN_ACCESS.getMessage()));
+        }
+
+        @Test
+        @DisplayName("지원서 상세 성공은 서비스 결과를 data 에 담는다")
+        void detailOk() throws Exception {
+            when(teamService.getApplicationDetail(30L, USER_ID))
+              .thenReturn(TeamApplicationResponseDTO.builder().applicationId(30L).build());
+
+            mockMvc.perform(get("/api/teams/applications/30").principal(auth()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.applicationId").value(30));
         }
 
         @Test

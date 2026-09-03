@@ -162,6 +162,18 @@ class TeamEmbeddingServiceTest {
 
             assertThat(captureSaved().getSourceUpdatedAt()).isEqualTo(CREATED_AT);
         }
+
+        @Test
+        @DisplayName("팀 수정 시각이 없으면 낡은 결과로 보지 않는다")
+        void savesWhenSourceTimestampUnknown() {
+            givenTeam(null);
+            givenStoredRow(UPDATED_AT, List.of("Java", "Redis"));
+            givenAiResponse(List.of("Spring Boot", "PostgreSQL"));
+
+            service.refresh(TEAM_ID);
+
+            assertThat(captureSaved().getSourceUpdatedAt()).isNull();
+        }
     }
 
     @Nested
@@ -186,6 +198,27 @@ class TeamEmbeddingServiceTest {
         }
 
         @Test
+        @DisplayName("실패 사유는 500자로 자른다")
+        void truncatesLongFailureReason() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            when(client.refresh(any())).thenThrow(new RuntimeException("e".repeat(600)));
+
+            assertThatThrownBy(() -> service.refresh(TEAM_ID)).isInstanceOf(RuntimeException.class);
+
+            assertThat(captureSaved().getLastError()).hasSize(500);
+        }
+
+        @Test
+        @DisplayName("실패 사유가 없으면 last_error 도 비운다")
+        void truncateNullReasonReturnsNull() throws Exception {
+            var method = TeamEmbeddingService.class.getDeclaredMethod("truncate", String.class);
+            method.setAccessible(true);
+
+            assertThat(method.invoke(service, new Object[]{null})).isNull();
+        }
+
+        @Test
         @DisplayName("낡은 갱신의 실패는 최신 행을 FAILED 로 오염시키지 않는다")
         void discardsFailureOlderThanStoredRow() {
             givenTeam(CREATED_AT);
@@ -201,6 +234,17 @@ class TeamEmbeddingServiceTest {
     @Nested
     @DisplayName("팀 삭제 레이스")
     class TeamDeletedDuringRefresh {
+
+        @Test
+        @DisplayName("팀이 없으면 AI 를 부르지 않는다")
+        void skipsWhenTeamMissing() {
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+
+            service.refresh(TEAM_ID);
+
+            verifyNoInteractions(client);
+            verifyNoInteractions(teamEmbeddingRepository);
+        }
 
         @Test
         @DisplayName("AI 호출 중 팀이 삭제되면 저장하지 않고 예외도 올리지 않는다")
@@ -252,6 +296,21 @@ class TeamEmbeddingServiceTest {
 
             // 재시도에서 낡음이 드러나 두 번째 저장은 시도조차 하지 않는다. 예외도 새어 나가지 않는다.
             verify(teamEmbeddingRepository, times(1)).save(any());
+        }
+
+        @Test
+        @DisplayName("저장이 두 번 충돌하면 예외를 올리고 실패 기록은 삼킨다")
+        void rethrowsAfterSaveConflictsAndSwallowsFailureRecording() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            givenAiResponse(List.of("Java", "Redis"));
+            when(teamEmbeddingRepository.save(any()))
+              .thenThrow(new OptimisticLockingFailureException("버전 충돌"));
+
+            assertThatThrownBy(() -> service.refresh(TEAM_ID))
+              .isInstanceOf(OptimisticLockingFailureException.class);
+
+            verify(teamEmbeddingRepository, times(4)).save(any());
         }
     }
 
@@ -348,6 +407,25 @@ class TeamEmbeddingServiceTest {
             assertThat(captor.getValue().getRefreshStatus())
               .isEqualTo(TeamEmbeddingRefreshStatus.FAILED);
             assertThat(captor.getValue().getEmbedding()).isNull();
+        }
+
+        @Test
+        @DisplayName("metadata 와 missingFields 가 없어도 임베딩은 저장된다")
+        void savesWhenMetadataAndMissingFieldsAreNull() {
+            givenTeam(CREATED_AT);
+            when(teamEmbeddingRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
+            TeamEmbeddingRefreshResponse response = new TeamEmbeddingRefreshResponse();
+            response.setEmbeddingVector(new double[DIMENSION]);
+            response.setMissingFields(null);
+            response.setMetadata(null);
+            when(client.refresh(any())).thenReturn(response);
+
+            service.refresh(TEAM_ID);
+
+            TeamEmbedding saved = captureSaved();
+            assertThat(saved.getRefreshStatus()).isEqualTo(TeamEmbeddingRefreshStatus.SUCCESS);
+            assertThat(saved.getRecruitingRoles()).isNull();
+            assertThat(saved.getMissingFields()).isNull();
         }
 
         @Test

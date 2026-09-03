@@ -342,6 +342,22 @@ class TeamServiceCrudTest {
         }
 
         @Test
+        @DisplayName("연결 활동이 있으면 상세에 활동 정보가 담긴다")
+        void looksUpConnectedEvent() {
+            Team team = team();
+            team.setEventId(EVENT_ID);
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+            when(teamMemberRepository.findActiveMembersWithUser(TEAM_ID))
+              .thenReturn(List.of(member(leader, TeamMemberRole.LEADER)));
+            when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.of(event()));
+
+            TeamDetailResponseDTO detail = service.getTeamDetail(TEAM_ID, null);
+
+            assertThat(detail.getConnectedActivityTitle()).isEqualTo("교내 해커톤");
+            verify(eventRepository).findById(EVENT_ID);
+        }
+
+        @Test
         @DisplayName("없는 팀은 RESOURCE_NOT_FOUND 다")
         void missingTeam() {
             when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.empty());
@@ -468,6 +484,21 @@ class TeamServiceCrudTest {
          * 연결 활동은 만든 뒤에 바꿀 수 없다 — 프론트가 수정 폼에 활동 선택을 그대로 두면
          * 사용자는 바꿨다고 믿는데 서버는 무시한다.
          */
+        @Test
+        @DisplayName("이미 연결된 활동은 수정 응답에 다시 실어 준다")
+        void looksUpExistingEventOnUpdate() {
+            Team team = team();
+            team.setEventId(EVENT_ID);
+            when(teamRepository.findById(TEAM_ID)).thenReturn(Optional.of(team));
+            when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.of(event()));
+            when(teamMemberRepository.countByTeamIdAndLeftAtIsNull(TEAM_ID)).thenReturn(1);
+
+            TeamResponseDTO updated = service.updateTeam(TEAM_ID, request(null), LEADER_ID);
+
+            assertThat(updated.getConnectedActivityTitle()).isEqualTo("교내 해커톤");
+            verify(eventRepository).findById(EVENT_ID);
+        }
+
         @Test
         @DisplayName("연결 활동은 수정으로 바뀌지 않는다 (요청의 eventId 는 무시된다)")
         void eventIdIsNotUpdatable() {

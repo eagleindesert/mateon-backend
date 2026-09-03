@@ -52,14 +52,14 @@ public class BookmarkService {
      */
     public boolean addBookmark(Long userId, Long eventId) {
         Event event = eventRepository.findById(eventId)
-          .orElseThrow(() -> new MateonException(ErrorCode.EVENT_NOT_FOUND));
+          .orElseThrow(ErrorCode.EVENT_NOT_FOUND::toException);
 
         if (bookmarkRepository.existsByUserIdAndEventId(userId, eventId)) {
             return false;
         }
 
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         try {
             bookmarkRepository.saveAndFlush(new EventBookmark(user, event));

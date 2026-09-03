@@ -162,6 +162,15 @@ class TeamEmbeddingClientTest {
             assertRefreshFails(ErrorCode.AI_SERVER_ERROR);
         }
 
+        @Test
+        @DisplayName("본문이 깨져 있어도 502")
+        void malformedBodyIs502() {
+            server.expect(requestTo(REFRESH_URL))
+              .andRespond(withSuccess("{", MediaType.APPLICATION_JSON));
+
+            assertRefreshFails(ErrorCode.AI_SERVER_ERROR);
+        }
+
         private void assertRefreshFails(ErrorCode expected) {
             assertThatThrownBy(() -> client.refresh(request()))
               .isInstanceOf(MateonException.class)

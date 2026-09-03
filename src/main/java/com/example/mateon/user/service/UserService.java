@@ -52,7 +52,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getMyProfile(Long userId) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
         return UserResponse.ofFull(
           user,
           loadCollaborationScore(userId),
@@ -61,7 +61,7 @@ public class UserService {
 
     public UserResponse updateMyProfile(Long userId, UserUpdateRequest request) {
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         user.update(
           request.getName(),
@@ -102,7 +102,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserProfileResponse getPublicProfile(Long targetUserId, Long viewerId) {
         User user = userRepository.findById(targetUserId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         // 슬롯과 온도는 없을 수 있다 — 의도 추출을 안 했거나 평가를 아직 못 받은 유저다.
         // 둘 다 "아직 없음"이 정상 상태라 예외로 다루지 않는다.
@@ -127,7 +127,7 @@ public class UserService {
     public MyPageResponseDTO getMyPage(Long userId) {
         // 1. 유저 정보 조회
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         // 2. 참여한 활동
         List<MyPageResponseDTO.ActivitySummaryDTO> activities = loadParticipatedActivities(user.getId());
@@ -204,7 +204,7 @@ public class UserService {
         }
 
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         // 현재 비밀번호 확인
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {

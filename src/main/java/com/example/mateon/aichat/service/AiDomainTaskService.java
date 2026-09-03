@@ -85,9 +85,9 @@ public class AiDomainTaskService {
         }
 
         AiChatSession session = sessionRepository.findById(chatSessionId)
-          .orElseThrow(() -> new MateonException(ErrorCode.AI_CHAT_SESSION_NOT_FOUND));
+          .orElseThrow(ErrorCode.AI_CHAT_SESSION_NOT_FOUND::toException);
         User user = userRepository.findById(userId)
-          .orElseThrow(() -> new MateonException(ErrorCode.USER_NOT_FOUND));
+          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
         return taskRepository.save(new AiDomainTask(session, user, domain));
     }
@@ -119,7 +119,7 @@ public class AiDomainTaskService {
      */
     public void close(Long taskId, TaskCloseReason reason) {
         taskRepository.findById(taskId)
-          .orElseThrow(() -> new MateonException(ErrorCode.RESOURCE_NOT_FOUND))
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException)
           .close(reason);
     }
 }
