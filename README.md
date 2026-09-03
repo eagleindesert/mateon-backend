@@ -56,6 +56,10 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 ./gradlew test
 ```
 
+`test` 가 끝나면 커버리지 HTML 이 `build/reports/jacoco/test/html/index.html` 에 생깁니다.
+CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. 임계값 게이트는 아직 없습니다.
+`fastTest` / `liveTest` 는 측정하지 않습니다.
+
 `fastTest` 는 Docker 없는 단축이고, `liveTest` 는 밖에 떠 있는 AI 스텁을 상대합니다. 둘 다 CI 관문이 아닙니다.
 
 이미지 푸시에는 레포 Secrets 가 필요합니다. PR 테스트는 시크릿 없이 돕니다.

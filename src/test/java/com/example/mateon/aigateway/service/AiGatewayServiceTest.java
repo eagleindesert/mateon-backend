@@ -1,8 +1,16 @@
 package com.example.mateon.aigateway.service;
 
+import com.example.mateon.aichat.domain.AiChatMessage;
+import com.example.mateon.aichat.domain.AiChatRole;
+import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.domain.RoutableDomain;
+import com.example.mateon.aichat.dto.AiChatSessionSummary;
 import com.example.mateon.aichat.dto.AiChatTurn;
 import com.example.mateon.aichat.service.AiChatService;
+import com.example.mateon.aigateway.dto.response.AiChatSessionDetailDTO;
+import com.example.mateon.aigateway.dto.response.AiChatSessionSummaryDTO;
+import com.example.mateon.support.TestEntities;
+import com.example.mateon.user.domain.User;
 import com.example.mateon.aichat.service.AiDomainTaskService;
 import com.example.mateon.aigateway.client.AiRouterClient;
 import com.example.mateon.aigateway.client.RouteDecision;
@@ -21,6 +29,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -267,6 +276,56 @@ class AiGatewayServiceTest {
 
             assertThat(service.submitMessage(USER_ID, SESSION_ID, "잡담").getSessionId())
               .isEqualTo(SESSION_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("대화 세션 CRUD — 사이드바가 쓰는 경로")
+    class Sessions {
+
+        @Test
+        @DisplayName("새 대화 세션은 제목·마지막 메시지 없이 열린다")
+        void createSession() {
+            User user = User.builder().id(USER_ID).name("김학생").build();
+            AiChatSession session = TestEntities.withId(new AiChatSession(user), SESSION_ID);
+            when(chatService.createSession(USER_ID)).thenReturn(session);
+
+            AiChatSessionSummaryDTO dto = service.createSession(USER_ID);
+
+            assertThat(dto.getSessionId()).isEqualTo(SESSION_ID);
+            assertThat(dto.getTitle()).isNull();
+            assertThat(dto.getLastMessage()).isNull();
+        }
+
+        @Test
+        @DisplayName("목록은 채팅 서비스가 뽑은 한 줄을 그대로 옮긴다")
+        void listSessions() {
+            when(chatService.listSessions(USER_ID)).thenReturn(List.of(
+              new AiChatSessionSummary(SESSION_ID, "백엔드 팀", "안녕", LocalDateTime.now())));
+
+            List<AiChatSessionSummaryDTO> dtos = service.listSessions(USER_ID);
+
+            assertThat(dtos).hasSize(1);
+            assertThat(dtos.get(0).getSessionId()).isEqualTo(SESSION_ID);
+            assertThat(dtos.get(0).getTitle()).isEqualTo("백엔드 팀");
+            assertThat(dtos.get(0).getLastMessage()).isEqualTo("안녕");
+        }
+
+        @Test
+        @DisplayName("복원은 게이트웨이 턴도 포함한다")
+        void getSession() {
+            User user = User.builder().id(USER_ID).name("김학생").build();
+            AiChatSession session = TestEntities.withId(new AiChatSession(user), SESSION_ID);
+            AiChatMessage message = new AiChatMessage(session, 1, AiChatRole.USER, "안녕하세요");
+            when(chatService.findSessionMessages(USER_ID, SESSION_ID)).thenReturn(List.of(message));
+
+            AiChatSessionDetailDTO dto = service.getSession(USER_ID, SESSION_ID);
+
+            assertThat(dto.getSessionId()).isEqualTo(SESSION_ID);
+            assertThat(dto.getMessages()).hasSize(1);
+            assertThat(dto.getMessages().get(0).getMessage()).isEqualTo("안녕하세요");
+            assertThat(dto.getMessages().get(0).getRole()).isEqualTo("USER");
+            assertThat(dto.getMessages().get(0).getDomain()).isNull();
         }
     }
 

@@ -37,6 +37,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -159,6 +160,41 @@ class EventQueryBehaviorTest {
             verify(eventRepository).findAll(ArgumentMatchers.<Specification<Event>>any(), pageable.capture());
             // PageLimits.MAX_PAGE_SIZE 와 같은 값. (여기서는 HTTP 로 보이는 동작만 고정한다.)
             assertThat(pageable.getValue().getPageSize()).isEqualTo(100);
+        }
+
+        @Test
+        @DisplayName("college 파라미터를 받아도 200 이다 — 폐기 예정이지만 아직 받는다")
+        void acceptsDeprecatedCollegeParam() throws Exception {
+            when(eventRepository.findAll(ArgumentMatchers.<Specification<Event>>any(), any(Pageable.class)))
+              .thenReturn(new PageImpl<>(List.of()));
+
+            mockMvc.perform(get("/api/events/search").param("college", "SW융합대학"))
+              .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/events")
+    class Create {
+
+        @Test
+        @DisplayName("등록 성공은 201 이다")
+        void createsEvent() throws Exception {
+            when(eventRepository.save(any(Event.class))).thenAnswer(invocation -> {
+                Event event = invocation.getArgument(0);
+                event.setId(42L);
+                return event;
+            });
+
+            mockMvc.perform(post("/api/events")
+              .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+              .content("""
+                {"category":"CONTEST","field":"EDUCATION","title":"교내 해커톤"}
+                """))
+              .andExpect(status().isCreated())
+              .andExpect(jsonPath("$.success").value(true))
+              .andExpect(jsonPath("$.data.id").value(42))
+              .andExpect(jsonPath("$.data.title").value("교내 해커톤"));
         }
     }
 

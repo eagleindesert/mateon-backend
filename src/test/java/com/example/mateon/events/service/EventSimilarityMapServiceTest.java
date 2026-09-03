@@ -167,6 +167,74 @@ class EventSimilarityMapServiceTest {
           .isEqualTo(1.0, org.assertj.core.data.Offset.offset(1e-6));
     }
 
+    @Test
+    @DisplayName("길이·null 이 어긋난 벡터는 코사인을 -∞ 로 두어 후보에서 밀려난다")
+    void cosineRejectsInvalidVectors() {
+        assertThat(EventSimilarityMapService.cosine(null, new float[]{1f})).isInfinite();
+        assertThat(EventSimilarityMapService.cosine(new float[]{}, new float[]{})).isInfinite();
+        assertThat(EventSimilarityMapService.cosine(new float[]{1f}, new float[]{1f, 0f})).isInfinite();
+    }
+
+    @Test
+    @DisplayName("숫자가 아닌 id 는 버린다")
+    void dropsNonNumericIds() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+        when(client.map(any())).thenReturn(aiResponse(point("not-a-number", 0.9)));
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("기준 원은 값이 다 있는 것만 남긴다")
+    void keepsCompleteReferenceRings() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+
+        ContestSimilarityMapResponse ai = aiResponse(point(String.valueOf(CANDIDATE_A), 0.8));
+        ContestSimilarityMapResponse.ReferenceRing complete = new ContestSimilarityMapResponse.ReferenceRing();
+        complete.setPercentile(0.5);
+        complete.setSimilarityAtPercentile(0.7);
+        complete.setRadius(4.0);
+        ContestSimilarityMapResponse.ReferenceRing incomplete = new ContestSimilarityMapResponse.ReferenceRing();
+        incomplete.setPercentile(0.9);
+        ai.setReferenceRings(List.of(complete, incomplete));
+        when(client.map(any())).thenReturn(ai);
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getReferenceRings()).hasSize(1);
+        assertThat(dto.getReferenceRings().get(0).getPercentile()).isEqualTo(0.5);
+        assertThat(dto.getReferenceRings().get(0).getRadius()).isEqualTo(4.0);
+    }
+
+    @Test
+    @DisplayName("AI 가 field_label 을 비우면 우리 분야의 한글 표기를 쓴다")
+    void fallsBackToEventFieldLabel() {
+        givenQueryReady();
+        Event candidate = event(CANDIDATE_A, "후보A");
+        when(eventEmbeddingRepository.findByEmbeddingIsNotNullAndEventIdNot(QUERY_ID))
+          .thenReturn(List.of(embedding(CANDIDATE_A, new float[]{1f, 0f})));
+        when(eventRepository.findAllById(List.of(CANDIDATE_A))).thenReturn(List.of(candidate));
+        Point aiPoint = point(String.valueOf(CANDIDATE_A), 0.8);
+        aiPoint.setFieldLabel("  ");
+        when(client.map(any())).thenReturn(aiResponse(aiPoint));
+
+        ContestSimilarityMapResponseDTO dto = service.map(QUERY_ID, 500);
+
+        assertThat(dto.getPoints()).singleElement()
+          .extracting(ContestSimilarityMapResponseDTO.Point::getFieldLabel)
+          .isEqualTo("교육");
+    }
+
     private void givenQueryReady() {
         when(eventRepository.findById(QUERY_ID)).thenReturn(Optional.of(event(QUERY_ID, "기준")));
         when(eventEmbeddingRepository.findById(QUERY_ID))
