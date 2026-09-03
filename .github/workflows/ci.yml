@@ -5,6 +5,20 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "올릴 자리. 아래 태그를 적으면 무시됩니다"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      tag:
+        description: "이 태그부터 시작 (예: v1.1.0, v2.0.0). 비우면 위 자리만 올립니다"
+        type: string
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,7 +55,7 @@ jobs:
           if-no-files-found: ignore
 
   docker:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -57,6 +71,8 @@ jobs:
         id: version
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          BUMP: ${{ github.event.inputs.bump }}
+          TAG: ${{ github.event.inputs.tag }}
         run: |
           chmod +x scripts/docker/next-dockerhub-tag.sh
           ./scripts/docker/next-dockerhub-tag.sh

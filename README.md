@@ -47,7 +47,8 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 | 이벤트 | 하는 일 |
 | --- | --- |
 | `main` 으로 PR | `./gradlew test` (Testcontainers Postgres). `*LiveTest` 는 관문에서 빠져 있습니다 |
-| `main` 에 머지 | 같은 테스트를 다시 돌린 뒤, DockerHub 의 다음 semver 를 계산해 `linux/arm64` 이미지를 `:vX.Y.Z` 와 `:latest` 로 푸시합니다 |
+| `main` 에 머지 | 같은 테스트를 다시 돌린 뒤, DockerHub 최고 태그의 **patch +1** 로 `linux/arm64` 이미지를 `:vX.Y.Z` 와 `:latest` 로 푸시합니다 |
+| Actions에서 수동 실행 | `main` 브랜치를 고른 뒤, 올릴 자리(`patch` / `minor` / `major`)를 고르거나 시작 태그(`v1.1.0`, `v2.0.0`)를 직접 적습니다. 테스트 통과 후 그 태그로 푸시하고, 이후 머지는 다시 그 태그에서 patch 를 올립니다 |
 
 로컬에서 같은 관문을 보려면 Docker 가 켜져 있어야 합니다. 통합 테스트가 Testcontainers 를 씁니다.
 
@@ -65,8 +66,8 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 | `DOCKERHUB_TOKEN` | DockerHub Access Token (계정 비밀번호 쓰지 않음) |
 
 머지 전에 GitHub → Settings → Secrets and variables → Actions 에 이 두 키를 넣지 않으면
-`docker` job 만 실패합니다. 수동으로 특정 태그를 올릴 때는 여전히
-[scripts/docker/deploy-dockerhub.ps1](scripts/docker/deploy-dockerhub.ps1) 을 씁니다.
+`docker` job 만 실패합니다. 로컬에서 특정 태그를 올릴 때는
+[scripts/docker/deploy-dockerhub.ps1](scripts/docker/deploy-dockerhub.ps1) 의 `-Tag` 를 씁니다.
 
 ## 프로필 (dev / prod)
 
