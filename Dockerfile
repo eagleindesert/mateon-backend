@@ -12,7 +12,9 @@ COPY build.gradle settings.gradle ./
 RUN chmod +x gradlew && ./gradlew dependencies --no-daemon || true
 
 # 소스 복사 후 빌드 (테스트 제외, 병렬 빌드)
+# compileJava 가 lombok.config 를 입력으로 선언하므로 src 와 같이 넣는다.
 COPY src src
+COPY lombok.config .
 RUN ./gradlew bootJar --no-daemon -x test --parallel --max-workers=8
 
 # 2. 실행 스테이지: 빌드된 JAR만 포함한 경량 런타임 이미지
