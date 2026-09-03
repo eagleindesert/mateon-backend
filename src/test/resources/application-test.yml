@@ -5,13 +5,29 @@
 # 그러면 dev 기본값을 바꿀 때마다 테스트 환경이 같이 흔들리고 출력도 SQL 로 뒤덮인다.
 #
 # DB 접속 정보는 여기 없다 — Testcontainers 의 @ServiceConnection 이 주입한다.
+#
+# 기본값 없는 시크릿(MAIL_*/JWT_SECRET/AI_INTERNAL_SECRET/OCI_*) 도 전부 여기 둔다.
+# 로컬은 .env 가 채워 줘서 통과하지만, CI 에는 그 파일이 없다. 하나라도 빠지면
+# 컨텍스트 기동부터 실패하고 통합 테스트가 한꺼번에 붉은 줄이 된다.
 # ------------------------------------------------------------------------------
 spring:
   jpa:
     show-sql: false
+  # MailService 가 @Value("${spring.mail.username}") 이라, 여기 없으면 빈 생성 시점에
+  # PlaceholderResolutionException 으로 컨텍스트가 죽는다. 호스트는 일부러 로컬로 둔다 —
+  # 통합 테스트가 메일을 보내면 Gmail 이 아니라 즉시 실패해야 한다.
+  mail:
+    host: "127.0.0.1"
+    username: "test@example.com"
+    password: "test-password"
 
 cors:
   allowed-origins: "http://localhost:3000"
+
+# HS256 키는 32바이트 미만이면 Keys.hmacShaKeyFor 가 WeakKeyException 을 던진다.
+# 값은 TestJwt.SECRET 과 같다 — 단위 테스트와 통합 테스트가 같은 길이 규칙을 쓴다.
+jwt:
+  secret: "mateon-test-secret-key-for-junit-only-0123456789"
 
 # AI 서버 설정. 두 값 다 여기 있어야 한다.
 #
@@ -28,6 +44,23 @@ ai:
   base-url: "http://ai.invalid"
   internal-secret: "test-secret"
   event-embedding-backfill-enabled: false
+
+# OCI Object Storage. 다섯 값 다 여기 있어야 한다.
+#
+# application.yml 은 기본값 없는 ${OCI_NAMESPACE} 등이고
+# ObjectStorageProperties.validate() 가 @PostConstruct 로 부팅을 막는다.
+# 여기서 주지 않으면 통합 테스트가 개발자 셸의 .env 에 의존하게 되어,
+# 그 값이 없는 CI 에서는 컨텍스트 기동부터 실패한다. 실제 저장소에 붙는 값이 아니다.
+#
+# 업로드 경로를 타는 통합 테스트는 없다. IntegrationTestBase 가 storage.max-bytes=0B 로
+# 용량 가드를 끄고, 업로드·한도 동작은 ObjectStorageServiceTest / BucketCapacityGuardTest 가
+# 목 클라이언트로 따로 검증한다.
+storage:
+  namespace: "test-namespace"
+  region: "test-region"
+  bucket: "test-bucket"
+  access-key: "test-access-key"
+  secret-key: "test-secret-key"
 
 # 평평한 키로 적는 이유는 프로필 파일들과 같다 (Boot 예약 프로퍼티 debug 와 자리가 겹친다).
 debug.oauth.enabled: false
