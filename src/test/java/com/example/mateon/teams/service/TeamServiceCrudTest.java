@@ -113,7 +113,7 @@ class TeamServiceCrudTest {
         void myPostsWins() {
             when(teamRepository.findByLeaderUserId(LEADER_ID)).thenReturn(List.of(team()));
 
-            service.getTeams(EVENT_ID, "개발", true, LEADER_ID);
+            service.getTeams(EVENT_ID, Event.Category.CONTEST.name(), true, LEADER_ID);
 
             verify(teamRepository).findByLeaderUserId(LEADER_ID);
             verify(teamRepository, never()).findByEventIdAndIsRecruitingTrue(anyLong());
@@ -125,7 +125,7 @@ class TeamServiceCrudTest {
         void eventIdBeatsCategory() {
             when(teamRepository.findByEventIdAndIsRecruitingTrue(EVENT_ID)).thenReturn(List.of());
 
-            service.getTeams(EVENT_ID, "개발", false, LEADER_ID);
+            service.getTeams(EVENT_ID, Event.Category.CONTEST.name(), false, LEADER_ID);
 
             verify(teamRepository).findByEventIdAndIsRecruitingTrue(EVENT_ID);
             verify(teamRepository, never()).findByEventCategory(anyString());
@@ -154,13 +154,30 @@ class TeamServiceCrudTest {
         }
 
         @Test
-        @DisplayName("그 밖의 카테고리는 활동 카테고리로 조회한다")
+        @DisplayName("그 밖의 값은 활동 카테고리 enum 이름으로 조회한다")
         void otherCategory() {
-            when(teamRepository.findByEventCategory("개발")).thenReturn(List.of());
+            when(teamRepository.findByEventCategory("CONTEST")).thenReturn(List.of());
 
-            service.getTeams(null, "개발", false, LEADER_ID);
+            service.getTeams(null, "CONTEST", false, LEADER_ID);
 
-            verify(teamRepository).findByEventCategory("개발");
+            verify(teamRepository).findByEventCategory("CONTEST");
+        }
+
+        /**
+         * 네이티브 쿼리가 저장된 enum 이름과 문자열을 그대로 비교하므로, 검증 없이 넘기면 한글
+         * 라벨이나 오타가 에러 없이 빈 목록으로 나간다. 프론트는 enum 이름을 보내기로 돼 있으니
+         * 라벨을 매핑해 주지 않고 400 으로 막는다. 메시지에 허용값을 실어 오타를 바로 찾게 한다.
+         */
+        @Test
+        @DisplayName("enum 이름이 아닌 카테고리(한글 라벨 포함)는 조회 없이 INVALID_INPUT 이다")
+        void unknownCategoryIsRejected() {
+            assertThatThrownBy(() -> service.getTeams(null, Event.Category.CONTEST.getLabel(), false, LEADER_ID))
+              .isInstanceOf(MateonException.class)
+              .hasMessageContaining("공모전")
+              .hasMessageContaining("CONTEST")
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
+
+            verify(teamRepository, never()).findByEventCategory(anyString());
         }
 
         @Test
@@ -418,22 +435,23 @@ class TeamServiceCrudTest {
         }
 
         /**
-         * 순서상의 흠결을 그대로 문서화한다. 활동 존재 확인이 {@code teamRepository.save()} 와
-         * 멤버 행 저장 <i>뒤에</i> 있어서, 없는 {@code eventId} 로 만들면 예외가 나기 전에 이미
-         * 저장이 일어난다. 지금은 같은 트랜잭션이라 롤백돼 실제 피해가 없지만, 누가
-         * {@code @Transactional} 을 떼거나 이 메서드를 쪼개면 고아 팀이 남는다.
+         * 활동 존재 확인은 저장보다 <i>앞에</i> 있어야 한다. 뒤에 있으면 없는 {@code eventId} 로도
+         * 팀·멤버 행이 먼저 저장되고 임베딩 이벤트까지 나간 뒤 예외가 나서, 트랜잭션 롤백에만
+         * 기대게 된다. 누가 {@code @Transactional} 을 떼거나 메서드를 쪼개면 고아 팀이 남고,
+         * 임베딩 리스너는 존재하지 않는 팀을 찾게 된다.
          */
         @Test
-        @DisplayName("모르는 eventId 는 팀을 이미 저장한 뒤에 터진다 (트랜잭션 롤백에 기대고 있다)")
-        void unknownEventFailsAfterSave() {
+        @DisplayName("모르는 eventId 는 아무것도 저장하거나 발행하기 전에 막힌다")
+        void unknownEventFailsBeforeSave() {
             when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.createTeam(request(EVENT_ID), LEADER_ID))
               .isInstanceOf(MateonException.class)
               .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
 
-            verify(teamRepository).save(any());
-            verify(teamMemberRepository).save(any());
+            verify(teamRepository, never()).save(any());
+            verify(teamMemberRepository, never()).save(any());
+            verify(eventPublisher, never()).publishEvent(any());
         }
 
         @Test

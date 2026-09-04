@@ -74,25 +74,46 @@ class TeamDetailResponseSerializationTest {
     }
 
     @Test
-    @DisplayName("최상위 boolean 은 접두어가 떨어진 이름이 정본이다")
-    void topLevelBooleansKeepStrippedNames() throws Exception {
-        // isEnded 처럼 @JsonProperty 로 "고쳐 주고" 싶어지는 자리다. 고치면 안 된다 —
-        // 프론트가 이미 leader / recruiting 을 읽고 있어서, 이름을 바꾸는 순간 조용히 깨진다.
-        // 실제로 한 번 isLeader/isRecruiting 으로 바꿨다가 되돌렸다. 이 테스트가 그 재발을 막는다.
+    @DisplayName("최상위 boolean 은 접두어가 떨어진 키와 is 접두 키가 같은 값으로 함께 나간다")
+    void topLevelBooleansEmitBothNames() throws Exception {
+        // is 접두로 통일하는 과도기다. 프론트가 아직 leader / recruiting 을 읽고 있어 그 키를 없앨 수
+        // 없고, 명단 쪽 members[].isLeader 와 이름을 맞추기 위해 isLeader / isRecruiting 을 더했다.
+        // 실제로 한 번 이름을 바꿨다가 프론트가 깨져 되돌린 적이 있어, 두 키가 모두 있는지 본다.
         //
-        // TODO: 나중에 is 접두로 통일할 예정이다 (docs/TODO.md 참고). 그때 이 테스트를 지우지 말고
-        // 방향만 뒤집어라 — 통일 후에는 leader/recruiting 이 다시 나타나지 않는 것을 지켜야 한다.
-        // 전환은 프론트와 동시에 해야 하고, 이 테스트가 실패하는 것이 곧 "프론트도 바꿔야 한다"는 신호다.
+        // 프론트가 is 접두 키로 옮기고 나면 이 테스트를 지우지 말고 방향만 뒤집어라 —
+        // 그때는 leader / recruiting 이 없어야 한다.
         JsonNode json = serialize();
 
         assertThat(json.has("leader")).isTrue();
         assertThat(json.get("leader").asBoolean()).isTrue();
-        assertThat(json.has("isLeader")).isFalse();
+        assertThat(json.has("isLeader")).isTrue();
+        assertThat(json.get("isLeader").asBoolean()).isEqualTo(json.get("leader").asBoolean());
 
         // 부모 DTO(TeamResponseDTO)의 필드라 목록 응답도 같은 키를 쓴다.
         assertThat(json.has("recruiting")).isTrue();
         assertThat(json.get("recruiting").asBoolean()).isTrue();
-        assertThat(json.has("isRecruiting")).isFalse();
+        assertThat(json.has("isRecruiting")).isTrue();
+        assertThat(json.get("isRecruiting").asBoolean()).isEqualTo(json.get("recruiting").asBoolean());
+    }
+
+    @Test
+    @DisplayName("비로그인 조회자는 leader 와 isLeader 가 나란히 false 다")
+    void bothLeaderKeysAgreeWhenFalse() throws Exception {
+        Team team = new Team();
+        team.setId(1L);
+        team.setIsRecruiting(false);
+        team.setLeaderUserId(10L);
+        User leader = User.builder().id(10L).name("김팀장").build();
+
+        TeamDetailResponseDTO anonymous = new TeamDetailResponseDTO(
+                team, null, List.of(TeamMember.of(team, leader, TeamMemberRole.LEADER)),
+                false, null, leader, null);
+
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(anonymous));
+        assertThat(json.get("leader").asBoolean()).isFalse();
+        assertThat(json.get("isLeader").asBoolean()).isFalse();
+        assertThat(json.get("recruiting").asBoolean()).isFalse();
+        assertThat(json.get("isRecruiting").asBoolean()).isFalse();
     }
 
     @Test

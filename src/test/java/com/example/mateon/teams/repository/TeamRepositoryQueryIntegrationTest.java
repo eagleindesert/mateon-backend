@@ -119,6 +119,11 @@ class TeamRepositoryQueryIntegrationTest extends IntegrationTestBase {
               .containsExactly(contest.getId());
         }
 
+        /**
+         * 리포지토리 단의 사실을 남겨 둔다. 이 때문에 {@code TeamService.resolveCategory} 가
+         * 여기 도달하기 전에 enum 이름이 아닌 값을 400 으로 막는다 — 막지 않으면 라벨이
+         * 에러 없이 빈 목록으로 나간다.
+         */
         @Test
         @DisplayName("컬럼은 enum 이름을 저장하므로 한글 라벨로는 아무것도 잡히지 않는다")
         void labelDoesNotMatchStoredName() {

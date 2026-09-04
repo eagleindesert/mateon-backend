@@ -265,7 +265,8 @@ public class AuthService {
     public TokenResponse refreshToken(RefreshTokenRequest request) {
         String refreshTokenValue = request.getRefreshToken();
 
-        if (!jwtTokenProvider.validateToken(refreshTokenValue)) {
+        // 리프레시 토큰만 받는다. 액세스 토큰을 넣어도 DB 를 보기 전에 여기서 끝난다.
+        if (!jwtTokenProvider.validateToken(refreshTokenValue, JwtTokenProvider.TokenType.REFRESH)) {
             throw new MateonException(ErrorCode.INVALID_TOKEN);
         }
 

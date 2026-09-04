@@ -8,6 +8,7 @@ import com.example.mateon.teams.dto.response.TeamDetailResponseDTO;
 import com.example.mateon.teams.dto.response.TeamResponseDTO;
 import com.example.mateon.teams.service.TeamService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +39,8 @@ public class TeamController {
     @GetMapping
     public ResponseEntity<BaseResponse<List<TeamResponseDTO>>> getTeams(
       @RequestParam(required = false) Long eventId,
+      @Parameter(description = "\"전체\", \"자율\" 또는 활동 분류 enum 이름(CONTEST, EXTERNAL, SCHOOL, ETC). "
+        + "정확히 일치해야 하며, 한글 라벨을 포함해 그 외 값을 보내면 400 이다.")
       @RequestParam(required = false) String category,
       @RequestParam(required = false, defaultValue = "false") boolean myPosts,
       Authentication authentication

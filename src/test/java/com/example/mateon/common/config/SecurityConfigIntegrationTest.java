@@ -210,15 +210,13 @@ class SecurityConfigIntegrationTest extends IntegrationTestBase {
         }
 
         /**
-         * 현재 동작을 그대로 문서화한다. {@code JwtTokenProvider} 의 액세스·리프레시 토큰은
-         * 만료 시간만 다르고 구조가 같아(타입 클레임이 없다) 필터가 둘을 구분하지 못한다.
-         * 리프레시 토큰은 7일짜리라, 유출되면 액세스 토큰 만료와 무관하게 그 기간 내내 API 를
-         * 부를 수 있다. 토큰에 타입 클레임을 넣고 필터가 거르도록 바꾸면 이 단언을 403 으로
-         * 뒤집어야 한다.
+         * 액세스·리프레시 토큰은 서명·구조가 같고 {@code type} 클레임으로만 갈린다. 필터가 이
+         * 클레임을 보지 않으면 7일짜리 리프레시 토큰이 유출됐을 때 액세스 토큰 만료와 무관하게
+         * 그 기간 내내 API 를 부를 수 있다. 실제 필터 체인을 타는 여기서 끝까지 막히는지 본다.
          */
         @Test
-        @DisplayName("리프레시 토큰도 액세스 토큰처럼 API 를 연다 — 타입 클레임이 없어 구분하지 못하는 현재 동작")
-        void refreshTokenCurrentlyAuthenticates() throws Exception {
+        @DisplayName("리프레시 토큰은 API 를 열지 못한다 — 깨진 토큰과 같이 익명으로 흘러 403")
+        void refreshTokenIsAnonymous() throws Exception {
             User user = userRepository.save(User.builder()
               .email(UUID.randomUUID() + "@test.ac.kr")
               .name("리프레시 유저")
@@ -226,7 +224,7 @@ class SecurityConfigIntegrationTest extends IntegrationTestBase {
             String bearer = "Bearer " + jwtTokenProvider.createRefreshToken(user.getId());
 
             mockMvc.perform(get("/api/users/me").header(HttpHeaders.AUTHORIZATION, bearer))
-              .andExpect(status().isOk());
+              .andExpect(status().isForbidden());
         }
     }
 }

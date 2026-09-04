@@ -69,7 +69,7 @@ public class TeamService {
             if (category.equals("자율")) {
                 teams = teamRepository.findAllByEventIdIsNull();
             } else if (!category.equals("전체")) {
-                teams = teamRepository.findByEventCategory(category);
+                teams = teamRepository.findByEventCategory(resolveCategory(category).name());
             } else {
                 teams = teamRepository.findAll();
             }
@@ -89,6 +89,28 @@ public class TeamService {
               return new TeamResponseDTO(team, event, currentCount);
           })
           .collect(Collectors.toList());
+    }
+
+    /**
+     * 클라이언트가 보낸 category 문자열을 {@link Event.Category} 로 해석한다.
+     *
+     * <p>
+     * {@code findByEventCategory} 는 네이티브 쿼리라 컬럼에 저장된 enum 이름({@code CONTEST})과
+     * 문자열을 그대로 비교한다. 검증 없이 넘기면 오타나 한글 라벨("공모전")이 에러 없이 빈 목록으로
+     * 나가 클라이언트가 원인을 알 수 없다. 프론트는 enum 이름을 보내기로 규격화돼 있으므로
+     * 라벨 매핑은 하지 않고, 이름이 아니면 허용값을 알려 주며 400 으로 막는다.
+     * ("전체"/"자율" 특수값은 호출부에서 먼저 걸러진다.)
+     */
+    private Event.Category resolveCategory(String category) {
+        try {
+            return Event.Category.valueOf(category);
+        } catch (IllegalArgumentException e) {
+            Stream<String> names = Stream.of(Event.Category.values()).map(Enum::name);
+            String allowed = Stream.concat(Stream.of("전체", "자율"), names)
+              .collect(Collectors.joining(", "));
+            throw new MateonException(ErrorCode.INVALID_INPUT,
+              String.format("'%s' 는 허용되지 않는 category 값입니다. 가능한 값: %s", category, allowed));
+        }
     }
 
     // 개별 팀 상세 조회 (리더 여부, 지원 여부 포함)
@@ -146,6 +168,16 @@ public class TeamService {
     public TeamResponseDTO createTeam(TeamRequestDTO request, Long userId) {
         User user = getUserById(userId);
         requireSchoolVerified(user); // 팀 모집글 작성은 학교 인증(재학생) 필요
+
+        // 활동 존재 확인은 저장보다 앞에 둔다. 뒤에 두면 없는 eventId 로도 팀·멤버 행이 먼저
+        // 저장되고 임베딩 이벤트까지 발행된 뒤 예외가 나서, 트랜잭션 롤백에만 기대게 된다.
+        // eventId 가 null 이면 자율 팀이라 확인할 활동이 없다.
+        Event event = null;
+        if (request.getEventId() != null) {
+            event = eventRepository.findById(request.getEventId())
+              .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
+        }
+
         Team team = request.toEntity(user.getId());
         teamRepository.save(team);
 
@@ -156,11 +188,6 @@ public class TeamService {
         // 커밋 후 비동기로 AI 임베딩 계산 (TeamEmbeddingRefreshListener)
         eventPublisher.publishEvent(new TeamEmbeddingRefreshRequestedEvent(team.getId()));
 
-        Event event = null;
-        if (request.getEventId() != null) {
-            event = eventRepository.findById(request.getEventId())
-              .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
-        }
         // 갓 만든 팀의 인원은 팀장 1명.
         return new TeamResponseDTO(team, event, 1);
     }

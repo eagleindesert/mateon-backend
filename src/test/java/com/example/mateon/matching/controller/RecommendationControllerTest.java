@@ -190,26 +190,19 @@ class RecommendationControllerTest {
     class RecommendUsers {
 
         /**
-         * 현재 동작을 그대로 고정한다 — <b>이건 흠결이다.</b>
-         *
-         * <p>
-         * {@code GlobalExceptionHandler} 에는 {@code MissingServletRequestParameterException}
-         * 핸들러가 없어서 catch-all {@code Exception} 로 떨어진다. 그래서 "파라미터를 빠뜨렸다"
-         * 는 클라이언트 실수가 <b>500</b> 으로 나간다. 같은 성격의 실수인 타입 불일치
-         * ({@code ?teamId=abc})는 전용 핸들러가 있어서 400 인데 말이다.
-         *
-         * <p>
-         * 서버 입장에서는 5xx 알람이 클라이언트 실수로 울리고, 프론트 입장에서는 "잠시 후
-         * 다시 시도" 안내가 뜬다 (고쳐도 영원히 안 된다). 고칠 값어치가 있지만 그건 별개 변경이라
-         * 여기서는 지금 나가는 응답을 못박아 둔다 — 핸들러가 추가되면 이 테스트가 빨개져서
-         * 의도한 변경임을 확인하게 된다.
+         * 필수 파라미터 누락은 타입 불일치({@code ?teamId=abc})와 같은 클라이언트 실수라 같은 봉투로
+         * 400 이어야 한다. {@code GlobalExceptionHandler} 에 전용 핸들러가 없던 동안은 catch-all
+         * 로 떨어져 500 이 나갔고, 그러면 5xx 알람이 클라이언트 실수로 울리고 프론트에는 "잠시 후
+         * 다시 시도" 안내가 떴다. {@code data} 에 어느 파라미터가 빠졌는지 실린다.
          */
         @Test
-        @DisplayName("teamId 를 빠뜨리면 500 이다 (400 이어야 마땅하지만 전용 핸들러가 없다)")
-        void missingTeamIdFallsToCatchAll() throws Exception {
+        @DisplayName("teamId 를 빠뜨리면 400 이고 data 에 빠진 파라미터 이름이 실린다")
+        void missingTeamIdIs400() throws Exception {
             mockMvc.perform(get("/api/matching/recommendations/team-to-user").principal(auth()))
-              .andExpect(status().isInternalServerError())
-              .andExpect(jsonPath("$.success").value(false));
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.success").value(false))
+              .andExpect(jsonPath("$.message").value("입력값 검증에 실패했습니다."))
+              .andExpect(jsonPath("$.data.teamId").value("'teamId' 파라미터가 필요합니다."));
 
             verifyNoInteractions(teamToUserRecommendationService);
         }
