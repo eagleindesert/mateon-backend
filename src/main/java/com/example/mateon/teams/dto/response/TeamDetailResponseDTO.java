@@ -22,21 +22,20 @@ public class TeamDetailResponseDTO extends TeamResponseDTO { // [핵심] 상속 
     /**
      * 조회자가 이 팀의 팀장인지.
      *
-     * <p>JSON 키는 {@code leader} 다 — {@code isLeader} 가 아니다. 필드명이 {@code is-} 로 시작해
-     * Lombok 게터가 {@code isLeader()} 가 되고 Jackson 이 접두어를 떼기 때문이다. 프론트가 이미
-     * 이 이름으로 읽고 있으므로 {@code @JsonProperty} 로 바꾸면 프론트가 깨진다.
+     * <p>
+     * JSON 으로는 {@code leader} 와 {@code isLeader} <b>두 키가 함께</b> 나간다. 필드명이
+     * {@code is-} 로 시작해 Lombok 게터가 {@code isLeader()} 가 되고 Jackson 이 접두어를 떼어
+     * {@code leader} 로 내보내는데, 프론트가 이미 이 이름으로 읽고 있어 없앨 수 없다. 한편
+     * 같은 응답의 {@code members[].isLeader} 와 이름이 달라 헷갈리므로, {@code is} 접두로
+     * 통일하는 과도기 동안 {@link #getIsLeader()} 가 같은 값을 {@code isLeader} 로도 낸다.
      *
-     * <p>같은 응답의 {@code members[].isLeader} 와 이름이 다른데, 그쪽은 나중에 추가되며
-     * {@code @JsonProperty} 가 붙어 처음부터 {@code isLeader} 로 나갔다. 헷갈리기 쉬우니
-     * 직렬화 테스트가 두 이름을 각각 못박아 둔다.
-     *
-     * <p>TODO: 나중에 {@code isLeader} 로 통일한다 (docs/TODO.md 참고). 한 응답 안에 두 규칙이
-     * 섞여 있는 지금 상태가 헷갈리기 때문이다. 서버만 바꾸면 프론트가 조용히 깨지므로
-     * <b>프론트와 동시에</b> 전환해야 한다. 바꿀 때는 {@code @JsonProperty("isLeader")} 를
-     * 필드가 아니라 게터에 달고({@link #isEnded()} 참고), 직렬화 테스트와
-     * {@code 05_team.ps1} 5.2f 의 assert 방향도 함께 뒤집는다.
+     * <p>
+     * 프론트가 {@code isLeader} 로 옮기고 나면 {@code leader} 를 뺀다. 그때는 이 필드의 Lombok
+     * 게터를 막고({@link #isEnded()} 처럼 직접 게터를 선언), 직렬화 테스트와
+     * {@code 05_team.ps1} 5.2f 의 assert 를 "leader 가 없다" 로 뒤집는다.
      */
-    @Schema(description = "조회자가 이 팀의 팀장인지. 비로그인이면 false. JSON 키는 leader")
+    @Schema(description = "조회자가 이 팀의 팀장인지. 비로그인이면 false. "
+      + "JSON 키는 leader 이며, 전환기 동안 isLeader 로도 같은 값이 나간다")
     private boolean isLeader;
     @Schema(description = "조회자가 이 팀에 지원한 적이 있는지. myApplicationStatus != null 과 같다")
     private boolean hasApplied;
@@ -120,5 +119,28 @@ public class TeamDetailResponseDTO extends TeamResponseDTO { // [핵심] 상속 
     @JsonProperty("isEnded")
     public boolean isEnded() {
         return isEnded;
+    }
+
+    /**
+     * JSON 키 {@code leader} 를 내는 게터. 직접 선언하는 이유는 아래 {@link #getIsLeader()} 가
+     * 있으면 Lombok 이 이 필드의 게터를 이미 있는 것으로 보고 만들지 않기 때문이다 — 그러면
+     * {@code leader} 키가 조용히 사라진다.
+     */
+    public boolean isLeader() {
+        return isLeader;
+    }
+
+    /**
+     * {@code leader} 와 같은 값을 {@code isLeader} 키로 한 번 더 낸다 (필드 주석 참고).
+     *
+     * <p>
+     * 필드에 {@code @JsonProperty} 를 다는 것으로도 두 키가 나오지만, 그건 Jackson 이 필드와
+     * 게터를 병합하지 못한 부수 효과라 매퍼 설정에 따라 달라질 수 있다. 키 이름은
+     * {@link #isEnded()} 처럼 게터에서 못박는다.
+     */
+    @JsonProperty("isLeader")
+    @Schema(description = "leader 와 같은 값. is 접두 통일 전환기 동안 두 키를 함께 낸다")
+    public boolean getIsLeader() {
+        return isLeader;
     }
 }

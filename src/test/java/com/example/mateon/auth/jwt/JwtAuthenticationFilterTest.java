@@ -126,6 +126,14 @@ class JwtAuthenticationFilterTest {
 
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         }
+
+        @Test
+        @DisplayName("리프레시 토큰은 서명이 유효해도 인증하지 않는다 — type 클레임이 access 가 아니다")
+        void refreshTokenIsNotAuthentication() throws Exception {
+            doFilter(request("Bearer " + tokenProvider.createRefreshToken(7L)));
+
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        }
     }
 
     @Test

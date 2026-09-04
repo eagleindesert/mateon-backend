@@ -145,10 +145,10 @@ class AuthServiceEmailVerificationTest {
         }
 
         @Test
-        @DisplayName("마지막 발송 59초 뒤 재요청은 429 로 막는다 (메일 폭탄 방지)")
+        @DisplayName("마지막 발송 50초 뒤 재요청은 429 로 막는다 (메일 폭탄 방지)")
         void rejectsResendWithinCooldown() {
             when(emailVerificationRepository.findByEmail(EMAIL))
-              .thenReturn(Optional.of(existing(LocalDateTime.now().minusSeconds(59))));
+              .thenReturn(Optional.of(existing(LocalDateTime.now().minusSeconds(50))));
 
             assertThatThrownBy(() -> authService.requestEmailVerification(emailRequest(EMAIL)))
               .isInstanceOf(MateonException.class)
@@ -158,10 +158,10 @@ class AuthServiceEmailVerificationTest {
         }
 
         @Test
-        @DisplayName("61초가 지났으면 재발급을 허용한다 (경계가 60초라는 사실을 고정)")
+        @DisplayName("70초가 지났으면 재발급을 허용한다 (경계가 60초라는 사실을 고정)")
         void allowsResendAfterCooldown() {
             when(emailVerificationRepository.findByEmail(EMAIL))
-              .thenReturn(Optional.of(existing(LocalDateTime.now().minusSeconds(61))));
+              .thenReturn(Optional.of(existing(LocalDateTime.now().minusSeconds(70))));
 
             assertThatCode(() -> authService.requestEmailVerification(emailRequest(EMAIL)))
               .doesNotThrowAnyException();

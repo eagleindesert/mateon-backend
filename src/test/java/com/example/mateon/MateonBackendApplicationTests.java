@@ -1,6 +1,7 @@
 package com.example.mateon;
 
 import com.example.mateon.support.IntegrationTestBase;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 class MateonBackendApplicationTests extends IntegrationTestBase {
 
     @Test
+    @DisplayName("애플리케이션 컨텍스트가 뜬다 (모든 빈의 설정값이 test 프로필만으로 채워진다)")
     void contextLoads() {
     }
 

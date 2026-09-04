@@ -77,6 +77,16 @@ class AiServerPropertiesTest {
         assertThat(properties.getSessionTtl()).isEqualTo(Duration.ofHours(24));
     }
 
+    @Test
+    @DisplayName("백필 기본값은 한 틱 10건, 연속 실패 8회, 재시도 10분이다 (yml 기본값과 같다)")
+    void backfillDefaults() {
+        AiServerProperties properties = new AiServerProperties();
+
+        assertThat(properties.getEventEmbeddingBackfillBatchSize()).isEqualTo(10);
+        assertThat(properties.getEventEmbeddingBackfillMaxFailures()).isEqualTo(8);
+        assertThat(properties.getEventEmbeddingBackfillRetryCooldown()).isEqualTo(Duration.ofMinutes(10));
+    }
+
     private AiServerProperties properties(String secret) {
         AiServerProperties properties = new AiServerProperties();
         properties.setBaseUrl("http://ai.test:8001");

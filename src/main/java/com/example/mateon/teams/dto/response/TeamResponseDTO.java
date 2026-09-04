@@ -2,6 +2,7 @@ package com.example.mateon.teams.dto.response;
 
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.events.models.Event;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import java.time.LocalDate;
@@ -14,17 +15,20 @@ public class TeamResponseDTO {
     private String title;
     private List<String> role;
     /**
-     * 모집 중 여부. JSON 키는 {@code recruiting} 이다 — {@code isRecruiting} 이 아니다.
-     * 필드명이 {@code is-} 로 시작해 Lombok 게터가 {@code isRecruiting()} 이 되고 Jackson 이
-     * 접두어를 떼기 때문이다. 목록·상세 응답이 모두 이 키를 쓴다.
+     * 모집 중 여부. JSON 으로는 {@code recruiting} 과 {@code isRecruiting} 두 키가 함께 나간다.
      *
-     * <p>TODO: 나중에 {@code isRecruiting} 으로 통일한다 (docs/TODO.md 참고).
-     * {@code TeamDetailResponseDTO.isLeader} 와 같은 사정이고, 프론트가 현재 이 이름을 읽고
-     * 있어 <b>프론트와 동시에</b> 전환해야 한다. {@code @JsonProperty} 는 필드가 아니라
-     * 게터에 달아야 두 키가 함께 나가지 않는다.
+     * <p>
+     * 필드명이 {@code is-} 로 시작해 Lombok 게터가 {@code isRecruiting()} 이 되고 Jackson 이
+     * 접두어를 떼어 {@code recruiting} 으로 내보내는데, 프론트가 이 이름을 읽고 있어 없앨 수 없다.
+     * {@code is} 접두로 통일하는 과도기 동안 {@link #getIsRecruiting()} 이 같은 값을
+     * {@code isRecruiting} 으로도 낸다. 목록·상세 응답이 모두 이 클래스를 쓰므로 둘 다 해당된다.
+     * {@code TeamDetailResponseDTO.isLeader} 와 같은 사정이다.
+     *
+     * <p>
+     * 프론트가 {@code isRecruiting} 으로 옮기고 나면 {@code recruiting} 을 뺀다.
      */
-    @Schema(description = "모집 중 여부. **JSON 키는 `recruiting`** 이다. 정원이 차면 false 가 된다. "
-            + "활동 종료(상세 응답의 isEnded)와는 다른 축이다.")
+    @Schema(description = "모집 중 여부. JSON 키는 `recruiting` 이며, 전환기 동안 `isRecruiting` 으로도 "
+      + "같은 값이 나간다. 정원이 차면 false 가 된다. 활동 종료(상세 응답의 isEnded)와는 다른 축이다.")
     private boolean isRecruiting;
     @Schema(description = "연결된 활동. 자율 팀이면 null 이다.")
     private Long eventId;
@@ -60,5 +64,26 @@ public class TeamResponseDTO {
         this.recruitmentStartDate = team.getRecruitmentStartDate();
         this.recruitmentEndDate = team.getRecruitmentEndDate();
         this.leaderId = team.getLeaderUserId();
+    }
+
+    /**
+     * JSON 키 {@code recruiting} 을 내는 게터. 아래 {@link #getIsRecruiting()} 이 있으면 Lombok 이
+     * 이 필드의 게터를 이미 있는 것으로 보고 만들지 않아 {@code recruiting} 키가 사라지므로
+     * 직접 선언한다.
+     */
+    public boolean isRecruiting() {
+        return isRecruiting;
+    }
+
+    /**
+     * {@code recruiting} 과 같은 값을 {@code isRecruiting} 키로 한 번 더 낸다 (필드 주석 참고).
+     *
+     * <p>
+     * 키 이름을 게터에서 못박는다. {@code TeamDetailResponseDTO#getIsLeader()} 와 같은 방식이다.
+     */
+    @JsonProperty("isRecruiting")
+    @Schema(description = "recruiting 과 같은 값. is 접두 통일 전환기 동안 두 키를 함께 낸다")
+    public boolean getIsRecruiting() {
+        return isRecruiting;
     }
 }

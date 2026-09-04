@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
@@ -93,6 +94,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Map<String, String>>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         Map<String, String> errors = new HashMap<>();
         errors.put(e.getName(), describeInvalidValue(e.getRequiredType(), e.getValue()));
+        return ResponseEntity
+          .status(HttpStatus.BAD_REQUEST)
+          .body(BaseResponse.error("입력값 검증에 실패했습니다.", errors));
+    }
+
+    /**
+     * 필수 쿼리 파라미터를 빠뜨렸다. (예: /api/matching/recommendations/team-to-user 를 teamId 없이)
+     *
+     * <p>
+     * 타입 불일치와 같은 성격의 클라이언트 실수라 같은 봉투로 400 을 돌려준다. 이 핸들러가 없으면
+     * catch-all 로 떨어져 500 이 나가고, 프론트에는 "잠시 후 다시 시도" 안내가 뜬다.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<BaseResponse<Map<String, String>>> handleMissingParameter(
+      MissingServletRequestParameterException e
+    ) {
+        Map<String, String> errors = new HashMap<>();
+        errors.put(e.getParameterName(), String.format("'%s' 파라미터가 필요합니다.", e.getParameterName()));
         return ResponseEntity
           .status(HttpStatus.BAD_REQUEST)
           .body(BaseResponse.error("입력값 검증에 실패했습니다.", errors));

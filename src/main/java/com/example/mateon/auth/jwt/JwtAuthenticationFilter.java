@@ -28,7 +28,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = getTokenFromRequest(request);
 
-        if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
+        // 액세스 토큰만 인증으로 친다. 리프레시 토큰은 서명이 같아도 여기서 걸러져 익명으로 흐른다.
+        if (StringUtils.hasText(token)
+          && jwtTokenProvider.validateToken(token, JwtTokenProvider.TokenType.ACCESS)) {
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
 
             UsernamePasswordAuthenticationToken authentication

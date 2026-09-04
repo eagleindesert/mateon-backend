@@ -56,6 +56,23 @@ public class AiServerProperties {
     private int embeddingDimension = 1536;
 
     /**
+     * 공모전 임베딩 백필 한 틱에 처리할 활동 수. FastAPI 호출이 이 수만큼 나간다.
+     * (yml 키는 {@code ai.event-embedding-backfill-batch-size} — 평평한 키를 relaxed binding 이
+     * 이 필드로 묶는다. enabled/delay 는 애노테이션이 직접 읽으므로 여기 없다.)
+     */
+    private int eventEmbeddingBackfillBatchSize = 10;
+
+    /**
+     * 백필이 한 활동을 포기하는 연속 실패 한도.
+     */
+    private int eventEmbeddingBackfillMaxFailures = 8;
+
+    /**
+     * 실패한 활동을 다시 집기까지 기다리는 시간.
+     */
+    private Duration eventEmbeddingBackfillRetryCooldown = Duration.ofMinutes(10);
+
+    /**
      * 시크릿 누락을 부팅 시점에 잡는다.
      *
      * <p>

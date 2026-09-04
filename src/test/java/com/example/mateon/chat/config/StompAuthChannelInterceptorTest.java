@@ -103,6 +103,14 @@ class StompAuthChannelInterceptorTest {
             assertThatThrownBy(() -> preSend(connectFrame("Bearer not-a-real-token")))
               .isInstanceOf(IllegalArgumentException.class);
         }
+
+        @Test
+        @DisplayName("리프레시 토큰으로는 연결하지 못한다 — HTTP 필터와 같이 액세스 토큰만 받는다")
+        void rejectsRefreshToken() {
+            assertThatThrownBy(() -> preSend(connectFrame("Bearer " + tokenProvider.createRefreshToken(7L))))
+              .isInstanceOf(IllegalArgumentException.class)
+              .hasMessage("유효하지 않은 인증 토큰입니다.");
+        }
     }
 
     @Nested

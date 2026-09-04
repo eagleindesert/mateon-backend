@@ -126,14 +126,14 @@ class TeamControllerTest {
         }
 
         @Test
-        @DisplayName("모집 중 여부의 JSON 키는 recruiting 이다 — isRecruiting 이 아니다")
+        @DisplayName("모집 중 여부는 recruiting 과 isRecruiting 두 키로 같은 값이 나간다 (is 접두 통일 전환기)")
         void recruitingKeyName() throws Exception {
             when(teamService.getTeams(any(), any(), anyBoolean(), any()))
               .thenReturn(List.of(new TeamResponseDTO(team(), event(), 2)));
 
             mockMvc.perform(get("/api/teams"))
               .andExpect(jsonPath("$.data[0].recruiting").value(true))
-              .andExpect(jsonPath("$.data[0].isRecruiting").doesNotExist())
+              .andExpect(jsonPath("$.data[0].isRecruiting").value(true))
               .andExpect(jsonPath("$.data[0].id").value(7))
               .andExpect(jsonPath("$.data[0].currentMemberCount").value(2))
               .andExpect(jsonPath("$.data[0].connectedActivityTitle").value("교내 해커톤"));
@@ -147,6 +147,20 @@ class TeamControllerTest {
             mockMvc.perform(get("/api/teams"))
               .andExpect(jsonPath("$.data").isArray())
               .andExpect(jsonPath("$.data").isEmpty());
+        }
+
+        @Test
+        @DisplayName("enum 이름이 아닌 category 는 400 이고 message 에 허용값이 실린다")
+        void unknownCategoryIs400() throws Exception {
+            when(teamService.getTeams(any(), eq("공모전"), anyBoolean(), any()))
+              .thenThrow(new MateonException(ErrorCode.INVALID_INPUT,
+                "'공모전' 는 허용되지 않는 category 값입니다. 가능한 값: 전체, 자율, CONTEST, EXTERNAL, SCHOOL, ETC"));
+
+            mockMvc.perform(get("/api/teams").param("category", "공모전"))
+              .andExpect(status().isBadRequest())
+              .andExpect(jsonPath("$.success").value(false))
+              .andExpect(jsonPath("$.message").value(
+                "'공모전' 는 허용되지 않는 category 값입니다. 가능한 값: 전체, 자율, CONTEST, EXTERNAL, SCHOOL, ETC"));
         }
     }
 
@@ -166,18 +180,19 @@ class TeamControllerTest {
         }
 
         /**
-         * 한 응답 안에서 최상위는 {@code leader}(조회자가 팀장인가), 명단 한 줄은
-         * {@code members[].isLeader}(그 사람이 팀장인가)다. 이름이 다른 이유는 Lombok/Jackson 의
-         * {@code is-} 접두어 처리 차이인데, 프론트가 이미 이 이름들로 읽고 있다.
+         * 한 응답 안에서 최상위는 {@code leader}(조회자가 팀장인가)와 {@code isLeader} 가 같은 값으로
+         * 함께 나가고, 명단 한 줄은 {@code members[].isLeader}(그 사람이 팀장인가)만 나간다.
+         * 최상위 이름이 둘인 이유는 is 접두 통일의 과도기라서다 — 프론트가 아직 {@code leader} 를
+         * 읽고 있어 없앨 수 없고, 명단과 이름을 맞추려고 {@code isLeader} 를 더했다.
          */
         @Test
-        @DisplayName("조회자 팀장 여부는 leader, 명단의 팀장 표시는 members[].isLeader 다")
+        @DisplayName("조회자 팀장 여부는 leader 와 isLeader 로 함께, 명단의 팀장 표시는 members[].isLeader 로 나간다")
         void twoDifferentLeaderKeys() throws Exception {
             when(teamService.getTeamDetail(anyLong(), any())).thenReturn(detail(true));
 
             mockMvc.perform(get("/api/teams/7").principal(auth()))
               .andExpect(jsonPath("$.data.leader").value(true))
-              .andExpect(jsonPath("$.data.isLeader").doesNotExist())
+              .andExpect(jsonPath("$.data.isLeader").value(true))
               .andExpect(jsonPath("$.data.members[0].isLeader").value(true))
               .andExpect(jsonPath("$.data.members[0].leader").doesNotExist());
         }

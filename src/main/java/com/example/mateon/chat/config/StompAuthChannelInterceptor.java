@@ -36,7 +36,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = resolveToken(accessor.getFirstNativeHeader("Authorization"));
 
-            if (!StringUtils.hasText(token) || !jwtTokenProvider.validateToken(token)) {
+            // HTTP 필터와 같이 액세스 토큰만 받는다.
+            if (!StringUtils.hasText(token)
+              || !jwtTokenProvider.validateToken(token, JwtTokenProvider.TokenType.ACCESS)) {
                 throw new IllegalArgumentException("유효하지 않은 인증 토큰입니다.");
             }
 

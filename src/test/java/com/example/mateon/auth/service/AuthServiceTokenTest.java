@@ -283,6 +283,18 @@ class AuthServiceTokenTest {
         }
 
         @Test
+        @DisplayName("액세스 토큰을 넣으면 서명이 유효해도 DB 를 보지 않고 INVALID_TOKEN — type 클레임이 다르다")
+        void accessTokenIsNotARefreshToken() {
+            String access = jwtTokenProvider.createAccessToken(USER_ID);
+
+            assertThatThrownBy(() -> authService.refreshToken(refreshRequest(access)))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_TOKEN);
+
+            verify(refreshTokenRepository, never()).findByToken(anyString());
+        }
+
+        @Test
         @DisplayName("서명은 유효하지만 저장되지 않은 토큰이면 TOKEN_NOT_FOUND (로그아웃된 토큰)")
         void notStored() {
             String refresh = jwtTokenProvider.createRefreshToken(USER_ID);
