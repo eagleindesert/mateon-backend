@@ -50,3 +50,27 @@
   - `last_attempted_at` 이 `event-embedding-backfill-retry-cooldown`(기본 10m) 안이면 이번 틱 스킵.
     앞 id 가 고여 뒤가 LIMIT 밖으로 밀리는 것을 막는다
   - 빈 틱에서 스케줄을 끄지 않는다. 재시작 후 @Async 큐 유실을 회수해야 한다
+
+- 리프레시 토큰이 액세스 토큰으로 **그대로 통함**
+  - `JwtTokenProvider.createAccessToken` / `createRefreshToken` 은 만료 시간만 다르고 구조가 같음
+    (타입 클레임 없음). `JwtAuthenticationFilter` 는 서명·만료만 보므로 둘을 구분하지 못함
+  - 영향: 7일짜리 리프레시 토큰이 유출되면 액세스 토큰 만료와 무관하게 그 기간 내내 API 호출 가능.
+    리프레시 토큰은 원래 `/api/auth/token/refresh` 에만 쓰여야 함
+  - 재현: `Authorization: Bearer <refreshToken>` 으로 `GET /api/users/me` → 200
+  - 고칠 때: 토큰에 `type` 클레임(`access` / `refresh`)을 넣고, 필터는 `access` 만 인증으로 인정,
+    `/token/refresh` 는 `refresh` 만 받도록. 이미 발급된 토큰(클레임 없음)은 만료까지 거부되므로
+    배포 시점에 재로그인이 필요함 → **프론트에 미리 알릴 것**
+  - `SecurityConfigIntegrationTest.refreshTokenCurrentlyAuthenticates` 가 지금 동작(200)을 고정하고
+    있으므로 403 으로 함께 뒤집기. `AuthServiceTokenTest` 의 재발급 경로도 `type` 검증을 추가
+
+- 팀 카테고리 조회(`GET /api/teams?category=`)가 **enum 이름으로만** 맞음
+  - `TeamRepository.findByEventCategory` 네이티브 쿼리가 `events.category = :category` 로 비교하는데,
+    컬럼에는 `@Enumerated(STRING)` 이라 `CONTEST` 같은 enum 이름이 저장돼 있음
+  - `TeamController` 는 클라이언트 문자열을 그대로 서비스에 넘기므로, 프론트가 `"공모전"` 같은
+    한글 라벨을 보내면 **항상 빈 목록**이 나감 (에러 없이 조용히 비어 있음)
+  - 먼저 확인할 것: 프론트가 실제로 보내는 값 (`CONTEST` 인지 `공모전` 인지). 스웨거 설명에는
+    `"전체"` / `"자율"` 특수값만 적혀 있고 나머지 형식이 없음
+  - 고칠 때: 라벨이면 `Event.Category` 의 `label` → `name()` 매핑을 서비스에서 하고 모르는 값은
+    400. 어느 쪽이든 스웨거 설명에 허용값을 적을 것
+  - `TeamRepositoryQueryIntegrationTest.labelDoesNotMatchStoredName` 이 지금 동작(라벨은 빈 목록)을
+    고정하고 있으므로 매핑을 넣으면 함께 뒤집기

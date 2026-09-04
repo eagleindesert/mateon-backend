@@ -1,12 +1,12 @@
 package com.example.mateon.events.scheduler;
 
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.events.service.EventEmbeddingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -32,16 +32,18 @@ class EventEmbeddingBackfillSchedulerTest {
 
     private EventRepository eventRepository;
     private EventEmbeddingService eventEmbeddingService;
+    private AiServerProperties properties;
     private EventEmbeddingBackfillScheduler scheduler;
 
     @BeforeEach
     void setUp() {
         eventRepository = mock(EventRepository.class);
         eventEmbeddingService = mock(EventEmbeddingService.class);
-        scheduler = new EventEmbeddingBackfillScheduler(eventRepository, eventEmbeddingService);
-        ReflectionTestUtils.setField(scheduler, "batchSize", 10);
-        ReflectionTestUtils.setField(scheduler, "maxFailures", 8);
-        ReflectionTestUtils.setField(scheduler, "retryCooldown", Duration.ofMinutes(10));
+        properties = new AiServerProperties();
+        properties.setEventEmbeddingBackfillBatchSize(10);
+        properties.setEventEmbeddingBackfillMaxFailures(8);
+        properties.setEventEmbeddingBackfillRetryCooldown(Duration.ofMinutes(10));
+        scheduler = new EventEmbeddingBackfillScheduler(eventRepository, eventEmbeddingService, properties);
     }
 
     @Test
@@ -86,7 +88,7 @@ class EventEmbeddingBackfillSchedulerTest {
     void defaultsCooldownWhenNull() {
         when(eventRepository.findIdsNeedingEmbedding(anyInt(), anyInt(), any()))
           .thenReturn(List.of());
-        ReflectionTestUtils.setField(scheduler, "retryCooldown", null);
+        properties.setEventEmbeddingBackfillRetryCooldown(null);
 
         LocalDateTime before = LocalDateTime.now().minusMinutes(10);
         scheduler.backfill();
@@ -102,7 +104,7 @@ class EventEmbeddingBackfillSchedulerTest {
     void defaultsCooldownWhenNegative() {
         when(eventRepository.findIdsNeedingEmbedding(anyInt(), anyInt(), any()))
           .thenReturn(List.of());
-        ReflectionTestUtils.setField(scheduler, "retryCooldown", Duration.ofMinutes(-1));
+        properties.setEventEmbeddingBackfillRetryCooldown(Duration.ofMinutes(-1));
 
         LocalDateTime before = LocalDateTime.now().minusMinutes(10);
         scheduler.backfill();

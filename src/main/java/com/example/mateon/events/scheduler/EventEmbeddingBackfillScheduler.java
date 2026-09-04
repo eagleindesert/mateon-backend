@@ -1,10 +1,10 @@
 package com.example.mateon.events.scheduler;
 
-import com.example.mateon.events.service.EventEmbeddingService;
+import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.events.service.EventEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -44,19 +44,18 @@ public class EventEmbeddingBackfillScheduler {
     private final EventRepository eventRepository;
     private final EventEmbeddingService eventEmbeddingService;
 
-    @Value("${ai.event-embedding-backfill-batch-size:10}")
-    private int batchSize;
-
-    @Value("${ai.event-embedding-backfill-max-failures:8}")
-    private int maxFailures;
-
-    @Value("${ai.event-embedding-backfill-retry-cooldown:10m}")
-    private Duration retryCooldown;
+    /**
+     * 배치 크기·실패 한도·재시도 쿨다운. 필드 @Value 대신 생성자로 받는 이유는 테스트가
+     * 필드명 문자열로 값을 밀어 넣지 않게 하기 위해서다 — 그 방식은 이름을 바꾸면 컴파일은
+     * 통과하고 런타임에만 깨진다.
+     */
+    private final AiServerProperties properties;
 
     @Scheduled(fixedDelayString = "${ai.event-embedding-backfill-delay:60s}")
     public void backfill() {
-        int limit = Math.max(batchSize, 1);
-        int failuresCap = Math.max(maxFailures, 1);
+        int limit = Math.max(properties.getEventEmbeddingBackfillBatchSize(), 1);
+        int failuresCap = Math.max(properties.getEventEmbeddingBackfillMaxFailures(), 1);
+        Duration retryCooldown = properties.getEventEmbeddingBackfillRetryCooldown();
         Duration cooldown = retryCooldown == null || retryCooldown.isNegative()
           ? Duration.ofMinutes(10)
           : retryCooldown;

@@ -83,15 +83,13 @@ class OAuthDebugControllerTest {
     }
 
     @Test
-    @DisplayName("code 파라미터가 없으면 저장하지 않는다")
+    @DisplayName("code 파라미터가 없으면 400 이고 저장하지 않는다")
     void requiresCode() throws Exception {
-        // 전용 예외 핸들러 없이 호출하므로 상태코드는 보지 않는다. 중요한 건
+        // 전용 예외 핸들러가 없어도 standalone MockMvc 의 기본 리졸버가
+        // MissingServletRequestParameterException 을 400 으로 바꾼다. 중요한 건
         // 코드 없이 deleteAllInBatch() 가 불려 기존 코드를 날리지 않는 것이다.
-        try {
-            mockMvc.perform(get("/debug/oauth"));
-        } catch (Exception ignored) {
-            // MissingServletRequestParameterException 이 그대로 올라온다.
-        }
+        mockMvc.perform(get("/debug/oauth"))
+          .andExpect(status().isBadRequest());
 
         verify(repository, never()).deleteAllInBatch();
         verify(repository, never()).save(any());
