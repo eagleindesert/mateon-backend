@@ -77,6 +77,8 @@ jobs:
         run: |
           chmod +x scripts/docker/next-dockerhub-tag.sh
           ./scripts/docker/next-dockerhub-tag.sh
+      - name: Show image tag
+        run: echo "## Docker tag \`${{ steps.version.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: docker/metadata-action@v5
         id: meta
         with:
