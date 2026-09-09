@@ -11,6 +11,7 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED("이메일 인증이 완료되지 않았습니다."),
     INVALID_VERIFICATION_TOKEN("이메일 인증 정보가 유효하지 않습니다. 인증을 다시 진행해주세요."),
     EMAIL_REQUEST_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청은 잠시 후 다시 시도해주세요."),
+    AUTH_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요."),
     INVALID_VERIFICATION_CODE("인증코드가 올바르지 않거나 만료되었습니다."),
     INVALID_CREDENTIALS("이메일 또는 비밀번호가 올바르지 않습니다."),
     SCHOOL_EMAIL_ALREADY_USED("이미 다른 계정에서 사용 중인 학교 이메일입니다."),

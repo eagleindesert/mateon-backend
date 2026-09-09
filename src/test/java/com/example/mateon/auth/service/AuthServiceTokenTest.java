@@ -8,6 +8,7 @@ import com.example.mateon.auth.dto.LogoutRequest;
 import com.example.mateon.auth.dto.RefreshTokenRequest;
 import com.example.mateon.auth.dto.SignupRequest;
 import com.example.mateon.auth.dto.TokenResponse;
+import com.example.mateon.auth.config.AuthRateLimiter;
 import com.example.mateon.auth.jwt.JwtTokenProvider;
 import com.example.mateon.auth.repository.EmailVerificationRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
@@ -54,8 +55,8 @@ import static org.mockito.Mockito.when;
  * 한다 — {@code USER_NOT_FOUND}(404)가 새어 나가면 그것만으로 "가입된 이메일 목록"을 만들 수 있다.
  *
  * <p>
- * 마지막은 <b>리프레시 토큰이 유저당 한 행</b>이라는 것이다. delete→insert 로 바꾸면
- * Hibernate 의 flush 순서 때문에 INSERT 가 DELETE 보다 먼저 나가 UNIQUE 제약과 충돌한다.
+ * 마지막은 <b>리프레시 토큰이 세션당 한 행</b>이라는 것이다. 로그인마다 insert 하고 기존
+ * 행을 덮어쓰지 않는다 — 웹 로그인이 앱 세션을 지우면 안 된다.
  */
 class AuthServiceTokenTest {
 
@@ -87,7 +88,8 @@ class AuthServiceTokenTest {
           passwordEncoder,
           eventPublisher,
           jwtTokenProvider,
-          TestJwt.properties());
+          TestJwt.properties(),
+          mock(AuthRateLimiter.class));
 
         // 저장 시 id 가 채워지는 IDENTITY 동작을 흉내낸다. 없으면 토큰 subject 가 "null" 이 된다.
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -321,40 +323,26 @@ class AuthServiceTokenTest {
     }
 
     @Nested
-    @DisplayName("리프레시 토큰 저장은 유저당 1행 upsert 다")
+    @DisplayName("리프레시 토큰 저장은 세션마다 insert 다")
     class SaveRefreshToken {
 
         @Test
-        @DisplayName("기존 행이 있으면 그 인스턴스를 rotate 해서 저장한다 (delete 하지 않는다)")
-        void rotatesExistingRow() {
+        @DisplayName("로그인할 때마다 새 행을 만든다 — 기존 세션을 덮어쓰지 않는다")
+        void insertsNewRowEachLogin() {
             User user = localUser("encoded");
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
             when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
 
-            RefreshToken existing = storedToken("old-token", LocalDateTime.now().plusDays(1));
-            when(refreshTokenRepository.findByUserId(USER_ID)).thenReturn(Optional.of(existing));
-
-            TokenResponse response = authService.login(loginRequest("password12"));
-
-            verify(refreshTokenRepository).save(existing);
-            verify(refreshTokenRepository, never()).delete(any());
-            assertThat(existing.getToken()).isEqualTo(response.getRefreshToken());
-        }
-
-        @Test
-        @DisplayName("기존 행이 없으면 새로 만든다")
-        void createsWhenAbsent() {
-            User user = localUser("encoded");
-            when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
-            when(refreshTokenRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
-
-            authService.login(loginRequest("password12"));
+            TokenResponse first = authService.login(loginRequest("password12"));
+            TokenResponse second = authService.login(loginRequest("password12"));
 
             ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
-            verify(refreshTokenRepository).save(captor.capture());
-            assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
-            assertThat(captor.getValue().getExpiresAt()).isAfter(LocalDateTime.now());
+            verify(refreshTokenRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+            assertThat(captor.getAllValues()).extracting(RefreshToken::getUserId)
+              .containsExactly(USER_ID, USER_ID);
+            assertThat(captor.getAllValues()).extracting(RefreshToken::getToken)
+              .containsExactly(first.getRefreshToken(), second.getRefreshToken());
+            assertThat(first.getRefreshToken()).isNotEqualTo(second.getRefreshToken());
         }
     }
 
@@ -402,8 +390,33 @@ class AuthServiceTokenTest {
         }
 
         @Test
-        @DisplayName("로그아웃은 리프레시 토큰을 지운다")
-        void logout() {
+        @DisplayName("refreshToken 으로 로그아웃하면 그 행만 지운다 (다른 세션은 유지)")
+        void logoutByRefreshToken() {
+            LogoutRequest request = new LogoutRequest();
+            request.setRefreshToken("session-token");
+            request.setEmail(EMAIL);
+
+            authService.logout(request);
+
+            verify(refreshTokenRepository).deleteByToken("session-token");
+            verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+            verify(userRepository, never()).findByEmail(anyString());
+        }
+
+        @Test
+        @DisplayName("없는 refreshToken 이어도 200 이다 (멱등)")
+        void logoutUnknownRefreshTokenIsIdempotent() {
+            LogoutRequest request = new LogoutRequest();
+            request.setRefreshToken("already-gone");
+
+            authService.logout(request);
+
+            verify(refreshTokenRepository).deleteByToken("already-gone");
+        }
+
+        @Test
+        @DisplayName("email 만 있으면 전 세션을 지운다 (deprecated RN 경로)")
+        void logoutByEmailRevokesAll() {
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(localUser("encoded")));
 
             LogoutRequest request = new LogoutRequest();
@@ -411,6 +424,7 @@ class AuthServiceTokenTest {
             authService.logout(request);
 
             verify(refreshTokenRepository).deleteByUserId(USER_ID);
+            verify(refreshTokenRepository, never()).deleteByToken(anyString());
         }
 
         @Test
@@ -424,6 +438,14 @@ class AuthServiceTokenTest {
             assertThatThrownBy(() -> authService.logout(request))
               .isInstanceOf(MateonException.class)
               .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("refreshToken 과 email 이 둘 다 없으면 INVALID_INPUT")
+        void logoutRequiresOneField() {
+            assertThatThrownBy(() -> authService.logout(new LogoutRequest()))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.INVALID_INPUT);
         }
     }
 

@@ -51,9 +51,25 @@ spring:
 # CorsProperties.validateAllowedOrigins() 가 한다.
 #
 # 서버 .env 예)
-#   CORS_ALLOWED_ORIGINS=https://mateon.example.com,https://www.mateon.example.com
+#   CORS_ALLOWED_ORIGINS=https://mateon.example.com,https://www.mateon.example.com,http://localhost:5173
 cors:
   allowed-origins: "${CORS_ALLOWED_ORIGINS}"
+
+# 웹 React origin. 비밀번호 찾기 메일이 여기로 열린다. 비우면 부팅 실패
+# (AppProperties.validateWebBaseUrl).
+app:
+  web-base-url: "${WEB_BASE_URL}"
+
+# 웹 카카오 콜백 허용 목록. React 콜백과 글자 단위로 같아야 한다. 비우면 부팅 실패.
+kakao:
+  redirect-uris: "${KAKAO_REDIRECT_URIS}"
+
+# 운영 한도는 로컬보다 빡세다. 키 이름은 dev 와 같다.
+auth:
+  rate-limit:
+    ip-per-window: "${AUTH_RATE_LIMIT_IP:20}"
+    login-email-per-window: "${AUTH_RATE_LIMIT_LOGIN_EMAIL:5}"
+    reset-email-per-window: "${AUTH_RATE_LIMIT_RESET_EMAIL:3}"
 
 # 디버그 기능 스위치. 운영 기본은 꺼짐이고, 필요할 때 서버 .env 로 잠깐 켰다 되돌린다
 # (프로필을 바꾸는 것과 달리 CORS·로그·풀 설정은 건드리지 않는다).

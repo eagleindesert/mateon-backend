@@ -4,6 +4,7 @@ import com.example.mateon.auth.client.KakaoUserInfo;
 import com.example.mateon.auth.domain.EmailVerification;
 import com.example.mateon.auth.domain.RefreshToken;
 import com.example.mateon.auth.dto.*;
+import com.example.mateon.auth.config.AuthRateLimiter;
 import com.example.mateon.auth.jwt.JwtTokenProvider;
 import com.example.mateon.auth.repository.EmailVerificationRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
@@ -19,6 +20,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -36,6 +38,7 @@ public class AuthService {
     private final ApplicationEventPublisher eventPublisher;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
+    private final AuthRateLimiter authRateLimiter;
     private final SecureRandom random = new SecureRandom();
 
     // 동일 이메일 인증코드 재요청 쿨다운 (메일 폭탄/남용 방지)
@@ -194,6 +197,8 @@ public class AuthService {
     }
 
     public TokenResponse login(LoginRequest request) {
+        authRateLimiter.checkLoginEmail(request.getEmail());
+
         User user = userRepository.findByEmail(request.getEmail())
           .orElseThrow(ErrorCode.INVALID_CREDENTIALS::toException);
 
@@ -309,29 +314,33 @@ public class AuthService {
     }
 
     public void logout(LogoutRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-          .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
-        refreshTokenRepository.deleteByUserId(user.getId());
+        // refreshToken 이 있으면 그 세션만 끊는다. 웹·앱이 동시에 로그인된 상태에서
+        // 한쪽만 나가도 다른 쪽은 살아 있어야 한다. 이미 없는 토큰이어도 200 이다.
+        if (StringUtils.hasText(request.getRefreshToken())) {
+            refreshTokenRepository.deleteByToken(request.getRefreshToken());
+            return;
+        }
+
+        // deprecated: email 만 오면 전 세션 폐기. RN 이 refreshToken 으로 옮기기 전까지 유지.
+        if (StringUtils.hasText(request.getEmail())) {
+            User user = userRepository.findByEmail(request.getEmail())
+              .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
+            refreshTokenRepository.deleteByUserId(user.getId());
+            return;
+        }
+
+        throw new MateonException(ErrorCode.INVALID_INPUT);
     }
 
-    // 리프레시 토큰을 유저당 1행으로 upsert 한다.
-    //   기존 행이 있으면 토큰/만료시각만 교체(rotate)하고, 없으면 새로 만든다.
-    //   (delete→insert 방식은 Hibernate flush 순서상 INSERT 가 DELETE 보다 먼저 나가
-    //    같은 토큰 값 재발급 시 UNIQUE 제약과 충돌하므로 upsert 로 대체한다.)
+    // 리프레시 토큰을 세션마다 한 행으로 insert 한다. 같은 유저의 기존 행을 덮어쓰지 않는다 —
+    // 웹 로그인이 앱 세션을 지우면 안 된다.
     private void saveRefreshToken(Long userId, String refreshTokenValue) {
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(jwtProperties.getRefreshExpiration() / 1000);
 
-        RefreshToken refreshToken = refreshTokenRepository.findByUserId(userId)
-          .map(existing -> {
-              existing.rotate(refreshTokenValue, expiresAt);
-              return existing;
-          })
-          .orElseGet(() -> RefreshToken.builder()
+        refreshTokenRepository.save(RefreshToken.builder()
           .token(refreshTokenValue)
           .userId(userId)
           .expiresAt(expiresAt)
           .build());
-
-        refreshTokenRepository.save(refreshToken);
     }
 }

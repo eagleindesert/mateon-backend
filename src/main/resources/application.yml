@@ -142,6 +142,27 @@ jwt:
   expiration: "${JWT_EXPIRATION:86400000}"
   refresh-expiration: "${JWT_REFRESH_EXPIRATION:604800000}"
 
+# 웹 React 주소. 비밀번호 찾기 메일 링크의 목적지가 이 서버가 아니라 여기다.
+app:
+  web-base-url: "${WEB_BASE_URL:http://localhost:5173}"
+  web-reset-password-path: "${WEB_RESET_PASSWORD_PATH:/reset-password}"
+  password-reset-ttl: "${PASSWORD_RESET_TTL:30m}"
+  password-reset-cooldown: "${PASSWORD_RESET_COOLDOWN:60s}"
+
+# 카카오 웹 인가코드 교환. RN 액세스 토큰 경로는 이 값을 보지 않는다.
+kakao:
+  rest-api-key: "${KAKAO_REST_API_KEY:}"
+  client-secret: "${KAKAO_CLIENT_SECRET:}"
+  redirect-uris: "${KAKAO_REDIRECT_URIS:http://localhost:5173/auth/kakao/callback}"
+
+# 로그인·소셜·비밀번호 찾기 요청 한도 (인메모리, 프로세스 단위).
+auth:
+  rate-limit:
+    window: "${AUTH_RATE_LIMIT_WINDOW:10m}"
+    ip-per-window: "${AUTH_RATE_LIMIT_IP:30}"
+    login-email-per-window: "${AUTH_RATE_LIMIT_LOGIN_EMAIL:10}"
+    reset-email-per-window: "${AUTH_RATE_LIMIT_RESET_EMAIL:3}"
+
 # AI 서버 (의도 추출/임베딩). 별도 FastAPI 서버 — POST /intents/extract 를 호출한다.
 ai:
   base-url: "${AI_BASE_URL:http://localhost:8000}"

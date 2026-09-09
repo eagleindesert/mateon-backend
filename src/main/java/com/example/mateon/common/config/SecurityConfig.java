@@ -1,5 +1,6 @@
 package com.example.mateon.common.config;
 
+import com.example.mateon.auth.config.AuthRateLimitFilter;
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
     private final CorsProperties corsProperties;
 
     @Bean
@@ -83,6 +85,7 @@ public class SecurityConfig {
           .requestMatchers("/api/matching/**").authenticated() // 의도 추출/추천 API는 인증 필요
           .anyRequest().authenticated()
           )
+          .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
           .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -100,8 +103,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(corsProperties.getAllowedOrigins());
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(
+          Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        // 웹 JS 가 GET /api/events/recommended 의 Deprecation/Sunset 을 읽으려면 노출해야 한다.
+        // RN 은 CORS 를 강제하지 않아 이 목록과 무관하게 헤더를 본다.
+        configuration.setExposedHeaders(List.of("Deprecation", "Sunset"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

@@ -37,36 +37,36 @@ class EmitterRepositoryTest {
 
         repository.save(1L, emitter);
 
-        assertThat(repository.get(1L)).isSameAs(emitter);
+        assertThat(repository.getAll(1L)).containsExactly(emitter);
     }
 
     @Test
-    @DisplayName("구독한 적 없는 유저는 null 이다 — push 가 이 null 로 '접속 중 아님'을 판단한다")
-    void unknownUserIsNull() {
-        assertThat(repository.get(999L)).isNull();
+    @DisplayName("구독한 적 없는 유저는 빈 목록이다 — push 가 이걸로 '접속 중 아님'을 판단한다")
+    void unknownUserIsEmpty() {
+        assertThat(repository.getAll(999L)).isEmpty();
     }
 
     @Test
-    @DisplayName("같은 유저를 다시 저장하면 덮어쓴다 (재연결 시 옛 소켓이 남지 않는다)")
-    void saveOverwrites() {
+    @DisplayName("같은 유저를 다시 저장하면 둘 다 남는다 (앱과 웹 탭이 서로를 덮어쓰지 않는다)")
+    void saveKeepsBoth() {
         SseEmitter first = new SseEmitter();
         SseEmitter second = new SseEmitter();
 
         repository.save(1L, first);
         repository.save(1L, second);
 
-        assertThat(repository.get(1L)).isSameAs(second);
+        assertThat(repository.getAll(1L)).containsExactlyInAnyOrder(first, second);
     }
 
     @Test
-    @DisplayName("삭제하면 null 이 되고, 없는 것을 지워도 예외가 아니다")
-    void deleteIsIdempotent() {
+    @DisplayName("유저 단위 삭제는 멱등이다")
+    void deleteAllIsIdempotent() {
         repository.save(1L, new SseEmitter());
 
-        repository.deleteById(1L);
-        repository.deleteById(1L);
+        repository.deleteAll(1L);
+        repository.deleteAll(1L);
 
-        assertThat(repository.get(1L)).isNull();
+        assertThat(repository.getAll(1L)).isEmpty();
     }
 
     @Test
@@ -82,7 +82,7 @@ class EmitterRepositoryTest {
                     repository.save((long) i, new SseEmitter());
                     // 짝수 유저는 곧바로 연결이 끊긴 상황을 흉내낸다.
                     if (i % 2 == 0) {
-                        repository.deleteById((long) i);
+                        repository.deleteAll((long) i);
                     }
                 } finally {
                     done.countDown();
@@ -96,9 +96,9 @@ class EmitterRepositoryTest {
 
         for (int i = 0; i < users; i++) {
             if (i % 2 == 0) {
-                assertThat(repository.get((long) i)).as("유저 %d 는 삭제됐어야 한다", i).isNull();
+                assertThat(repository.getAll((long) i)).as("유저 %d 는 삭제됐어야 한다", i).isEmpty();
             } else {
-                assertThat(repository.get((long) i)).as("유저 %d 는 남아 있어야 한다", i).isNotNull();
+                assertThat(repository.getAll((long) i)).as("유저 %d 는 남아 있어야 한다", i).isNotEmpty();
             }
         }
     }

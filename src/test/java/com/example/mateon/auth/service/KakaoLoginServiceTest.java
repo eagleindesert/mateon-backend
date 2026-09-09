@@ -2,6 +2,8 @@ package com.example.mateon.auth.service;
 
 import com.example.mateon.auth.client.KakaoOAuthClient;
 import com.example.mateon.auth.client.KakaoUserInfo;
+import com.example.mateon.auth.config.KakaoProperties;
+import com.example.mateon.auth.dto.KakaoCodeLoginRequest;
 import com.example.mateon.auth.dto.KakaoLoginRequest;
 import com.example.mateon.auth.dto.TokenResponse;
 import com.example.mateon.common.exception.ErrorCode;
@@ -37,13 +39,15 @@ class KakaoLoginServiceTest {
 
     private KakaoOAuthClient kakaoClient;
     private AuthService authService;
+    private KakaoProperties kakaoProperties;
     private KakaoLoginService kakaoLoginService;
 
     @BeforeEach
     void setUp() {
         kakaoClient = mock(KakaoOAuthClient.class);
         authService = mock(AuthService.class);
-        kakaoLoginService = new KakaoLoginService(kakaoClient, authService);
+        kakaoProperties = mock(KakaoProperties.class);
+        kakaoLoginService = new KakaoLoginService(kakaoClient, authService, kakaoProperties);
     }
 
     @Test
@@ -74,9 +78,53 @@ class KakaoLoginServiceTest {
         verify(authService, never()).kakaoLogin(any());
     }
 
+    @Test
+    @DisplayName("인가코드 경로는 허용된 redirectUri 만 교환한다")
+    void exchangesCodeWhenRedirectAllowed() {
+        KakaoUserInfo info = new KakaoUserInfo("kakao-1", "a@b.ac.kr", true, "김카카오");
+        when(kakaoProperties.isAllowedRedirectUri("http://localhost:5173/auth/kakao/callback"))
+          .thenReturn(true);
+        when(kakaoClient.exchangeCode("auth-code", "http://localhost:5173/auth/kakao/callback"))
+          .thenReturn("kakao-access");
+        when(kakaoClient.fetchUserInfo("kakao-access")).thenReturn(info);
+        when(authService.kakaoLogin(info)).thenReturn(TokenResponse.builder().accessToken("jwt").build());
+
+        TokenResponse response = kakaoLoginService.loginByCode(codeRequest());
+
+        InOrder order = inOrder(kakaoClient, authService);
+        order.verify(kakaoClient).exchangeCode("auth-code", "http://localhost:5173/auth/kakao/callback");
+        order.verify(kakaoClient).fetchUserInfo("kakao-access");
+        order.verify(authService).kakaoLogin(info);
+        assertThat(response.getAccessToken()).isEqualTo("jwt");
+    }
+
+    @Test
+    @DisplayName("허용 목록에 없는 redirectUri 는 카카오를 부르지 않는다")
+    void rejectsUnknownRedirectWithoutCallingKakao() {
+        when(kakaoProperties.isAllowedRedirectUri("https://evil.example/callback")).thenReturn(false);
+
+        KakaoCodeLoginRequest request = new KakaoCodeLoginRequest();
+        request.setAuthorizationCode("auth-code");
+        request.setRedirectUri("https://evil.example/callback");
+
+        assertThatThrownBy(() -> kakaoLoginService.loginByCode(request))
+          .isInstanceOf(MateonException.class)
+          .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+
+        verify(kakaoClient, never()).exchangeCode(any(), any());
+        verify(authService, never()).kakaoLogin(any());
+    }
+
     private KakaoLoginRequest request(String accessToken) {
         KakaoLoginRequest request = new KakaoLoginRequest();
         request.setAccessToken(accessToken);
+        return request;
+    }
+
+    private KakaoCodeLoginRequest codeRequest() {
+        KakaoCodeLoginRequest request = new KakaoCodeLoginRequest();
+        request.setAuthorizationCode("auth-code");
+        request.setRedirectUri("http://localhost:5173/auth/kakao/callback");
         return request;
     }
 }

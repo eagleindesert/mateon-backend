@@ -1,11 +1,13 @@
 package com.example.mateon.auth.controller;
 
+import com.example.mateon.auth.dto.KakaoCodeLoginRequest;
 import com.example.mateon.auth.dto.KakaoLoginRequest;
 import com.example.mateon.auth.dto.SchoolEmailRequest;
 import com.example.mateon.auth.dto.SchoolEmailVerifyRequest;
 import com.example.mateon.auth.dto.TokenResponse;
 import com.example.mateon.auth.service.AuthService;
 import com.example.mateon.auth.service.KakaoLoginService;
+import com.example.mateon.auth.service.PasswordResetService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.GlobalExceptionHandler;
 import com.example.mateon.common.exception.MateonException;
@@ -78,14 +80,16 @@ class AuthControllerTest {
 
     private AuthService authService;
     private KakaoLoginService kakaoLoginService;
+    private PasswordResetService passwordResetService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         authService = mock(AuthService.class);
         kakaoLoginService = mock(KakaoLoginService.class);
+        passwordResetService = mock(PasswordResetService.class);
         mockMvc = MockMvcBuilders
-          .standaloneSetup(new AuthController(authService, kakaoLoginService))
+          .standaloneSetup(new AuthController(authService, kakaoLoginService, passwordResetService))
           .setControllerAdvice(new GlobalExceptionHandler())
           .build();
     }
@@ -270,6 +274,27 @@ class AuthControllerTest {
               .andExpect(status().isBadRequest())
               .andExpect(jsonPath("$.message").value(ErrorCode.KAKAO_AUTH_FAILED.getMessage()));
         }
+
+        @Test
+        @DisplayName("웹 인가코드 경로는 loginByCode 로 가고 응답 키는 앱과 같다")
+        void routesCodeToLoginByCode() throws Exception {
+            when(kakaoLoginService.loginByCode(any())).thenReturn(tokens());
+
+            mockMvc.perform(json("/api/auth/social/kakao/code",
+              "{\"authorizationCode\":\"auth-code\",\"redirectUri\":\"http://localhost:5173/auth/kakao/callback\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.message").value("카카오 로그인 성공"))
+              .andExpect(jsonPath("$.data.accessToken").value("access"))
+              .andExpect(jsonPath("$.data.refreshToken").value("refresh"));
+
+            ArgumentCaptor<KakaoCodeLoginRequest> captor
+              = ArgumentCaptor.forClass(KakaoCodeLoginRequest.class);
+            verify(kakaoLoginService).loginByCode(captor.capture());
+            assertThat(captor.getValue().getAuthorizationCode()).isEqualTo("auth-code");
+            assertThat(captor.getValue().getRedirectUri())
+              .isEqualTo("http://localhost:5173/auth/kakao/callback");
+            verify(kakaoLoginService, never()).login(any());
+        }
     }
 
     @Nested
@@ -301,11 +326,46 @@ class AuthControllerTest {
         }
 
         @Test
+        @DisplayName("비밀번호 찾기 요청은 항상 200 이다")
+        void requestPasswordReset() throws Exception {
+            mockMvc.perform(json("/api/auth/password/reset/request", "{\"email\":\"a@b.ac.kr\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data").value("비밀번호 재설정 안내를 보냈습니다."));
+
+            verify(passwordResetService).request(any());
+        }
+
+        @Test
+        @DisplayName("비밀번호 찾기 확정은 200 이다")
+        void confirmPasswordReset() throws Exception {
+            mockMvc.perform(json("/api/auth/password/reset/confirm", """
+                    {"token":"raw","newPassword":"new-password","newPasswordConfirm":"new-password"}
+                    """))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data").value("비밀번호가 변경되었습니다. 다시 로그인해주세요."));
+
+            verify(passwordResetService).confirm(any());
+        }
+
+        @Test
         @DisplayName("로그아웃은 200 이다")
         void logout() throws Exception {
             mockMvc.perform(json("/api/auth/logout", "{\"email\":\"a@b.ac.kr\"}"))
               .andExpect(status().isOk())
               .andExpect(jsonPath("$.data").value("로그아웃되었습니다."));
+        }
+
+        @Test
+        @DisplayName("refreshToken 본문도 같은 200 이다")
+        void logoutByRefreshToken() throws Exception {
+            mockMvc.perform(json("/api/auth/logout", "{\"refreshToken\":\"refresh-1\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data").value("로그아웃되었습니다."));
+
+            ArgumentCaptor<com.example.mateon.auth.dto.LogoutRequest> captor
+              = ArgumentCaptor.forClass(com.example.mateon.auth.dto.LogoutRequest.class);
+            verify(authService).logout(captor.capture());
+            assertThat(captor.getValue().getRefreshToken()).isEqualTo("refresh-1");
         }
 
         @Test

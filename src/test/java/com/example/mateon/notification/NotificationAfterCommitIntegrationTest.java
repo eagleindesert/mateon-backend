@@ -66,7 +66,7 @@ class NotificationAfterCommitIntegrationTest extends IntegrationTestBase {
             notificationRepository.deleteAll(
               notificationRepository.findAllByReceiverIdOrderByCreatedAtDesc(receiverId));
             userRepository.deleteById(receiverId);
-            emitterRepository.deleteById(receiverId);
+            emitterRepository.deleteAll(receiverId);
         }
     }
 
