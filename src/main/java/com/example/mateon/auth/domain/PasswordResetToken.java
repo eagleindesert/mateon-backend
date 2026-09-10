@@ -1,6 +1,12 @@
 package com.example.mateon.auth.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,27 +17,29 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "password_reset_tokens")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
-public class RefreshToken {
+public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 500)
-    private String token;
-
-    // 세션당 1행. 한 유저가 앱과 웹을 동시에 쓰면 행이 여러 개다.
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "token_hash", nullable = false, unique = true, length = 64)
+    private String tokenHash;
+
     @Column(nullable = false)
     private LocalDateTime expiresAt;
+
+    @Column(name = "used_at")
+    private LocalDateTime usedAt;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
@@ -41,10 +49,11 @@ public class RefreshToken {
         return LocalDateTime.now().isAfter(expiresAt);
     }
 
-    // 기존 행을 재사용해 토큰 값과 만료시각만 교체한다. 멀티세션 전환 이후 발급 경로는
-    // insert 만 쓰지만, 만료 시각을 손볼 일이 생기면 여기로 온다.
-    public void rotate(String token, LocalDateTime expiresAt) {
-        this.token = token;
-        this.expiresAt = expiresAt;
+    public boolean isUsed() {
+        return usedAt != null;
+    }
+
+    public void markUsed() {
+        this.usedAt = LocalDateTime.now();
     }
 }

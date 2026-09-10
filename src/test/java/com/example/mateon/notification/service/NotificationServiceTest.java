@@ -91,7 +91,7 @@ class NotificationServiceTest {
         void registersEmitterWithConfiguredTimeout() {
             SseEmitter emitter = notificationService.subscribe(USER_ID);
 
-            assertThat(emitterRepository.get(USER_ID)).isSameAs(emitter);
+            assertThat(emitterRepository.getAll(USER_ID)).containsExactly(emitter);
             assertThat(emitter.getTimeout()).isEqualTo(Duration.ofMinutes(30).toMillis());
         }
 
@@ -106,16 +106,16 @@ class NotificationServiceTest {
         }
 
         @Test
-        @DisplayName("같은 유저가 다시 구독하면 최신 emitter 로 교체된다 (재연결 시 옛 소켓이 남지 않는다)")
-        void resubscribeReplacesEmitter() {
+        @DisplayName("같은 유저가 다시 구독하면 둘 다 남는다 (앱과 웹 탭이 서로를 덮어쓰지 않는다)")
+        void resubscribeKeepsBothEmitters() {
             SseEmitter first = notificationService.subscribe(USER_ID);
             SseEmitter second = notificationService.subscribe(USER_ID);
 
-            assertThat(emitterRepository.get(USER_ID)).isSameAs(second).isNotSameAs(first);
+            assertThat(emitterRepository.getAll(USER_ID)).containsExactlyInAnyOrder(first, second);
         }
 
         @Test
-        @DisplayName("연결이 끝나면 emitter 를 저장소에서 뺀다")
+        @DisplayName("연결이 끝나면 그 emitter 만 저장소에서 뺀다")
         void completionRemovesEmitter() {
             SseEmitter emitter = notificationService.subscribe(USER_ID);
             Runnable completion =
@@ -124,11 +124,24 @@ class NotificationServiceTest {
             assertThat(completion).isNotNull();
             completion.run();
 
-            assertThat(emitterRepository.get(USER_ID)).isNull();
+            assertThat(emitterRepository.getAll(USER_ID)).isEmpty();
         }
 
         @Test
-        @DisplayName("타임아웃도 emitter 를 저장소에서 뺀다")
+        @DisplayName("한쪽이 끝나도 같은 유저의 다른 연결은 남는다")
+        void completionLeavesOtherConnections() {
+            SseEmitter first = notificationService.subscribe(USER_ID);
+            SseEmitter second = notificationService.subscribe(USER_ID);
+            Runnable completion =
+              (Runnable) ReflectionTestUtils.getField(first, "completionCallback");
+
+            completion.run();
+
+            assertThat(emitterRepository.getAll(USER_ID)).containsExactly(second);
+        }
+
+        @Test
+        @DisplayName("타임아웃도 그 emitter 만 저장소에서 뺀다")
         void timeoutRemovesEmitter() {
             SseEmitter emitter = notificationService.subscribe(USER_ID);
             Runnable timeout = (Runnable) ReflectionTestUtils.getField(emitter, "timeoutCallback");
@@ -136,7 +149,7 @@ class NotificationServiceTest {
             assertThat(timeout).isNotNull();
             timeout.run();
 
-            assertThat(emitterRepository.get(USER_ID)).isNull();
+            assertThat(emitterRepository.getAll(USER_ID)).isEmpty();
         }
     }
 
@@ -207,6 +220,33 @@ class NotificationServiceTest {
         }
 
         @Test
+        @DisplayName("같은 유저의 연결이 둘이면 둘 다 받는다")
+        void sendsToEveryConnection() {
+            RecordingEmitter first = new RecordingEmitter();
+            RecordingEmitter second = new RecordingEmitter();
+            emitterRepository.save(USER_ID, first);
+            emitterRepository.save(USER_ID, second);
+
+            notificationService.push(USER_ID, dto());
+
+            assertThat(first.sendCount.get()).isEqualTo(1);
+            assertThat(second.sendCount.get()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("한쪽 전송이 실패해도 다른 연결은 받는다")
+        void failedConnectionDoesNotBlockOthers() {
+            RecordingEmitter alive = new RecordingEmitter();
+            emitterRepository.save(USER_ID, new ThrowingEmitter());
+            emitterRepository.save(USER_ID, alive);
+
+            assertThatCode(() -> notificationService.push(USER_ID, dto())).doesNotThrowAnyException();
+
+            assertThat(alive.sendCount.get()).isEqualTo(1);
+            assertThat(emitterRepository.getAll(USER_ID)).containsExactly(alive);
+        }
+
+        @Test
         @DisplayName("구독 중이 아니면 조용히 아무것도 하지 않는다 (DB 기록은 이미 남았다)")
         void noOpWhenNotSubscribed() {
             assertThatCode(() -> notificationService.push(USER_ID, dto())).doesNotThrowAnyException();
@@ -219,9 +259,9 @@ class NotificationServiceTest {
 
             assertThatCode(() -> notificationService.push(USER_ID, dto())).doesNotThrowAnyException();
 
-            assertThat(emitterRepository.get(USER_ID))
+            assertThat(emitterRepository.getAll(USER_ID))
               .as("죽은 연결이 남으면 알림마다 예외 비용을 계속 문다")
-              .isNull();
+              .isEmpty();
         }
 
         @Test
@@ -231,7 +271,7 @@ class NotificationServiceTest {
 
             assertThatCode(() -> notificationService.push(USER_ID, dto())).doesNotThrowAnyException();
 
-            assertThat(emitterRepository.get(USER_ID)).isNull();
+            assertThat(emitterRepository.getAll(USER_ID)).isEmpty();
         }
     }
 

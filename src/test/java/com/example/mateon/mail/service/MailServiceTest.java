@@ -118,6 +118,18 @@ class MailServiceTest {
     }
 
     @Test
+    @DisplayName("비밀번호 재설정 메일의 링크는 인자 URL 그대로이고 백엔드 호스트가 아니다")
+    void passwordResetLinkGoesToWeb() throws Exception {
+        String url = "http://localhost:5173/reset-password?token=abc";
+        mailService.sendPasswordResetLink("student@univ.ac.kr", url);
+
+        MimeMessage message = sentMessage();
+        assertThat(message.getSubject()).isEqualTo("[MateOn] 비밀번호 재설정");
+        assertThat(textPart(message, "text/plain")).contains(url).doesNotContain("localhost:8080");
+        assertThat(textPart(message, "text/html")).contains(url);
+    }
+
+    @Test
     @DisplayName("전송 실패는 IllegalStateException 이 아니라 그대로 올라간다 (리스너가 삼킬 몫이다)")
     void sendFailurePropagates() {
         doThrow(new MailSendException("SMTP 연결 실패")).when(mailSender).send(any(MimeMessage.class));

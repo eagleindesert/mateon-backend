@@ -65,6 +65,21 @@ storage:
 # 평평한 키로 적는 이유는 프로필 파일들과 같다 (Boot 예약 프로퍼티 debug 와 자리가 겹친다).
 debug.oauth.enabled: false
 
+# 통합 테스트가 같은 JVM 의 인메모리 카운터를 공유하므로 한도를 사실상 끈다.
+# 한도 동작은 AuthRateLimiterTest / AuthRateLimitFilterTest 가 본다.
+auth:
+  rate-limit:
+    ip-per-window: 10000
+    login-email-per-window: 10000
+    reset-email-per-window: 10000
+
+kakao:
+  rest-api-key: "test-rest-key"
+  redirect-uris: "http://localhost:3000/auth/kakao/callback"
+
+app:
+  web-base-url: "http://localhost:3000"
+
 logging:
   level:
     root: WARN

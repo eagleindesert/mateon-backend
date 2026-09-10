@@ -41,6 +41,24 @@ public class MailService {
         }
     }
 
+    public void sendPasswordResetLink(String to, String url) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+              message, true, StandardCharsets.UTF_8.name());
+
+            helper.setFrom(from, SENDER_NAME);
+            helper.setReplyTo(from, SENDER_NAME);
+            helper.setTo(to);
+            helper.setSubject("[MateOn] 비밀번호 재설정");
+            helper.setText(buildResetPlainText(url), buildResetHtml(url));
+
+            mailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new IllegalStateException("비밀번호 재설정 메일 생성에 실패했습니다.", e);
+        }
+    }
+
     private String buildPlainText(String code) {
         return "안녕하세요.\n\n"
           + "메이트온 회원가입을 위한 인증코드입니다.\n\n"
@@ -59,6 +77,33 @@ public class MailService {
           + "background:#f4f4f8;border-radius:8px;padding:16px;text-align:center;margin:20px 0;\">"
           + code + "</div>"
           + "<p style=\"color:#666;\">이 코드는 <b>5분간</b> 유효합니다.</p>"
+          + "<p style=\"color:#999;font-size:13px;\">본인이 요청한 것이 아니라면 이 메일을 무시하세요.</p>"
+          + "<hr style=\"border:none;border-top:1px solid #eee;margin:24px 0;\">"
+          + "<p style=\"color:#aaa;font-size:12px;\">MateOn</p>"
+          + "</div>";
+    }
+
+    private String buildResetPlainText(String url) {
+        return "안녕하세요.\n\n"
+          + "메이트온 비밀번호 재설정을 요청하셨습니다.\n\n"
+          + "아래 링크를 브라우저에서 열어 새 비밀번호를 정하세요.\n"
+          + url + "\n\n"
+          + "이 링크는 30분간 유효합니다.\n\n"
+          + "본인이 요청한 것이 아니라면 이 메일을 무시하세요.\n\n"
+          + "MateOn";
+    }
+
+    private String buildResetHtml(String url) {
+        return "<div style=\"max-width:480px;margin:0 auto;font-family:'Apple SD Gothic Neo',"
+          + "'Malgun Gothic',sans-serif;color:#222;line-height:1.6;\">"
+          + "<h2 style=\"margin:0 0 16px;\">비밀번호 재설정</h2>"
+          + "<p>안녕하세요.<br>메이트온 비밀번호 재설정을 요청하셨습니다.</p>"
+          + "<p><a href=\"" + url + "\" style=\"display:inline-block;background:#4f46e5;color:#fff;"
+          + "text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;\">"
+          + "비밀번호 재설정하기</a></p>"
+          + "<p style=\"color:#666;word-break:break-all;\">버튼이 열리지 않으면 이 주소를 브라우저에 붙여 넣으세요.<br>"
+          + url + "</p>"
+          + "<p style=\"color:#666;\">이 링크는 <b>30분간</b> 유효합니다.</p>"
           + "<p style=\"color:#999;font-size:13px;\">본인이 요청한 것이 아니라면 이 메일을 무시하세요.</p>"
           + "<hr style=\"border:none;border-top:1px solid #eee;margin:24px 0;\">"
           + "<p style=\"color:#aaa;font-size:12px;\">MateOn</p>"

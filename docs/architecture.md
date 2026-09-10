@@ -15,7 +15,8 @@
 ```mermaid
 graph TB
     subgraph Clients["클라이언트"]
-        WEB["웹 프론트엔드<br/>(localhost:3000 / 5173)"]
+        RN["React Native 앱"]
+        WEB["웹 React<br/>(localhost:5173)"]
     end
 
     subgraph Backend["Mateon Backend (Spring Boot :8080)"]
@@ -30,8 +31,10 @@ graph TB
         SMTP["Gmail SMTP<br/>이메일 인증코드 발송"]
     end
 
-    WEB -->|"HTTPS / JSON<br/>Bearer JWT"| API
-    API -.->|"SSE (text/event-stream)<br/>실시간 알림 push"| WEB
+    RN -->|"HTTPS / JSON<br/>Bearer JWT"| API
+    WEB -->|"HTTPS / JSON<br/>Bearer JWT + CORS"| API
+    API -.->|"SSE (Bearer, 멀티 커넥션)"| RN
+    API -.->|"SSE (fetch + Bearer)"| WEB
     API -->|JPA / JDBC| DB
     API -->|SMTP| SMTP
 ```

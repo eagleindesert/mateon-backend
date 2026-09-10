@@ -62,18 +62,58 @@ public class OpenApiConfig {
         return new OpenAPI()
           .info(new Info()
             .title("Mateon API")
-            .version("v9-2")
+            .version("v10")
             .description("""
-# Mateon Backend API 변경 명세서 (v9-2)
+# Mateon Backend API 변경 명세서 (v10)
 
 > Base URL: `/`<br/>
 > 인증 방식: JWT Bearer Token (`Authorization: Bearer <accessToken>`)<br/>
-> Last Updated: 2026-09-03
+> Last Updated: 2026-09-09
 
 🔑 **인증**: 인증이 필요한 엔드포인트는 로그인(`POST /api/auth/login`)으로 받은 accessToken 을 우측 상단 Authorize 에 넣으면 그대로 호출해 볼 수 있다.<br/><br/>
-📌 **안내**: v9부터는 상세 엔드포인트 명세(Request/Response 스키마, 파라미터, 헤더, 상태 코드 등)를 **Swagger UI**가 정본(Single Source of Truth)으로 제공합니다. 본 문서는 프론트엔드(FE) 연동에 필요한 **v9 대비 기능/정책 변경 사항 및 신규 기능 동작 방식**을 텍스트로 정리한 문서입니다.
+📌 **안내**: v9부터는 상세 엔드포인트 명세(Request/Response 스키마, 파라미터, 헤더, 상태 코드 등)를 **Swagger UI**가 정본(Single Source of Truth)으로 제공합니다. 본 문서는 프론트엔드(FE) 연동에 필요한 **v9-2 대비 기능/정책 변경 사항 및 신규 기능 동작 방식**을 텍스트로 정리한 문서입니다.
 
 ---
+
+## 📋 v9-2 → v10 핵심 변경 사항 요약
+
+- **웹 React 동시 지원**: 앱(RN) 계약을 유지한 채 브라우저 CORS·세션·실시간·카카오·비밀번호 찾기를 연다.
+- **CORS**: `PATCH`/`HEAD` 허용. `Deprecation`/`Sunset` 응답 헤더를 JS 가 읽을 수 있게 노출.
+- **리프레시 토큰 멀티세션**: 로그인마다 새 refresh 행. 웹 로그인이 앱을 로그아웃시키지 않는다.
+- **로그아웃**: `refreshToken` 으로 그 세션만 끊는 것이 권장. `email` 만 보내는 경로는 deprecated (전 세션 폐기).
+- **SSE 멀티 커넥션**: 같은 유저의 앱·웹 탭이 동시에 알림을 받는다. 웹은 표준 `EventSource` 가 아니라 Bearer 를 붙일 수 있는 fetch SSE 클라이언트를 쓴다.
+- **카카오 웹 인가코드**: `POST /api/auth/social/kakao/code`. redirect URI 는 React 콜백. 앱 경로 `POST /social/kakao` 는 그대로.
+- **비밀번호 찾기**: 메일 링크는 웹 React. `POST /api/auth/password/reset/request` · `/confirm`.
+- **레이트리밋**: 로그인·소셜·재설정 요청. 초과 시 429 `AUTH_RATE_LIMITED`.
+- **인증 실패는 계속 403**.
+
+### 로그아웃 (`POST /api/auth/logout`)
+
+권장 본문은 `{ "refreshToken": "..." }` — 그 세션만 끊고, 없는 토큰이어도 200 이다. `{ "email" }` 만 있으면 전 세션을 끊는다 (deprecated). 둘 다 없으면 400.
+
+### 카카오
+
+RN: `POST /api/auth/social/kakao` `{ accessToken }`. 웹: `POST /api/auth/social/kakao/code` `{ authorizationCode, redirectUri }`. redirectUri 는 카카오 authorize 에 넘긴 React 콜백과 글자 단위로 같아야 한다. 응답 `TokenResponse` 는 같다.
+
+### 비밀번호 찾기
+
+`POST /api/auth/password/reset/request` 는 계정 존재와 무관하게 200. 메일 링크는 백엔드가 아니라 `{WEB_BASE_URL}/reset-password?token=`. 웹이 `POST /api/auth/password/reset/confirm` 으로 새 비밀번호를 확정하면 모든 기기 세션이 끊긴다.
+
+### SSE
+
+`GET /api/notifications/subscribe` 는 Bearer 가 필요하다. 웹은 fetch 기반 SSE 클라이언트를 쓴다.
+
+### 신규 ErrorCode
+
+| ErrorCode | HTTP Status | 에러 메시지 / 발생 조건 |
+|---|---|---|
+| `AUTH_RATE_LIMITED` | `429 Too Many Requests` | 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요. |
+
+---
+
+# Mateon Backend API 변경 명세서 (v9-2)
+
+> Last Updated: 2026-09-03
 
 ## 📋 v9 → v9-2 핵심 변경 사항 요약
 

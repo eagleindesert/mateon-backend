@@ -16,9 +16,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -225,6 +228,52 @@ class SecurityConfigIntegrationTest extends IntegrationTestBase {
 
             mockMvc.perform(get("/api/users/me").header(HttpHeaders.AUTHORIZATION, bearer))
               .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("CORS — 웹 브라우저 preflight. RN 은 이 헤더를 보지 않는다")
+    class Cors {
+
+        private static final String WEB_ORIGIN = "http://localhost:3000";
+
+        @Test
+        @DisplayName("PATCH preflight 는 허용된다 (지원 승인·역제안 응답)")
+        void patchPreflightIsAllowed() throws Exception {
+            mockMvc.perform(options("/api/teams/offers/1")
+              .header(HttpHeaders.ORIGIN, WEB_ORIGIN)
+              .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "PATCH"))
+              .andExpect(status().isOk())
+              .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, WEB_ORIGIN))
+              .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, containsString("PATCH")));
+        }
+
+        @Test
+        @DisplayName("GET/POST/PUT/DELETE preflight 도 통과한다")
+        void commonMethodsAreAllowed() throws Exception {
+            for (String method : new String[]{"GET", "POST", "PUT", "DELETE"}) {
+                mockMvc.perform(options("/api/users/me")
+                  .header(HttpHeaders.ORIGIN, WEB_ORIGIN)
+                  .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, method))
+                  .andExpect(status().isOk())
+                  .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, containsString(method)));
+            }
+        }
+
+        @Test
+        @DisplayName("추천 API 응답은 Deprecation/Sunset 을 JS 가 읽을 수 있게 노출한다")
+        void exposesDeprecationHeaders() throws Exception {
+            User user = userRepository.save(User.builder()
+              .email(UUID.randomUUID() + "@test.ac.kr")
+              .name("CORS 유저")
+              .build());
+            String bearer = "Bearer " + jwtTokenProvider.createAccessToken(user.getId());
+
+            mockMvc.perform(get("/api/events/recommended")
+              .header(HttpHeaders.AUTHORIZATION, bearer)
+              .header(HttpHeaders.ORIGIN, WEB_ORIGIN))
+              .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, containsString("Deprecation")))
+              .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, containsString("Sunset")));
         }
     }
 }

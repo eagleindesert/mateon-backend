@@ -101,6 +101,14 @@ class GlobalExceptionHandlerTest {
         }
 
         @Test
+        @DisplayName("AUTH_RATE_LIMITED 는 429 다")
+        void authRateLimitedIs429() throws Exception {
+            mockMvc.perform(get("/probe/mateon/AUTH_RATE_LIMITED"))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.message").value(ErrorCode.AUTH_RATE_LIMITED.getMessage()));
+        }
+
+        @Test
         @DisplayName("IMAGE_TOO_LARGE 는 413 이다")
         void imageTooLargeIs413() throws Exception {
             mockMvc.perform(get("/probe/mateon/IMAGE_TOO_LARGE"))

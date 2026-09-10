@@ -1,5 +1,6 @@
 package com.example.mateon.auth.client;
 
+import com.example.mateon.auth.config.KakaoProperties;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import lombok.RequiredArgsConstructor;
@@ -10,24 +11,83 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
 
 /**
- * 카카오 액세스 토큰으로 사용자 정보를 조회하는 클라이언트.
- * RN 이 카카오 네이티브 SDK 로 받은 access token 을 그대로 넘겨받아 /v2/user/me 만 호출한다.
- * (REST API 키·redirect URI 불필요 - 토큰 자체를 카카오가 검증한다.)
+ * 카카오 REST 클라이언트.
+ *
+ * <p>
+ * RN 은 네이티브 SDK 가 준 access token 으로 {@link #fetchUserInfo} 만 탄다. 웹은 인가코드를
+ * {@link #exchangeCode} 로 토큰으로 바꾼 뒤 같은 user/me 를 탄다.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KakaoOAuthClient {
 
-    private final RestTemplate restTemplate;
-
     private static final String KAKAO_USER_ME_URL = "https://kapi.kakao.com/v2/user/me";
+    private static final String KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token";
+
+    private final RestTemplate restTemplate;
+    private final KakaoProperties kakaoProperties;
+
+    /**
+     * 웹 React 콜백이 받은 인가코드를 카카오 액세스 토큰으로 교환한다.
+     *
+     * @param redirectUri 카카오 authorize 에 넘긴 값과 글자 단위로 같아야 한다. 허용 목록
+     * 대조는 {@link com.example.mateon.auth.service.KakaoLoginService} 가 먼저 한다.
+     */
+    @SuppressWarnings("unchecked")
+    public String exchangeCode(String authorizationCode, String redirectUri) {
+        if (!StringUtils.hasText(kakaoProperties.getRestApiKey())) {
+            log.warn("카카오 REST API 키가 없어 인가코드를 교환할 수 없습니다");
+            throw new MateonException(ErrorCode.KAKAO_AUTH_FAILED);
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("grant_type", "authorization_code");
+            form.add("client_id", kakaoProperties.getRestApiKey());
+            form.add("redirect_uri", redirectUri);
+            form.add("code", authorizationCode);
+            if (StringUtils.hasText(kakaoProperties.getClientSecret())) {
+                form.add("client_secret", kakaoProperties.getClientSecret());
+            }
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+              KAKAO_TOKEN_URL,
+              HttpMethod.POST,
+              new HttpEntity<>(form, headers),
+              Map.class
+            );
+
+            Map<String, Object> body = response.getBody();
+            if (body == null || body.get("access_token") == null) {
+                log.warn("카카오 token 응답에 access_token 없음: {}", body);
+                throw new MateonException(ErrorCode.KAKAO_AUTH_FAILED);
+            }
+            return body.get("access_token").toString();
+
+        } catch (MateonException e) {
+            throw e;
+        } catch (RestClientResponseException e) {
+            log.warn("카카오 token 교환 실패: status={}, body={}",
+              e.getStatusCode(), e.getResponseBodyAsString());
+            throw new MateonException(ErrorCode.KAKAO_AUTH_FAILED);
+        } catch (Exception e) {
+            log.warn("카카오 token 교환 중 예외", e);
+            throw new MateonException(ErrorCode.KAKAO_AUTH_FAILED);
+        }
+    }
 
     @SuppressWarnings("unchecked")
     public KakaoUserInfo fetchUserInfo(String accessToken) {

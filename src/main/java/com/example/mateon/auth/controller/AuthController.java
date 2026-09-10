@@ -3,6 +3,7 @@ package com.example.mateon.auth.controller;
 import com.example.mateon.auth.dto.*;
 import com.example.mateon.auth.service.AuthService;
 import com.example.mateon.auth.service.KakaoLoginService;
+import com.example.mateon.auth.service.PasswordResetService;
 import com.example.mateon.common.dto.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 인증 API.
  */
-@Tag(name = "인증", description = "회원가입·로그인·토큰 재발급과 이메일/학교 인증")
+@Tag(name = "인증", description = "회원가입·로그인·토큰 재발급과 이메일/학교 인증, 비밀번호 찾기")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final KakaoLoginService kakaoLoginService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "회원가입용 이메일 인증코드 발송",
       description = """
@@ -150,11 +152,14 @@ public class AuthController {
     }
 
     // 카카오 소셜 로그인/회원가입 [인증 불필요]. RN 이 카카오 SDK 로 받은 access token 을 넘긴다.
-    @Operation(summary = "카카오 로그인/회원가입",
+    @Operation(summary = "카카오 로그인/회원가입 (앱)",
       description = """
-                    앱이 카카오 SDK 로 받은 **카카오 access token** 을 그대로 넘긴다
+                    RN 이 카카오 네이티브 SDK 로 받은 **카카오 access token** 을 그대로 넘긴다
                     (인가코드가 아니다). 서버가 카카오에 사용자 정보를 물어보고, 처음이면
                     가입까지 한 뒤 우리 토큰을 발급한다 — 로그인과 회원가입이 한 경로다.
+
+                    웹은 이 경로를 쓰지 않는다. React 콜백이 받은 인가코드는
+                    `POST /api/auth/social/kakao/code` 로 보낸다.
 
                     이렇게 만든 계정은 학교 인증이 안 된 상태라, 재학생 전용 기능을 쓰려면
                     `/school/email/request` → `/school/email/verify` 를 거쳐야 한다.""")
@@ -165,6 +170,27 @@ public class AuthController {
     @PostMapping("/social/kakao")
     public ResponseEntity<BaseResponse<TokenResponse>> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
         TokenResponse response = kakaoLoginService.login(request);
+        return ResponseEntity.ok(BaseResponse.success("카카오 로그인 성공", response));
+    }
+
+    @Operation(summary = "카카오 로그인/회원가입 (웹 인가코드)",
+      description = """
+                    웹 React 전용이다. 카카오 authorize 의 redirect_uri 는 **React 콜백
+                    페이지**여야 한다 — 이 서버가 브라우저를 직접 받지 않는다.
+
+                    콜백 URL 의 `code` 와, authorize 에 넘긴 `redirect_uri` 를 그대로 보낸다.
+                    redirectUri 가 서버 허용 목록에 없으면 카카오를 부르지 않고 400 이다.
+
+                    응답 형태는 앱 경로(`POST /social/kakao`)와 같다.""")
+    @ApiResponse(responseCode = "200", description = "카카오 로그인 성공. 신규 가입도 같은 형태로 온다.")
+    @ApiResponse(responseCode = "400",
+      description = "KAKAO_AUTH_FAILED — 인가코드 만료·위조이거나, redirectUri 가 허용 목록에 없습니다.")
+    @SecurityRequirement(name = "")
+    @PostMapping("/social/kakao/code")
+    public ResponseEntity<BaseResponse<TokenResponse>> kakaoLoginByCode(
+      @Valid @RequestBody KakaoCodeLoginRequest request
+    ) {
+        TokenResponse response = kakaoLoginService.loginByCode(request);
         return ResponseEntity.ok(BaseResponse.success("카카오 로그인 성공", response));
     }
 
@@ -184,6 +210,45 @@ public class AuthController {
     public ResponseEntity<BaseResponse<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         TokenResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(BaseResponse.success("토큰이 갱신되었습니다.", response));
+    }
+
+    @Operation(summary = "비밀번호 찾기 — 재설정 메일 발송",
+      description = """
+                    웹 React 용이다. 메일의 링크는 이 서버가 아니라
+                    `{WEB_BASE_URL}/reset-password?token=...` 로 열린다.
+
+                    계정 존재 여부와 무관하게 항상 200 이다. 카카오로만 가입한 계정,
+                    없는 이메일도 같다 — 메일이 안 올 뿐이다.
+
+                    같은 주소로 60초 안에 다시 요청해도 200 이고, 메일은 다시 보내지 않는다.""")
+    @ApiResponse(responseCode = "200", description = "접수했다. 메일이 갔는지는 응답으로 알 수 없다.")
+    @SecurityRequirement(name = "")
+    @PostMapping("/password/reset/request")
+    public ResponseEntity<BaseResponse<Object>> requestPasswordReset(
+      @Valid @RequestBody PasswordResetRequest request
+    ) {
+        passwordResetService.request(request);
+        return ResponseEntity.ok(BaseResponse.success("비밀번호 재설정 안내를 보냈습니다."));
+    }
+
+    @Operation(summary = "비밀번호 찾기 — 새 비밀번호 확정",
+      description = """
+                    웹 재설정 페이지가 메일 링크의 token 과 새 비밀번호를 보낸다.
+                    성공하면 모든 기기의 refreshToken 이 폐기되므로 다시 로그인해야 한다.
+
+                    토큰은 한 번만 쓸 수 있고, 기본 30분 뒤 만료된다.""")
+    @ApiResponse(responseCode = "200", description = "비밀번호를 바꿨다. 다시 로그인해야 한다.")
+    @ApiResponse(responseCode = "400", description = """
+            PASSWORD_MISMATCH — newPassword 와 newPasswordConfirm 이 다릅니다.
+            INVALID_TOKEN — 토큰이 틀렸거나 이미 사용됐습니다.
+            TOKEN_EXPIRED — 토큰이 만료되었습니다. 메일을 다시 요청합니다.""")
+    @SecurityRequirement(name = "")
+    @PostMapping("/password/reset/confirm")
+    public ResponseEntity<BaseResponse<Object>> confirmPasswordReset(
+      @Valid @RequestBody PasswordResetConfirmRequest request
+    ) {
+        passwordResetService.confirm(request);
+        return ResponseEntity.ok(BaseResponse.success("비밀번호가 변경되었습니다. 다시 로그인해주세요."));
     }
 
     @Operation(summary = "비밀번호 변경 (비로그인)",
@@ -209,13 +274,21 @@ public class AuthController {
     @Operation(summary = "로그아웃",
       description = """
                     서버에 저장된 refreshToken 을 지운다. 이미 발급된 accessToken 은 만료될
-                    때까지 유효하므로 **앱에서도 저장한 토큰을 지워야** 로그아웃이 끝난다.
+                    때까지 유효하므로 **클라이언트에서도 저장한 토큰을 지워야** 로그아웃이 끝난다.
 
-                    토큰이 아니라 본문의 email 로 대상을 정한다.""")
+                    **권장:** 본문에 `refreshToken` 을 넣는다. 그 세션만 끊기므로 앱과 웹이
+                    동시에 로그인돼 있어도 다른 쪽은 유지된다. 이미 없는 토큰이어도 200 이다.
+
+                    **deprecated:** `refreshToken` 없이 `email` 만 넣으면 그 유저의 모든
+                    세션을 끊는다. RN 이 refreshToken 으로 옮기기 전까지 남겨 둔다.
+
+                    둘 다 있으면 refreshToken 만 본다. 둘 다 없으면 400 이다.""")
     @ApiResponse(responseCode = "200", description = "저장된 refreshToken 을 지웠다. data 는 null 이다.")
+    @ApiResponse(responseCode = "400",
+      description = "INVALID_INPUT — refreshToken 과 email 이 둘 다 없습니다.")
     @ApiResponse(responseCode = "404",
-      description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")
-    @SecurityRequirement(name = "")  // 비로그인 허용
+      description = "USER_NOT_FOUND — email 경로에서 그 이메일의 사용자를 찾을 수 없습니다.")
+    @SecurityRequirement(name = "")  // 비로그인 허용 (만료된 access 로도 끊을 수 있어야 한다)
     @PostMapping("/logout")
     public ResponseEntity<BaseResponse<Object>> logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);

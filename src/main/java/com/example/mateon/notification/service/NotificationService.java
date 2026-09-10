@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -58,17 +59,17 @@ public class NotificationService {
         // 1. Emitter 생성 (타임아웃은 notification.sse-timeout)
         SseEmitter emitter = new SseEmitter(sseTimeout.toMillis());
 
-        // 2. 저장소에 저장 (유저 ID를 키로 사용)
-        emitterRepository.save(userId, emitter);
+        // 2. 연결마다 다른 id. 같은 유저의 앱·웹 탭이 서로를 덮어쓰지 않는다.
+        String connectionId = emitterRepository.save(userId, emitter);
 
-        // 3. 콜백 설정 (완료되거나 타임아웃 시 삭제)
+        // 3. 콜백 설정 — 이 연결만 지운다. 같은 유저의 다른 탭은 유지.
         emitter.onCompletion(() -> {
-            log.info("SSE 연결 완료 (삭제): {}", userId);
-            emitterRepository.deleteById(userId);
+            log.info("SSE 연결 완료 (삭제): userId={}, connectionId={}", userId, connectionId);
+            emitterRepository.delete(userId, connectionId);
         });
         emitter.onTimeout(() -> {
-            log.info("SSE 연결 타임아웃 (삭제): {}", userId);
-            emitterRepository.deleteById(userId);
+            log.info("SSE 연결 타임아웃 (삭제): userId={}, connectionId={}", userId, connectionId);
+            emitterRepository.delete(userId, connectionId);
         });
 
         // 4. [중요] 503 에러 방지용 더미 데이터 전송
@@ -116,11 +117,13 @@ public class NotificationService {
      * 접속 중(구독 중)인 사용자에게 실시간 전송한다. 커밋 이후 리스너가 호출하므로 트랜잭션이 없다.
      */
     public void push(Long receiverId, NotificationResponseDTO payload) {
-        SseEmitter emitter = emitterRepository.get(receiverId);
-        if (emitter == null) {
+        Collection<SseEmitter> connections = emitterRepository.getAll(receiverId);
+        if (connections.isEmpty()) {
             return; // 접속 중이 아니다. DB 기록은 이미 남았으니 다음 조회 때 보면 된다.
         }
-        sendToClient(emitter, receiverId, "notification", payload);
+        for (SseEmitter emitter : connections) {
+            sendToClient(emitter, receiverId, "notification", payload);
+        }
     }
 
     // 실제 클라이언트로 데이터를 밀어넣는 메서드
@@ -132,7 +135,7 @@ public class NotificationService {
         } catch (Exception e) {
             // IOException 만 잡으면 안 된다 — 끊긴 연결은 IllegalStateException("Failed to send") 으로
             // 감싸여 오고, 이미 완료/타임아웃된 emitter 도 unchecked 예외를 던진다.
-            emitterRepository.deleteById(userId);
+            emitterRepository.deleteEmitter(userId, emitter);
             // 클라이언트가 창을 닫은 정상적인 상황이라 에러가 아니다.
             log.warn("SSE 전송 실패로 Emitter 제거: {}", userId);
         }

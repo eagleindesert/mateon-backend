@@ -1,6 +1,7 @@
 package com.example.mateon.auth.service;
 
 import com.example.mateon.auth.client.KakaoUserInfo;
+import com.example.mateon.auth.config.AuthRateLimiter;
 import com.example.mateon.auth.repository.EmailVerificationRepository;
 import com.example.mateon.auth.repository.RefreshTokenRepository;
 import com.example.mateon.support.TestJwt;
@@ -63,7 +64,8 @@ class AuthServiceKakaoLoginTest {
           mock(PasswordEncoder.class),
           mock(ApplicationEventPublisher.class),
           TestJwt.provider(),
-          TestJwt.properties());
+          TestJwt.properties(),
+          mock(AuthRateLimiter.class));
 
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);

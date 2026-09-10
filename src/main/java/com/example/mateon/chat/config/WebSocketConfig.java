@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.StompWebSocketEndpointRegistration;
@@ -42,9 +43,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // 인메모리 SimpleBroker. /topic 구독으로 방 브로드캐스트 수신.
-        registry.enableSimpleBroker("/topic");
-        // @MessageMapping 핸들러로 라우팅되는 클라이언트 발행 prefix.
+        // 웹 프록시가 유휴 소켓을 끊지 않게 heartbeat 를 보낸다. SimpleBroker 가 쓰려면
+        // TaskScheduler 가 필요하다.
+        ThreadPoolTaskScheduler heartbeatScheduler = new ThreadPoolTaskScheduler();
+        heartbeatScheduler.setPoolSize(1);
+        heartbeatScheduler.setThreadNamePrefix("stomp-heartbeat-");
+        heartbeatScheduler.initialize();
+
+        registry.enableSimpleBroker("/topic")
+          .setHeartbeatValue(new long[]{10000, 10000})
+          .setTaskScheduler(heartbeatScheduler);
         registry.setApplicationDestinationPrefixes("/app");
     }
 

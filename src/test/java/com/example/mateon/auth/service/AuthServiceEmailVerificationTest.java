@@ -1,5 +1,6 @@
 package com.example.mateon.auth.service;
 
+import com.example.mateon.auth.config.AuthRateLimiter;
 import com.example.mateon.auth.domain.EmailVerification;
 import com.example.mateon.auth.dto.EmailRequest;
 import com.example.mateon.auth.dto.EmailVerifyRequest;
@@ -83,7 +84,8 @@ class AuthServiceEmailVerificationTest {
           passwordEncoder,
           eventPublisher,
           TestJwt.provider(),
-          TestJwt.properties());
+          TestJwt.properties(),
+          mock(AuthRateLimiter.class));
     }
 
     @Nested

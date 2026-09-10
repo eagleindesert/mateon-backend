@@ -1,5 +1,6 @@
 package com.example.mateon.auth.client;
 
+import com.example.mateon.auth.config.KakaoProperties;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +44,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class KakaoOAuthClientTest {
 
     private static final String USER_ME_URL = "https://kapi.kakao.com/v2/user/me";
+    private static final String TOKEN_URL = "https://kauth.kakao.com/oauth/token";
+    private static final String REDIRECT = "http://localhost:5173/auth/kakao/callback";
 
     private RestTemplate restTemplate;
     private MockRestServiceServer server;
+    private KakaoProperties properties;
     private KakaoOAuthClient client;
 
     @BeforeEach
@@ -54,7 +58,9 @@ class KakaoOAuthClientTest {
         // 스프링 컨텍스트를 띄우지 않고 여기서 만든 것을 그대로 클라이언트에 넣는다.
         restTemplate = new RestTemplate();
         server = MockRestServiceServer.bindTo(restTemplate).build();
-        client = new KakaoOAuthClient(restTemplate);
+        properties = new KakaoProperties();
+        properties.setRestApiKey("rest-key");
+        client = new KakaoOAuthClient(restTemplate, properties);
     }
 
     @Nested
@@ -199,6 +205,74 @@ class KakaoOAuthClientTest {
 
         private void assertKakaoAuthFailed() {
             assertThatThrownBy(() -> client.fetchUserInfo("t"))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+        }
+    }
+
+    @Nested
+    @DisplayName("인가코드 교환")
+    class ExchangeCode {
+
+        @Test
+        @DisplayName("form 본문에 grant_type/client_id/redirect_uri/code 를 실어 POST 한다")
+        void sendsCanonicalTokenRequest() {
+            server.expect(requestTo(TOKEN_URL))
+              .andExpect(method(HttpMethod.POST))
+              .andExpect(header("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE))
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("grant_type=authorization_code")))
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("client_id=rest-key")))
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("code=auth-code")))
+              .andRespond(withSuccess("{\"access_token\":\"kakao-access\"}", MediaType.APPLICATION_JSON));
+
+            assertThat(client.exchangeCode("auth-code", REDIRECT)).isEqualTo("kakao-access");
+            server.verify();
+        }
+
+        @Test
+        @DisplayName("client secret 이 있으면 본문에 포함한다")
+        void includesClientSecretWhenSet() {
+            properties.setClientSecret("secret-value");
+
+            server.expect(requestTo(TOKEN_URL))
+              .andExpect(content().string(org.hamcrest.Matchers.containsString("client_secret=secret-value")))
+              .andRespond(withSuccess("{\"access_token\":\"kakao-access\"}", MediaType.APPLICATION_JSON));
+
+            client.exchangeCode("auth-code", REDIRECT);
+            server.verify();
+        }
+
+        @Test
+        @DisplayName("REST API 키가 없으면 카카오를 부르지 않고 KAKAO_AUTH_FAILED")
+        void missingRestApiKey() {
+            properties.setRestApiKey("");
+
+            assertThatThrownBy(() -> client.exchangeCode("auth-code", REDIRECT))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+            server.verify();
+        }
+
+        @Test
+        @DisplayName("access_token 이 없는 응답은 KAKAO_AUTH_FAILED")
+        void missingAccessToken() {
+            server.expect(requestTo(TOKEN_URL))
+              .andRespond(withSuccess("{\"token_type\":\"bearer\"}", MediaType.APPLICATION_JSON));
+
+            assertThatThrownBy(() -> client.exchangeCode("auth-code", REDIRECT))
+              .isInstanceOf(MateonException.class)
+              .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
+        }
+
+        @Test
+        @DisplayName("카카오 4xx 도 KAKAO_AUTH_FAILED — 500 으로 새면 안 된다")
+        void kakaoRejectsCode() {
+            server.expect(requestTo(TOKEN_URL))
+              .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"error\":\"invalid_grant\"}"));
+
+            assertThatThrownBy(() -> client.exchangeCode("auth-code", REDIRECT))
               .isInstanceOf(MateonException.class)
               .extracting("errorCode").isEqualTo(ErrorCode.KAKAO_AUTH_FAILED);
         }
