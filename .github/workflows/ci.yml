@@ -55,6 +55,177 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # 현재 코드 × base src/test. 코드와 테스트를 같이 바꿔 침묵하는 회귀를 찾는다.
+  # job 레벨 skip 은 required check 가 멈추거나 구멍이 생기므로, 우회·단축도 job 은 돌고 안에서 끝낸다.
+  ab-regression:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Bypass on intentional-contract-break
+        id: bypass
+        env:
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'intentional-contract-break') }}
+        run: |
+          if [ "$HAS_LABEL" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "## ab-regression bypassed"
+              echo "Label \`intentional-contract-break\` 가 있어 overlay 를 생략합니다. \`test\` 는 그대로 돕니다."
+              echo "리뷰에서 테스트 삭제·완화가 그 의도와 맞는지 확인하세요."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check base CI is green
+        if: steps.bypass.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          conclusion="$(gh run list --commit "$BASE_SHA" --workflow CI --limit 20 \
+            --json conclusion,status,createdAt \
+            --jq '[.[] | select(.status == "completed" and .conclusion != "")] | sort_by(.createdAt) | reverse | .[0].conclusion // empty')" \
+            || {
+              echo "Could not query CI runs for $BASE_SHA; not blocking overlay."
+              echo "Base \`$BASE_SHA\` CI status unknown (query failed). Overlay continues." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            }
+          echo "Base $BASE_SHA latest completed CI conclusion=${conclusion:-none}"
+          case "$conclusion" in
+            failure|cancelled|startup_failure|timed_out)
+              {
+                echo "## base-green failed"
+                echo "Base \`$BASE_SHA\` CI conclusion is \`$conclusion\`. main 이 이미 빨간 상태입니다. overlay 를 돌리지 않습니다. main 을 고치세요."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            "")
+              echo "No completed CI run for $BASE_SHA; not blocking overlay."
+              echo "Base \`$BASE_SHA\` 에 완료된 CI 가 없어 overlay 를 진행합니다." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              echo "Base \`$BASE_SHA\` CI conclusion is \`$conclusion\`." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+      - uses: actions/checkout@v5
+        if: steps.bypass.outputs.skip != 'true'
+
+      - uses: actions/checkout@v5
+        if: steps.bypass.outputs.skip != 'true'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: _ab_base
+
+      - name: Short-circuit if tests unchanged
+        id: short
+        if: steps.bypass.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          if diff -rq src/test _ab_base/src/test >/dev/null 2>&1 \
+            && diff -q build.gradle _ab_base/build.gradle >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            rm -rf _ab_base
+            {
+              echo "## ab-regression skipped"
+              echo "\`src/test\` 와 \`build.gradle\` 이 base 와 같아 overlay 는 기존 \`test\` 와 같습니다. 생략합니다."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Overlay base src/test
+        if: steps.bypass.outputs.skip != 'true' && steps.short.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          rm -rf src/test
+          cp -a _ab_base/src/test src/test
+          rm -rf _ab_base
+
+      - uses: actions/setup-java@v5
+        if: steps.bypass.outputs.skip != 'true' && steps.short.outputs.skip != 'true'
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: gradle
+
+      - name: Run overlay tests
+        id: run
+        if: steps.bypass.outputs.skip != 'true' && steps.short.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          chmod +x gradlew scripts/ci/ab-regression.sh
+          set +e
+          ./scripts/ci/ab-regression.sh
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          case "$rc" in
+            0)
+              echo "## ab-regression passed" >> "$GITHUB_STEP_SUMMARY"
+              echo "예전 테스트가 현재 코드에서 통과했습니다." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            1)
+              {
+                echo "## REGRESSION"
+                echo "예전 단언이 새 코드에서 깨졌습니다. 동작 회귀이거나, 의도된 계약 변경이면 라벨 \`intentional-contract-break\` 를 달고 테스트 diff 를 리뷰하세요."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "## INCOMPATIBLE"
+                echo "예전 테스트가 새 시그니처/타입과 컴파일되지 않습니다. 비교 불능인 계약 파손입니다. 의도된 변경이면 라벨 \`intentional-contract-break\` 를 달세요."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              {
+                echo "## compileJava failed"
+                echo "새 코드가 컴파일되지 않았습니다. overlay 문제가 아니라 \`test\` job 과 같은 실패입니다. (exit $rc)"
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+          exit "$rc"
+
+      - name: Upload overlay test report
+        if: always() && steps.run.conclusion != 'skipped' && steps.run.conclusion != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ab-regression-report
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # test 와 ab-regression 의 AND. 브랜치 보호 required check 는 이 job 이름이다.
+  # always() 가 없으면 한쪽 실패 시 이 job 이 skipped 가 되어 required check 가 멈춘다.
+  pr-gate:
+    if: always() && github.event_name == 'pull_request'
+    needs: [test, ab-regression]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check required jobs
+        env:
+          TEST: ${{ needs.test.result }}
+          AB: ${{ needs.ab-regression.result }}
+        run: |
+          set -euo pipefail
+          echo "test=$TEST"
+          echo "ab-regression=$AB"
+          {
+            echo "## pr-gate"
+            echo "- test: \`$TEST\`"
+            echo "- ab-regression: \`$AB\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TEST" = success ] && [ "$AB" = success ]; then
+            exit 0
+          fi
+          exit 1
+
   docker:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: test

@@ -46,21 +46,37 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 
 | 이벤트 | 하는 일 |
 | --- | --- |
-| `main` 으로 PR | `./gradlew test` (Testcontainers Postgres). `*LiveTest` 는 관문에서 빠져 있습니다 |
-| `main` 에 머지 | 같은 테스트를 다시 돌린 뒤, DockerHub 최고 태그의 **patch +1** 로 `linux/arm64` 이미지를 `:vX.Y.Z` 와 `:latest` 로 푸시합니다 |
+| `main` 으로 PR | `test` (현재 코드 × 현재 테스트, Testcontainers Postgres, JaCoCo 90%) 와 `ab-regression` (현재 코드 × base `src/test`, JaCoCo 없음) 을 병렬로 돌린 뒤 `pr-gate` 가 둘을 AND 합니다. `*LiveTest` 는 관문에서 빠져 있습니다 |
+| `main` 에 머지 | `test` 를 다시 돌린 뒤, DockerHub 최고 태그의 **patch +1** 로 `linux/arm64` 이미지를 `:vX.Y.Z` 와 `:latest` 로 푸시합니다 |
 | Actions에서 수동 실행 | `main` 브랜치를 고른 뒤, 올릴 자리(`patch` / `minor` / `major`)를 고르거나 시작 태그(`v1.1.0`, `v2.0.0`)를 직접 적습니다. 테스트 통과 후 그 태그로 푸시하고, 이후 머지는 다시 그 태그에서 patch 를 올립니다 |
 
-로컬에서 같은 관문을 보려면 Docker 가 켜져 있어야 합니다. 통합 테스트가 Testcontainers 를 씁니다.
+브랜치 보호의 required check 는 `pr-gate` 입니다. `test` 와 `ab-regression` 은 로그용입니다.
+
+`ab-regression` 은 PR 이 코드와 테스트를 같이 바꿔 침묵하는 회귀를 찾습니다. base 의 `src/test` 를 현재 코드 위에 덮어 `./gradlew test` 를 돌립니다. 실패는 Step Summary 에 `REGRESSION` (예전 단언이 깨짐) 또는 `INCOMPATIBLE` (예전 테스트가 컴파일되지 않음) 으로 분류됩니다. `src/test` 와 `build.gradle` 이 base 와 같으면 기존 `test` 와 같은 일이라 생략합니다. 라벨 `intentional-contract-break` 가 있으면 overlay 를 생략합니다 (`test` 는 그대로 돕니다). 리뷰할 때 삭제·완화된 테스트가 의도인지, 라벨이 있으면 그 의도가 맞는지 보면 됩니다.
+
+로컬에서 같은 `test` 관문을 보려면 Docker 가 켜져 있어야 합니다. 통합 테스트가 Testcontainers 를 씁니다.
 
 ```bash
 ./gradlew test
 ```
 
+overlay 를 로컬에서 재현하려면:
+
+```bash
+git fetch origin main
+git restore --source origin/main --worktree -- src/test
+./gradlew test -x jacocoTestReport -x jacocoTestCoverageVerification
+```
+
+Windows 는 `.\gradlew.bat` 를 씁니다. 끝나면 `git restore --worktree -- src/test` 로 되돌립니다.
+
 `test` 가 끝나면 커버리지 HTML 이 `build/reports/jacoco/test/html/index.html` 에 생깁니다.
-CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. `check` 는 instruction/branch/line/method/class
+CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. overlay 리포트는 `ab-regression-report` 입니다. `check` 는 instruction/branch/line/method/class
 90% 를 요구합니다 (`jacocoTestCoverageVerification`). `fastTest` / `liveTest` 는 측정하지 않습니다.
 
 `fastTest` 는 Docker 없는 단축이고, `liveTest` 는 밖에 떠 있는 AI 스텁을 상대합니다. 둘 다 CI 관문이 아닙니다.
+
+코드만으로 머지가 막히지는 않습니다. GitHub → Settings → Labels 에 `intentional-contract-break` 를 만들고, Settings → Branches 의 `main` protection 에 required status check `pr-gate` 와 required review 를 켜야 관문이 됩니다.
 
 이미지 푸시에는 레포 Secrets 가 필요합니다. PR 테스트는 시크릿 없이 돕니다.
 
