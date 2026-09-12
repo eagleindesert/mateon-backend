@@ -23,6 +23,7 @@
    ```sql
    SELECT code FROM email_verifications WHERE email='test22@example.ac.kr' ORDER BY id DESC LIMIT 1;
    ```
+
    - 조회 이메일과 스크립트의 `-Email`(기본 `test22@example.ac.kr`)을 반드시 일치시키세요.
    - `email` 에 unique 제약이 없어 가장 최근(`id` 최대) 코드를 읽습니다.
 
@@ -31,50 +32,51 @@
 
 ## 구성
 
-| 파일 | 대상 | 인증 |
-|------|------|------|
-| `00_common.ps1` | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드, 수동 코드 입력) | - |
-| `01_health.ps1` | Health (헬스체크) | 불필요 |
-| `auth/00_before_auth.ps1` | 회원가입 전 원격 DB 정리 SQL 생성 (DB 직접 실행용) | - |
-| `auth/02_auth.ps1` | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장 | 불필요 |
-| `03_00_user.ps1` | User `/api/users` | **필요** |
-| `04_00_event_init.ps1` | Event 데이터 준비 — 활동 3건 등록(POST `/api/events`), id 를 `.event-ids.json` 에 저장 | **필요** |
-| `04_01_event.ps1` | Event 조회 `/api/events` (검색·분야 필터·추천). `.event-ids.json` 이 있으면 등록분 포함/제외까지 검증 | 일부 필요 |
-| `20_contest_similarity_map.ps1` | 공모전 유사도 지도 `GET /api/events/{id}/similarity-map` — CONTEST 3건 등록 후 형제 2건이 points 에 들어올 때까지 폴링해 좌표 응답을 검증 | **필요**(등록) / 조회는 비로그인 가능 |
-| `05_team.ps1` | Team `/api/teams` | **필요** |
-| `06_notification.ps1` | Notification `/api/notifications` | **필요** |
-| `auth/07_school_auth.ps1` | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify) | **필요** |
-| `auth/08_social_kakao.ps1` | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao` | 불필요 |
-| `auth/09_three_users.ps1` | **유저 A·B·C 준비** — 로그인 먼저 시도해 기존 계정이면 코드 입력 없이 통과. 토큰을 슬롯에 저장 | 불필요 |
-| `15_review.ps1` | 협업 온도 `/api/teams/{id}/complete`, `/reviews` — 3명이 서로 평가하는 전 과정 | **필요** |
-| `10_chat.ps1` | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만) | **필요** |
-| `11_matching_intent.ps1` | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동 | **필요** |
-| `14_reverse_offer.ps1` | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요) | **필요** |
-| `16_recommendation_reason.ps1` | 추천 상세 이유 `/api/matching/recommendations/reason/{방향}` — 양방향 생성 + **캐시 hit**(재요청 시 AI 재호출 없음) 검증 (A·B 필요) | **필요** |
-| `17_proposal_assembly.ps1` | 최종 제안 조립 `/api/matching/proposals/{방향}` — AI 가 지원/제안 문구 초안을 쓴다. **저장하지 않는 게 계약**이라 재요청 시 새 문구가 나와야 하고(16 번과 반대), 초안 → `/apply` 발송까지 이어 검증 (A·B 필요) | **필요** |
-| `99_run_all.ps1` | 위 스크립트 전체 순차 실행 | - |
+| 파일                            | 대상                                                                                                                                                                                                           | 인증                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `00_common.ps1`                 | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드, 수동 코드 입력)                                                                                                                   | -                                     |
+| `01_health.ps1`                 | Health (헬스체크)                                                                                                                                                                                              | 불필요                                |
+| `auth/00_before_auth.ps1`       | 회원가입 전 원격 DB 정리 SQL 생성 (DB 직접 실행용)                                                                                                                                                             | -                                     |
+| `auth/02_auth.ps1`              | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장                                                                                                                                            | 불필요                                |
+| `03_00_user.ps1`                | User `/api/users`                                                                                                                                                                                              | **필요**                              |
+| `04_00_event_init.ps1`          | Event 데이터 준비 — 활동 3건 등록(POST `/api/events`), id 를 `.event-ids.json` 에 저장                                                                                                                         | **필요**                              |
+| `04_01_event.ps1`               | Event 조회 `/api/events` (검색·분야 필터·추천). `.event-ids.json` 이 있으면 등록분 포함/제외까지 검증                                                                                                          | 일부 필요                             |
+| `20_contest_similarity_map.ps1` | 공모전 유사도 지도 `GET /api/events/{id}/similarity-map` — CONTEST 3건 등록 후 형제 2건이 points 에 들어올 때까지 폴링해 좌표 응답을 검증                                                                      | **필요**(등록) / 조회는 비로그인 가능 |
+| `05_team.ps1`                   | Team `/api/teams`                                                                                                                                                                                              | **필요**                              |
+| `06_notification.ps1`           | Notification `/api/notifications`                                                                                                                                                                              | **필요**                              |
+| `auth/07_school_auth.ps1`       | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify)                                                                                                                                           | **필요**                              |
+| `auth/08_social_kakao.ps1`      | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao`                                                                                                                                                           | 불필요                                |
+| `auth/09_three_users.ps1`       | **유저 A·B·C 준비** — 로그인 먼저 시도해 기존 계정이면 코드 입력 없이 통과. 토큰을 슬롯에 저장                                                                                                                 | 불필요                                |
+| `15_review.ps1`                 | 협업 온도 `/api/teams/{id}/complete`, `/reviews` — 3명이 서로 평가하는 전 과정                                                                                                                                 | **필요**                              |
+| `10_chat.ps1`                   | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만)                                                                                                                                          | **필요**                              |
+| `11_matching_intent.ps1`        | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동                                                                                                                                       | **필요**                              |
+| `14_reverse_offer.ps1`          | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요)                                                                            | **필요**                              |
+| `16_recommendation_reason.ps1`  | 추천 상세 이유 `/api/matching/recommendations/reason/{방향}` — 양방향 생성 + **캐시 hit**(재요청 시 AI 재호출 없음) 검증 (A·B 필요)                                                                            | **필요**                              |
+| `17_proposal_assembly.ps1`      | 최종 제안 조립 `/api/matching/proposals/{방향}` — AI 가 지원/제안 문구 초안을 쓴다. **저장하지 않는 게 계약**이라 재요청 시 새 문구가 나와야 하고(16 번과 반대), 초안 → `/apply` 발송까지 이어 검증 (A·B 필요) | **필요**                              |
+| `99_run_all.ps1`                | 위 스크립트 전체 순차 실행                                                                                                                                                                                     | -                                     |
 
 ## 설정(CONFIG)
 
 모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 관리하며, 같은 폴더의 `.env` 로
 덮어쓸 수 있습니다(`.env` > 셸 환경변수 > 기본값 순).
 
-| 설정 | 셸 환경변수 | 기본값 | 용도 |
-|------|-------------|--------|------|
-| BaseUrl | `MATEON_BASE_URL` | `http://localhost:8080` | **원격 서버 주소 — 반드시 지정** |
-| TestEmail | `MATEON_TEST_EMAIL` | `test22@example.ac.kr` | 유저 A 이메일 |
-| TestPassword | `MATEON_TEST_PASSWORD` | `Password1234` | 유저 A 비밀번호 |
-| TestName | `MATEON_TEST_NAME` | `테스트유저` | 유저 A 이름 |
-| UserBEmail | `MATEON_USERB_EMAIL` | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일 |
-| UserBPassword | `MATEON_USERB_PASSWORD` | `Password1234` | 유저 B 비밀번호 |
-| UserBName | `MATEON_USERB_NAME` | `채팅메이트` | 유저 B 이름 |
-| UserCEmail | `MATEON_USERC_EMAIL` | (빈 값) | 유저 C(협업 온도 3번째 계정) 이메일 |
-| UserCPassword | `MATEON_USERC_PASSWORD` | (빈 값) | 유저 C 비밀번호 |
-| UserCName | `MATEON_USERC_NAME` | `협업메이트` | 유저 C 이름 |
-| SchoolEmail | `MATEON_SCHOOL_EMAIL` | (빈 값) | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
-| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값) | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증 |
+| 설정             | 셸 환경변수                 | 기본값                   | 용도                                                                              |
+| ---------------- | --------------------------- | ------------------------ | --------------------------------------------------------------------------------- |
+| BaseUrl          | `MATEON_BASE_URL`           | `http://localhost:8080`  | **원격 서버 주소 — 반드시 지정**                                                  |
+| TestEmail        | `MATEON_TEST_EMAIL`         | `test22@example.ac.kr`   | 유저 A 이메일                                                                     |
+| TestPassword     | `MATEON_TEST_PASSWORD`      | `Password1234`           | 유저 A 비밀번호                                                                   |
+| TestName         | `MATEON_TEST_NAME`          | `테스트유저`             | 유저 A 이름                                                                       |
+| UserBEmail       | `MATEON_USERB_EMAIL`        | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일                                                          |
+| UserBPassword    | `MATEON_USERB_PASSWORD`     | `Password1234`           | 유저 B 비밀번호                                                                   |
+| UserBName        | `MATEON_USERB_NAME`         | `채팅메이트`             | 유저 B 이름                                                                       |
+| UserCEmail       | `MATEON_USERC_EMAIL`        | (빈 값)                  | 유저 C(협업 온도 3번째 계정) 이메일                                               |
+| UserCPassword    | `MATEON_USERC_PASSWORD`     | (빈 값)                  | 유저 C 비밀번호                                                                   |
+| UserCName        | `MATEON_USERC_NAME`         | `협업메이트`             | 유저 C 이름                                                                       |
+| SchoolEmail      | `MATEON_SCHOOL_EMAIL`       | (빈 값)                  | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
+| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값)                  | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증                  |
 
 `.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
+
 ```ini
 # scripts/test/for-api-server/.env  (커밋 금지)
 MATEON_BASE_URL=https://your-remote-server.example.com
@@ -168,8 +170,10 @@ pwsh -File .\99_run_all.ps1
 ```sql
 -- ================================================================
 --  테스트 데이터 초기화 SQL (로컬/테스트 서버 전용)
---  users(계정 정보)는 남겨두어 수동 재가입(이메일 인증) 없이 즉시 테스트 가능하며,
---  매칭/AI채팅/팀/활동 등 잔존 테스트 데이터만 깔끔히 비운다.
+--  db/migration/V1~V37 기준 애플리케이션 테이블을 비운다.
+--  users 는 남겨두어 수동 재가입(이메일 인증) 없이 즉시 테스트 가능하며,
+--  flyway_schema_history 는 마이그레이션 이력이므로 제외한다.
+--  매칭/AI채팅/팀/활동/공모전임베딩/비밀번호찾기토큰 등 잔존 테스트 데이터만 비운다.
 --  TRUNCATE ... CASCADE 라 FK 순서를 신경 쓸 필요는 없다.
 -- ================================================================
 TRUNCATE TABLE
@@ -181,12 +185,14 @@ TRUNCATE TABLE
     chat_rooms,
     email_verifications,
     event_bookmarks,
+    event_embeddings,
     events,
     matching_intent_messages,
     matching_intent_sessions,
     matching_intent_slots,
     notification,
     oauth_debug_codes,
+    password_reset_tokens,
     refresh_tokens,
     team_applications,
     team_embeddings,
