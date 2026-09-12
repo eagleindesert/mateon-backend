@@ -74,14 +74,16 @@ pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTER
 
 ## 동작
 
-`POST /intents/extract` — 받은 `messages` 개수로 분기한다:
+`POST /intents/extract` — `[자기소개서]`/`[포트폴리오]` 접두를 뺀 대화 턴 개수로 분기한다.
+접두는 토글이 켜져 있을 때 배열 앞에 붙는 프로필이지 사용자 턴이 아니다. 그걸 세면 첫 발화만으로
+완료가 되어 재질문 분기를 못 탄다.
 
-| messages 개수 | 응답 |
+| 대화 턴 개수 (접두 제외) | 응답 |
 |---|---|
 | 1개 | `missing_fields=["experience_level"]`, `embedding_*=null` → 재질문 |
 | 2개 이상 | `missing_fields=[]`, `embedding_vector`=1536개 난수 → 완료 |
 
-즉 E2E 에서 메시지를 두 번 보내면 재질문 → 완료 흐름을 그대로 밟는다.
+즉 E2E 에서 사용자 메시지를 두 번 보내면 재질문 → 완료 흐름을 그대로 밟는다.
 
 `POST /internal/teams/embedding:refresh` — 항상 임베딩 + `metadata` 를 반환한다.
 `missing_fields=["activity_intensity"]` 로 고정 — 스펙상 미추출 항목이 있어도 벡터는 함께 온다는
