@@ -62,18 +62,58 @@ public class OpenApiConfig {
         return new OpenAPI()
           .info(new Info()
             .title("Mateon API")
-            .version("v10")
+            .version("v10-2")
             .description("""
-# Mateon Backend API 변경 명세서 (v10)
+# Mateon Backend API 변경 명세서 (v10-2)
 
 > Base URL: `/`<br/>
 > 인증 방식: JWT Bearer Token (`Authorization: Bearer <accessToken>`)<br/>
-> Last Updated: 2026-09-09
+> Last Updated: 2026-09-13
 
 🔑 **인증**: 인증이 필요한 엔드포인트는 로그인(`POST /api/auth/login`)으로 받은 accessToken 을 우측 상단 Authorize 에 넣으면 그대로 호출해 볼 수 있다.<br/><br/>
-📌 **안내**: v9부터는 상세 엔드포인트 명세(Request/Response 스키마, 파라미터, 헤더, 상태 코드 등)를 **Swagger UI**가 정본(Single Source of Truth)으로 제공합니다. 본 문서는 프론트엔드(FE) 연동에 필요한 **v9-2 대비 기능/정책 변경 사항 및 신규 기능 동작 방식**을 텍스트로 정리한 문서입니다.
+📌 **안내**: v9부터는 상세 엔드포인트 명세(Request/Response 스키마, 파라미터, 헤더, 상태 코드 등)를 **Swagger UI**가 정본(Single Source of Truth)으로 제공한다. 본 문서는 프론트엔드(FE) 연동에 필요한 **이전 버전 문서 대비 기능/정책 변경 사항 및 신규 기능 동작 방식**을 텍스트로 정리한 문서이다.
 
 ---
+
+## 📋 v10 → v10-2 핵심 변경 사항 요약
+
+- **매칭 접두 토글**: `GET`/`PUT /api/users/me` 에 `matchIncludeProfile` · `matchIncludePortfolio` 가 생긴다. 기본 `false`. 보낸 필드만 바뀐다.
+- **노출 범위**: 내 프로필에만 있다. 남의 프로필(`GET /api/users/{userId}`)에는 키가 없고, 지원서 `applicant` 에서는 `null` 이다.
+- **재추출**: 의도 추출을 이미 끝낸 뒤에 토글을 바꾸거나, 켜 둔 채 해당 본문(프로필·포트폴리오)을 바꾸면 서버가 같은 대화를 다시 추출한다. `PUT` 은 재추출을 기다리지 않는다. 채팅을 다시 할 필요는 없다. 실패해도 기존 슬롯·벡터는 남는다.
+- 신규 엔드포인트·ErrorCode 는 없다.
+
+---
+
+## 1. 매칭 접두 토글 (`GET`/`PUT /api/users/me`)
+
+| 필드 | 의미 |
+| --- | --- |
+| `matchIncludeProfile` | 매칭 의도 추출에 프로필(학교·전공·학년·관심직무·한 줄 소개)을 접두로 넣을지 |
+| `matchIncludePortfolio` | 매칭 의도 추출에 프로필 포트폴리오 서술(`users.portfolio`)을 접두로 넣을지. PDF 요약 캐시가 아니다 |
+
+- 가입 직후·생략 시 둘 다 `false`.
+- `PUT` 은 기존과 같이 **보낸 필드만** 바뀐다. 토글을 빼면 유지되고, `null` 로 비울 수 없다.
+- 화면 토글은 이 두 필드를 `PUT /api/users/me` 에 실으면 된다. 채팅 API 는 그대로다.
+
+---
+
+## 2. 재추출 (채팅을 다시 하지 않음)
+
+의도 슬롯이 이미 있는 유저가 아래를 바꾸면, 서버가 커밋 뒤 비동기로 같은 대화를 다시 추출한다.
+
+- 토글 on/off
+- `matchIncludeProfile` 이 켜진 상태에서 프로필 본문(학교·캠퍼스·단과대·전공·학년·관심직무·한 줄 소개)
+- `matchIncludePortfolio` 가 켜진 상태에서 `portfolio`
+
+이름만 바꾸는 요청, 꺼 둔 채 전공만 고치는 요청은 재추출하지 않는다.
+
+`PUT` 200 은 저장이 끝났다는 뜻이다. 재추출 완료를 기다리지 않고, 완료를 알려 주는 새 응답·알림도 없다. 접두와 재추출 assistant 는 대화 복원·사이드바 `lastMessage` 에 안 실린다.
+
+---
+
+# Mateon Backend API 변경 명세서 (v10)
+
+> Last Updated: 2026-09-09
 
 ## 📋 v9-2 → v10 핵심 변경 사항 요약
 
@@ -81,213 +121,74 @@ public class OpenApiConfig {
 - **CORS**: `PATCH`/`HEAD` 허용. `Deprecation`/`Sunset` 응답 헤더를 JS 가 읽을 수 있게 노출.
 - **리프레시 토큰 멀티세션**: 로그인마다 새 refresh 행. 웹 로그인이 앱을 로그아웃시키지 않는다.
 - **로그아웃**: `refreshToken` 으로 그 세션만 끊는 것이 권장. `email` 만 보내는 경로는 deprecated (전 세션 폐기).
-- **SSE 멀티 커넥션**: 같은 유저의 앱·웹 탭이 동시에 알림을 받는다. 웹은 표준 `EventSource` 가 아니라 Bearer 를 붙일 수 있는 fetch SSE 클라이언트를 쓴다.
+- **SSE 멀티 커넥션**: 같은 유저의 앱·웹 탭이 동시에 알림을 받는다. 웹은 `EventSource` 가 아니라 Bearer 를 붙일 수 있는 fetch SSE 클라이언트를 쓴다.
 - **카카오 웹 인가코드**: `POST /api/auth/social/kakao/code`. redirect URI 는 React 콜백. 앱 경로 `POST /social/kakao` 는 그대로.
-- **비밀번호 찾기**: 메일 링크는 웹 React. `POST /api/auth/password/reset/request` · `/confirm`.
+- **비밀번호 찾기**: 메일 링크는 웹 React (`WEB_BASE_URL/reset-password?token=`). `POST /api/auth/password/reset/request` · `/confirm`.
 - **레이트리밋**: 로그인·소셜·재설정 요청. 초과 시 429 `AUTH_RATE_LIMITED`.
-- **인증 실패는 계속 403**.
+- **인증 실패는 계속 403**. 401 로 바꾸지 않는다.
 
-### 로그아웃 (`POST /api/auth/logout`)
+---
 
-권장 본문은 `{ "refreshToken": "..." }` — 그 세션만 끊고, 없는 토큰이어도 200 이다. `{ "email" }` 만 있으면 전 세션을 끊는다 (deprecated). 둘 다 없으면 400.
+## 1. 클라이언트 공통
 
-### 카카오
+- 앱·웹 모두 `Authorization: Bearer <accessToken>`.
+- 웹 CORS 오리진이 필요하다. `PATCH` 를 쓰는 지원 승인·역제안 응답은 preflight 가 통과해야 한다.
+- 인증 실패 본문은 공통 봉투가 아닌 403 JSON 이다. 웹 axios 인터셉터도 403 에서 토큰을 갱신한다.
 
-RN: `POST /api/auth/social/kakao` `{ accessToken }`. 웹: `POST /api/auth/social/kakao/code` `{ authorizationCode, redirectUri }`. redirectUri 는 카카오 authorize 에 넘긴 React 콜백과 글자 단위로 같아야 한다. 응답 `TokenResponse` 는 같다.
+---
 
-### 비밀번호 찾기
+## 2. 로그아웃 (`POST /api/auth/logout`)
 
-`POST /api/auth/password/reset/request` 는 계정 존재와 무관하게 200. 메일 링크는 백엔드가 아니라 `{WEB_BASE_URL}/reset-password?token=`. 웹이 `POST /api/auth/password/reset/confirm` 으로 새 비밀번호를 확정하면 모든 기기 세션이 끊긴다.
+| 본문 | 동작 |
+| --- | --- |
+| `{ "refreshToken": "..." }` | 그 세션만 삭제. 없는 토큰이어도 200. |
+| `{ "email": "..." }` | 전 세션 삭제 (deprecated). |
+| 둘 다 | refreshToken 만 본다. |
+| 없음 | 400 `INVALID_INPUT`. |
 
-### SSE
+웹은 처음부터 `refreshToken` 을 보낸다.
 
-`GET /api/notifications/subscribe` 는 Bearer 가 필요하다. 웹은 fetch 기반 SSE 클라이언트를 쓴다.
+---
 
-### 신규 ErrorCode
+## 3. 카카오
+
+| | RN | 웹 |
+| --- | --- | --- |
+| API | `POST /api/auth/social/kakao` | `POST /api/auth/social/kakao/code` |
+| 본문 | `{ accessToken }` | `{ authorizationCode, redirectUri }` |
+| redirect | 없음 | 카카오 authorize 에 넘긴 React 콜백과 글자 단위로 같아야 한다 |
+
+응답 `TokenResponse` 는 같다. 웹은 카카오 access token 을 저장하지 않는다.
+
+실패는 둘 다 400 `KAKAO_AUTH_FAILED`.
+
+---
+
+## 4. 비밀번호 찾기
+
+1. `POST /api/auth/password/reset/request` `{ email }` — 항상 200. 계정 존재를 응답으로 알 수 없다.
+2. 메일의 링크는 **웹 React** 다. 백엔드 HTML 이 아니다.
+3. 웹 페이지가 `POST /api/auth/password/reset/confirm` `{ token, newPassword, newPasswordConfirm }`.
+
+성공하면 모든 기기에서 다시 로그인해야 한다. 기존 `POST /api/auth/password/change` (현재 비밀번호 필요)는 그대로다.
+
+---
+
+## 5. 실시간 알림 SSE
+
+- `GET /api/notifications/subscribe` 는 Bearer 가 필요하다.
+- 표준 `EventSource` 는 커스텀 헤더를 못 붙인다. 웹은 fetch 기반 SSE 클라이언트를 쓴다.
+- 앱과 웹을 동시에 켜 두면 둘 다 알림을 받는다.
+
+---
+
+## 6. 신규 ErrorCode
 
 | ErrorCode | HTTP Status | 에러 메시지 / 발생 조건 |
 |---|---|---|
-| `AUTH_RATE_LIMITED` | `429 Too Many Requests` | 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요. |
+| `AUTH_RATE_LIMITED` | `429 Too Many Requests` | 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요. (로그인·소셜·비밀번호 찾기 요청 한도) |
 
----
-
-# Mateon Backend API 변경 명세서 (v9-2)
-
-> Last Updated: 2026-09-03
-
-## 📋 v9 → v9-2 핵심 변경 사항 요약
-
-- **🗺️ 공모전 유사도 지도 API 신설**:
-  - `GET /api/events/{eventId}/similarity-map` — 기준 활동과 다른 활동들의 코사인 유사도·방사형 그래프 좌표를 반환한다.
-  - 비로그인 허용(활동 검색과 같다). 쿼리 `topN` 기본 500, 최소 1, 최대 500.
-  - 응답 id 는 우리 `events.id` (`Long`). 임베딩 벡터는 내려주지 않는다.
-  - `radius`·`x`/`y` 는 이번 후보군 안의 **상대 순위**다. 서로 다른 요청의 점 간 거리를 비교하면 안 된다. 색과 UI 는 `similarity` 또는 `rankPercentile` 로 결정한다.
-- **🔧 활동 등록 후 임베딩 비동기 계산**:
-  - `POST /api/events` 의 201 응답 계약(`EventResponseDTO`)은 그대로다. 프론트가 벡터를 기다리지 않는다.
-  - 등록 직후 유사도 지도를 치면 아직 벡터가 없을 수 있다 → 400 `EVENT_EMBEDDING_NOT_READY`. 잠시 후 재시도하면 된다.
-  - 임베딩 실패가 등록 자체를 막지는 않는다. 실패한 활동은 서버가 다시 채우므로, 같은 400 을 받다가 성공하면 200 이 된다.
-- **🆕 에러 코드 `EVENT_EMBEDDING_NOT_READY` (400) 추가**:
-  - 기준 활동 행은 있지만 임베딩이 아직이거나 실패한 상태. `TEAM_EMBEDDING_NOT_READY` 와 같은 성격이다.
-
----
-
-## 1. 🗺️ 공모전 유사도 지도 (`GET /api/events/{eventId}/similarity-map`)
-
-* **인증**: 선택. 비로그인도 그대로 쓸 수 있다. 토큰을 보내도 응답이 달라지지 않는다.
-* **동작**: 기준 활동을 그래프 중심에 두고, 임베딩이 있는 다른 활동들을 유사도 순으로 배치한다.
-* **그래프 해석**: `radius` 와 `x`/`y` 는 절대 유사도가 아니라 이번 후보군 안의 상대 순위다. 서로 다른 요청의 점 간 거리를 직접 비교하면 안 된다. 색과 UI 는 `similarity` 또는 `rankPercentile` 로 결정한다.
-* **빈 후보**: 후보가 0건이면 200 이고 `points` 는 빈 배열이다 (오류가 아니다).
-
-**클라이언트가 구분해야 하는 실패**
-
-* **400** `EVENT_EMBEDDING_NOT_READY`: 기준 활동의 임베딩이 아직 없거나 실패 상태다. 등록은 커밋 후 비동기로 벡터를 채우므로, 방금 올린 활동을 바로 물으면 이 코드가 난다. 잠시 후 다시 호출하면 된다.
-* **404** `EVENT_NOT_FOUND`: 그 활동 행이 없다. 재시도해도 같은 결과가 나온다.
-* **502** `AI_SERVER_ERROR` / **503** `AI_SERVER_UNAVAILABLE`: AI 서버 장애. 잠시 후 재시도한다.
-
----
-
-## 2. 🔧 활동 등록 시 임베딩 비동기 갱신 (`POST /api/events`)
-
-* **응답 계약은 v9 과 같다.** 201 `EventResponseDTO`. 프론트가 새 필드를 읽을 필요는 없다.
-* 저장이 끝난 뒤 서버가 임베딩을 비동기로 채운다. AI 장애가 등록 자체를 막지 않는다.
-* 유사도 지도의 기준 벡터가 이 값이다. 등록 직후 지도를 치면 400 `EVENT_EMBEDDING_NOT_READY` 가 날 수 있다.
-
----
-
-## 3. 🛠️ 신규 ErrorCode 정리 (FE 에러 처리용)
-
-| ErrorCode | HTTP Status | 에러 메시지 / 발생 조건 |
-|---|---|---|
-| `EVENT_EMBEDDING_NOT_READY` | `400 Bad Request` | 공모전 정보 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요. (유사도 지도 기준 활동의 임베딩이 아직이거나 실패한 상태. 활동 행 자체가 없으면 `EVENT_NOT_FOUND`) |
-
----
-
-# Mateon Backend API 변경 명세서 (v9)
-
-> Last Updated: 2026-08-25
-
-## 📋 v8 → v9 핵심 변경 사항 요약
-
-- **🤖 AI 챗봇 단일 게이트웨이 및 멀티 스레드 대화 세션 신설**:
-  - 사용자 발화 의도(`MATCHING_INTENT`, `UNCLEAR`, `OUT_OF_SCOPE`)를 자동 분류하여 알맞은 AI 도메인으로 라우팅하는 단일 입구(`POST /api/ai/chat/messages`) 제공.
-  - 사이드바용 다중 대화 스레드 관리(새 세션 생성, 세션 목록 조회, 세션 대화 이력 복원) 지원.
-  - 신규 에러 코드 `AI_CHAT_SESSION_NOT_FOUND` (404) 추가.
-- **🌡️ 협업 온도 상시 노출 전환**:
-  - 평가 2건 미만 시 `null`(비공개)로 처리하던 표본 제한을 제거하고, **평가 건수와 무관하게 협업 온도를 항상 노출 (기본값 `36.5`)**.
-  - 평가 0건인 유저도 기준점 `36.5`도로 표기되며, 온도를 싣지 않는 API(`collaborationReviewCount: null`)와의 구분 계약 유지.
-- **📝 사용자 프로필 서술형 포트폴리오(`portfolio`) 필드 신설**:
-  - 한 줄 소개(200자 제한)와 별도로, 여러 줄의 긴 역량/경험을 작성할 수 있는 `portfolio` 필드 추가 (최대 5,000자).
-  - 프로필 수정 및 프로필 조회 응답에 반영.
-- **👥 팀 상세 조회 응답 확정 팀원 명단(`members`) 추가**:
-  - `GET /api/teams/{teamId}` 응답에 확정된 팀원 목록(`members`) 추가 (팀장 포함, `currentMemberCount`와 동일 크기).
-  - 응답 JSON 키 명칭: 조회자의 팀장 여부 `leader`, 활동 종료 여부 `isEnded`, 팀원의 팀장 여부 `members[].isLeader`.
-- **🔔 팀 활동 흐름 내 누락 알림 5종 추가**:
-  - 지원서 접수 알림(팀장 수신), 지원 취소 알림(팀장 수신), 역제안 취소 알림(대상 유저 수신), 팀 삭제 알림(소속 팀원 및 대기자 전원 수신), 1인 팀 활동 자동 종료 알림(팀장 수신) 신규 발송.
-- **🪣 서버 저장 공간 부족 에러(507) 도입**:
-  - 단일 파일 용량 초과(413) 외에 서버 전체 저장소 공간 부족 시 `STORAGE_QUOTA_EXCEEDED` (HTTP 507) 반환.
-- **📡 실시간 알림(SSE) 수명주기 안내**:
-  - SSE 연결은 서버 정책상 일정 시간(기본 1시간) 후 정상 종료되며, 클라이언트가 자동으로 재연결하면 됨.
-- **📑 API 명세의 Swagger UI 정본화**:
-  - 엔드포인트별 세부 스키마 및 호출 테스트는 Swagger UI를 통해 확인 가능.
-
----
-
-## 1. 🤖 AI 챗봇 단일 게이트웨이 및 멀티 스레드 대화 세션
-
-### 1) AI 챗봇 단일 입구 (`POST /api/ai/chat/messages`)
-* 사용자의 모든 채팅 발화는 이 엔드포인트 하나로 전송합니다.
-* 서버가 발화 의도를 분석하여 응답의 `domain` 필드로 결과를 분기합니다.
-  - `MATCHING_INTENT`: 팀/프로젝트 매칭 의도 추출 도메인으로 처리됨. `data.matching` 객체에 의도 추출 결과 및 완료 여부(`matching.completed`)가 함께 포함되어 내려오므로 추가 API 호출이 필요 없습니다.
-  - `UNCLEAR`: 사용자의 의도가 불분명하여 되묻는 상태입니다. `data.assistantMessage`를 화면에 렌더링하고 다음 발화를 다시 보냅니다.
-  - `OUT_OF_SCOPE`: 서비스가 다루지 않는 주제입니다. `data.assistantMessage`의 안내 문구를 화면에 표시합니다.
-* `assistantMessage`는 모든 도메인 응답에서 채워져 내려오므로, 분기 처리 전 화면에 바로 렌더링할 수 있습니다.
-
-### 2) 멀티 스레드 대화 세션 관리 (사이드바 지원)
-* 기존의 단일 세션 제한이 해제되어 사용자가 여러 대화 스레드를 생성하고 전환할 수 있습니다.
-* **신규 엔드포인트 흐름**:
-  1. `POST /api/ai/chat/sessions`: 새 빈 대화 세션을 생성하고 `sessionId`를 발급받습니다. (세션 제목 `title`은 첫 발화 시 서버가 자동 생성하므로 생성 직후에는 `null`).
-  2. `GET /api/ai/chat/sessions`: 사용자의 대화 세션 목록을 최근 활동순으로 조회합니다. (사이드바 렌더링용, `lastMessage` 포함).
-  3. `GET /api/ai/chat/sessions/{sessionId}`: 특정 대화 세션의 전체 메시지 이력을 시간순으로 조회하여 채팅방 UI를 복원합니다.
-  4. `POST /api/ai/chat/messages`: 발화 전송 시 요청 Body에 해당 `sessionId`를 필수로 포함합니다.
-
----
-
-## 2. 🌡️ 협업 온도 정책 변경: 평가 건수 무관 상시 노출
-
-* **평가 건수 무관 상시 노출**: 기존(v8)의 평가 2건 미만 시 `null`(비공개) 처리 정책이 제거되어, **평가 건수(0건 또는 1건)와 무관하게 온도가 항상 숫자로 노출**됩니다.
-* **신규/0건 사용자 표기**: 아직 평가를 받지 않은 사용자도 기본 기준점인 `36.5`도로 표기됩니다.
-* **적용 응답 DTO**:
-  - `GET/PUT /api/users/me` (`UserResponse`): `collaborationTemperature`가 항상 제공됩니다.
-  - `GET /api/users/{userId}` (`UserProfileResponse`): 타인 프로필에서도 온도가 항상 제공됩니다.
-  - `GET /api/teams/{teamId}` (`TeamDetailResponseDTO`): `leaderCollaborationTemperature`가 항상 제공됩니다.
-* **온도 미포함 API 구분**: 지원서 응답의 `applicant` 객체처럼 온도를 조회하지 않는 경로에서는 `collaborationReviewCount`가 `null`로 내려가며, 이를 통해 "온도를 주지 않는 API"와 "평가를 0건 받은 사용자(`collaborationReviewCount: 0`)"를 구분합니다.
-
----
-
-## 3. 📝 사용자 프로필 서술형 포트폴리오(`portfolio`) 필드 신설
-
-* **서술형 포트폴리오 추가**: 한 줄 소개(`tagline`, 200자)로 담기 어려운 긴 소개글과 역량을 작성할 수 있는 `portfolio` 필드가 프로필에 추가되었습니다.
-* **구분**:
-  - PDF AI 요약문(`POST /api/portfolios/summarize`)이나 지원서 링크(`portfolioUrl`)와는 별개인 **사용자 프로필 자체의 텍스트 필드**입니다.
-* **반영 DTO**:
-  - 프로필 수정 요청(`UserUpdateRequest`): `portfolio` 필드 지원 (최대 5,000자).
-  - 내 프로필(`UserResponse`) 및 타인 프로필(`UserProfileResponse`): `portfolio` 필드 지원 (미작성 시 `null`).
-
----
-
-## 4. 👥 팀 상세 조회 응답 확정 팀원 명단(`members`) 추가
-
-* **확정 팀원 명단 (`members`) 필드 추가**:
-  - `GET /api/teams/{teamId}` 응답에 현재 참여 중인 팀원 목록(`members`)이 추가되었습니다.
-  - 팀원 객체 항목: `userId`, `name`, `major`, `isLeader` (`boolean`).
-  - 팀장을 `isLeader: true`로 포함하며, 크기는 항상 `currentMemberCount`와 동일합니다.
-  - 역제안을 수락하여 합류한 팀원도 이 명단에 정상 포함됩니다.
-* **응답 JSON 직렬화 키 명칭 요약**:
-  - `leader` (`boolean`): 현재 조회자 본인이 해당 팀의 팀장인지 여부 (비로그인 시 `false`).
-  - `isEnded` (`boolean`): 팀 활동 종료 여부.
-  - `members[].isLeader` (`boolean`): 해당 팀원이 팀장인지 여부.
-
----
-
-## 5. 🔔 팀 활동 흐름 내 누락 알림 5종 추가
-
-팀 활동 진행 시 아래 5가지 상황에서 실시간 알림이 추가로 발송됩니다.
-
-1. **팀 지원 접수**: 사용자가 팀에 지원(`POST /api/teams/{teamId}/apply`) 시 → 팀장에게 `"지원서 도착"` 알림 발송.
-2. **팀 지원 취소**: 지원자가 지원을 취소(`DELETE /api/teams/applications/{applicationId}`) 시 → 팀장에게 `"지원 취소"` 알림 발송.
-3. **역제안 취소**: 팀장이 역제안을 회수(`DELETE /api/teams/offers/{offerId}`) 시 → 대상 사용자에게 `"제안 취소"` 알림 발송.
-4. **팀 삭제**: 팀장이 팀을 삭제(`DELETE /api/teams/{teamId}`) 시 → 팀원 및 대기 중인 지원자/제안자 전원에게 `"팀 삭제"` 알림 발송 (삭제한 팀장 본인 제외).
-5. **활동 자동 종료**: 마감일 경과로 1인 팀이 자동 종료될 때 → 팀장에게 `"활동 자동 종료"` 알림 발송 (팀장 수동 종료 시에는 발송 생략).
-
----
-
-## 6. 🪣 서버 저장 공간 부족 에러(507) 도입
-
-* **`STORAGE_QUOTA_EXCEEDED` (HTTP 507 Insufficient Storage)**:
-  - 파일 개별 용량 초과(`413 Payload Too Large`)와 구분되어, 서버 전체의 저장소 용량이 가득 찼을 때 반환되는 에러입니다.
-  - 발생 가능 경로: 프로필 이미지 업로드(`POST /api/users/me/profile-image`), 공모전 포스터 초안 추출(`POST /api/events/extract-image`).
-  - 클라이언트 안내: 사용자가 파일 크기를 줄여도 해결되지 않으므로, "저장 공간이 가득 차 파일을 업로드할 수 없습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요." 류의 시스템 안내를 표시합니다.
-
----
-
-## 7. 📡 실시간 알림(SSE) 수명주기 안내
-
-* **정상 연결 만료 및 재연결**: 실시간 알림 SSE 구독(`GET /api/notifications/subscribe`)은 서버 정책에 따라 일정 시간(기본 1시간) 후 연결이 정상 종료될 수 있습니다.
-* **클라이언트 처리**: 브라우저 `EventSource` 또는 앱 SSE 클라이언트의 기본 재연결 메커니즘을 통해 자동으로 다시 구독을 요청하면 되며, 연결이 끊겨 있던 동안 수신된 알림은 `GET /api/notifications`로 조회하여 채웁니다.
-
----
-
-## 8. 🛠️ 신규 및 주요 ErrorCode 정리 (FE 에러 처리용)
-
-| ErrorCode | HTTP Status | 에러 메시지 / 발생 조건 |
-|---|---|---|
-| `AI_CHAT_SESSION_NOT_FOUND` | `404 Not Found` | 대화를 찾을 수 없습니다. (존재하지 않거나 타인의 대화 세션 ID 접근 시) |
-| `STORAGE_QUOTA_EXCEEDED` | `507 Insufficient Storage` | 저장 공간이 가득 차 파일을 업로드할 수 없습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요. |
-| `FILE_TOO_LARGE` | `413 Payload Too Large` | 업로드 가능한 파일 크기를 초과했습니다. (서버 멀티파트 통합 용량 한도 초과 시) |
-| `IMAGE_TOO_LARGE` | `413 Payload Too Large` | 이미지는 10MB 이하만 업로드할 수 있습니다. (프로필 사진, 포스터 이미지) |
-| `PDF_TOO_LARGE` | `413 Payload Too Large` | 포트폴리오 PDF는 20MB 이하만 업로드할 수 있습니다. |
-| `INVALID_IMAGE_FILE` | `400 Bad Request` | jpg, jpeg, png 형식의 이미지 파일만 업로드할 수 있습니다. |
-| `INVALID_PDF_FILE` | `400 Bad Request` | pdf 형식의 파일만 업로드할 수 있습니다. |
+`KAKAO_AUTH_FAILED` 는 웹 인가코드·허용되지 않은 redirectUri 에도 쓰인다.
 """))
           .components(new Components()
             .addSecuritySchemes(BEARER_SCHEME,

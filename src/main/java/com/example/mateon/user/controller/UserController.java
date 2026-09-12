@@ -34,6 +34,9 @@ public class UserController {
                     마이페이지 화면이 쓰는 경로다. 프로필 기본 항목에 더해 협업 온도·평가 건수·
                     참여 활동까지 한 번에 실린다 (폐기 예정인 `/mypage` 와 같은 값).
 
+                    `matchIncludeProfile` / `matchIncludePortfolio` 도 여기만 실린다. 기본 false.
+                    남의 프로필·지원서 applicant 에는 없다.
+
                     대상은 토큰의 주인이라 경로에 userId 를 넣지 않는다.""")
     @ApiResponse(responseCode = "200", description = "내 프로필. 협업 온도와 참여 활동까지 함께 실린다.")
     @ApiResponse(responseCode = "404",
