@@ -1,7 +1,7 @@
 # === Secrets & Environment (절대 이미지/빌드 컨텍스트에 포함 금지) ===
-.env
-.env.*
-*.env
+**/.env
+**/.env.*
+**/*.env
 application-local.properties
 application-secret.properties
 http-client.private.env.json

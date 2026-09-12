@@ -6,8 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -41,7 +39,8 @@ class IntentExtractionLiveTest {
     @Test
     @DisplayName("발화 1개 — 재질문 분기: missing_fields 가 남고 임베딩은 오지 않는다")
     void singleMessageAsksAgain() {
-        IntentExtractResponse response = client.extract(List.of("디자인 팀 찾고 있어요"));
+        IntentExtractResponse response = client.extract(
+          IntentExtractRequest.users("디자인 팀 찾고 있어요"));
 
         assertThat(response.getMissingFields()).isNotEmpty();
         assertThat(response.isCompleted()).isFalse();
@@ -53,7 +52,7 @@ class IntentExtractionLiveTest {
     @DisplayName("발화 2개 — 완료 분기: 1536 차원 임베딩과 extracted 가 함께 온다")
     void twoMessagesComplete() {
         IntentExtractResponse response = client.extract(
-          List.of("디자인 팀 찾고 있어요", "완전 처음이에요"));
+          IntentExtractRequest.users("디자인 팀 찾고 있어요", "완전 처음이에요"));
 
         assertThat(response.isCompleted()).isTrue();
         assertThat(response.getEmbeddingVector()).hasSize(1536);
@@ -68,7 +67,7 @@ class IntentExtractionLiveTest {
     @DisplayName("중첩 extracted 의 스네이크 케이스 필드가 채워진다")
     void nestedExtractedIsMapped() {
         IntentExtractResponse response = client.extract(
-          List.of("디자인 팀 찾고 있어요", "완전 처음이에요"));
+          IntentExtractRequest.users("디자인 팀 찾고 있어요", "완전 처음이에요"));
 
         IntentExtractResponse.Extracted extracted = response.getExtracted();
 

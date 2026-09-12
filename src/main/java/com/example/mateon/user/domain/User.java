@@ -90,6 +90,16 @@ public class User {
     @Column(columnDefinition = "text")
     private String portfolio;
 
+    // 매칭 의도 추출(/intents/extract) 앞에 프로필·포트폴리오를 접두로 실을지.
+    // 기본 꺼짐 — 켜기 전엔 지금과 같이 챗 발화만 임베딩된다.
+    @Column(name = "match_include_profile", nullable = false)
+    @Builder.Default
+    private boolean matchIncludeProfile = false;
+
+    @Column(name = "match_include_portfolio", nullable = false)
+    @Builder.Default
+    private boolean matchIncludePortfolio = false;
+
     // 프로필 이미지의 객체 저장소 공개 URL. 업로드 전엔 null 이고, 전용 엔드포인트
     // (POST/DELETE /api/users/me/profile-image) 로만 바뀐다 — update() 가 다루지 않는 이유다.
     @Column(name = "profile_image_url", length = 512)
@@ -105,7 +115,7 @@ public class User {
 
     public void update(String name, String school, String campus, String college, String major, String grade,
       String interestJobPrimary, String interestJobSecondary, String interestJobTertiary,
-      String tagline, String portfolio) {
+      String tagline, String portfolio, Boolean matchIncludeProfile, Boolean matchIncludePortfolio) {
         if (name != null) {
             this.name = name;
         }
@@ -138,6 +148,12 @@ public class User {
         }
         if (portfolio != null) {
             this.portfolio = portfolio;
+        }
+        if (matchIncludeProfile != null) {
+            this.matchIncludeProfile = matchIncludeProfile;
+        }
+        if (matchIncludePortfolio != null) {
+            this.matchIncludePortfolio = matchIncludePortfolio;
         }
     }
 

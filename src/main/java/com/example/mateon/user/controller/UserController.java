@@ -34,6 +34,9 @@ public class UserController {
                     마이페이지 화면이 쓰는 경로다. 프로필 기본 항목에 더해 협업 온도·평가 건수·
                     참여 활동까지 한 번에 실린다 (폐기 예정인 `/mypage` 와 같은 값).
 
+                    `matchIncludeProfile` / `matchIncludePortfolio` 도 여기만 실린다. 기본 false.
+                    남의 프로필·지원서 applicant 에는 없다.
+
                     대상은 토큰의 주인이라 경로에 userId 를 넣지 않는다.""")
     @ApiResponse(responseCode = "200", description = "내 프로필. 협업 온도와 참여 활동까지 함께 실린다.")
     @ApiResponse(responseCode = "404",
@@ -51,7 +54,12 @@ public class UserController {
                     수정 화면에서 바꾼 것만 실어 보내도 된다.
 
                     이메일·학교 인증 상태·비밀번호는 여기서 바꿀 수 없다
-                    (비밀번호는 `POST /api/users/password/change`).""")
+                    (비밀번호는 `POST /api/users/password/change`).
+
+                    `matchIncludeProfile` / `matchIncludePortfolio` 는 매칭 의도 추출에
+                    프로필·포트폴리오를 접두로 넣을지다. 기본 false 이고, 보낸 필드만 바뀐다.
+                    의도 추출을 이미 끝낸 뒤에 켜거나 본문을 바꾸면 서버가 같은 대화를
+                    다시 추출한다 (채팅을 다시 할 필요는 없다).""")
     @ApiResponse(responseCode = "200", description = "수정 후의 내 프로필.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")

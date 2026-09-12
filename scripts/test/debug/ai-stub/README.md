@@ -28,7 +28,7 @@
 호출마다 요청을 콘솔에 덤프하고 자체 검증한다:
 
 - (intents) `id` 가 1 부터 연속 증가하는가 (백엔드가 DB 의 `seq` 대신 재채번하는지)
-- (intents) USER 발화만 들어있는가 (`assistant_message` 가 섞이지 않았는지), 호출할 때마다 누적되는가
+- (intents) `role` 이 `user`/`assistant` 로 실리는가, `[자기소개서]`/`[포트폴리오]` 접두가 배열 앞에 오는가
 - (teams) `intro_text`/`recruiting_roles`/`required_skills`/`contest_field` 가 제대로 실려 오는가
 - (contests) `event_id`/`title`/`description` 이 실려 오는가, 유사도 지도에 후보마다 `embedding_vector` 가 붙는가
 - (recommendations) `query_metadata` 가 실려 오는가, 후보마다 1536 차원 벡터와 정규화 메타데이터가
@@ -74,14 +74,16 @@ pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTER
 
 ## 동작
 
-`POST /intents/extract` — 받은 `messages` 개수로 분기한다:
+`POST /intents/extract` — `[자기소개서]`/`[포트폴리오]` 접두를 뺀 대화 턴 개수로 분기한다.
+접두는 토글이 켜져 있을 때 배열 앞에 붙는 프로필이지 사용자 턴이 아니다. 그걸 세면 첫 발화만으로
+완료가 되어 재질문 분기를 못 탄다.
 
-| messages 개수 | 응답 |
+| 대화 턴 개수 (접두 제외) | 응답 |
 |---|---|
 | 1개 | `missing_fields=["experience_level"]`, `embedding_*=null` → 재질문 |
 | 2개 이상 | `missing_fields=[]`, `embedding_vector`=1536개 난수 → 완료 |
 
-즉 E2E 에서 메시지를 두 번 보내면 재질문 → 완료 흐름을 그대로 밟는다.
+즉 E2E 에서 사용자 메시지를 두 번 보내면 재질문 → 완료 흐름을 그대로 밟는다.
 
 `POST /internal/teams/embedding:refresh` — 항상 임베딩 + `metadata` 를 반환한다.
 `missing_fields=["activity_intensity"]` 로 고정 — 스펙상 미추출 항목이 있어도 벡터는 함께 온다는

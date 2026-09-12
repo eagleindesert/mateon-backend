@@ -1,5 +1,6 @@
 package com.example.mateon.matching.service;
 
+import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.aichat.domain.AiDomainTask;
 import com.example.mateon.aichat.domain.RoutableDomain;
 import com.example.mateon.aichat.domain.TaskCloseReason;
@@ -8,6 +9,7 @@ import com.example.mateon.aichat.service.AiChatService;
 import com.example.mateon.aichat.service.AiDomainTaskService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.matching.client.intent.IntentExtractRequest;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.matching.domain.*;
@@ -79,15 +81,14 @@ public class MatchingIntentSessionService {
         AiDomainTask task = taskService.openOrResume(
           turn.chatSessionId(), userId, RoutableDomain.MATCHING_INTENT);
 
+        User user = requireUser(userId);
         MatchingIntentSession session = sessionRepository.findByTaskId(task.getId())
-          .orElseGet(() -> sessionRepository.save(
-          new MatchingIntentSession(requireUser(userId), task)));
+          .orElseGet(() -> sessionRepository.save(new MatchingIntentSession(user, task)));
 
         chatService.assignTask(turn.messageId(), task.getId());
+        chatService.syncIntentPrefixes(task.getId(), IntentExtractPrefixFactory.from(user));
 
-        List<String> userMessages = chatService.findUserContents(task.getId());
-
-        return new ConversationSnapshot(session.getId(), userMessages);
+        return new ConversationSnapshot(session.getId(), extractMessages(task.getId()));
     }
 
     /**
@@ -198,6 +199,7 @@ public class MatchingIntentSessionService {
         // 발화까지 끼면 이 API 가 "의도 추출 대화"를 돌려준다는 기존 계약이 달라진다.
         List<IntentSessionResponseDTO.MessageDTO> messages
           = chatService.findTaskMessages(session.getTask().getId()).stream()
+            .filter(AiChatMessage::isClientVisible)
             .map(IntentSessionResponseDTO.MessageDTO::new)
             .toList();
 
@@ -211,6 +213,47 @@ public class MatchingIntentSessionService {
           readExtractedJson(session.getLastExtractedJson()),
           messages
         );
+    }
+
+    /**
+     * 슬롯을 만든 작업의 로그를 최신 접두와 맞춰 extract 스냅샷으로 만든다.
+     * 슬롯이 없으면 empty — 의도 추출을 아직 안 끝낸 유저는 재추출할 것이 없다.
+     */
+    public Optional<ConversationSnapshot> prepareReextract(Long userId) {
+        return slotRepository.findByUserIdWithSessionTaskAndUser(userId)
+          .map(slot -> {
+              Long taskId = slot.getSession().getTask().getId();
+              chatService.syncIntentPrefixes(taskId, IntentExtractPrefixFactory.from(slot.getUser()));
+              return new ConversationSnapshot(slot.getSession().getId(), extractMessages(taskId));
+          });
+    }
+
+    /**
+     * 재추출 결과를 반영한다. assistant 는 로그에 남기되 화면에는 안 나가고, 작업 status 는
+     * CLOSED 로 둔다.
+     *
+     * @return 완료면 슬롯·벡터를 저장하고 true. 미완료면 기존 쌍을 유지하고 false.
+     */
+    public boolean applyCompletedReextract(Long sessionId, Long userId, IntentExtractResponse ai) {
+        MatchingIntentSession session = sessionRepository.findById(sessionId)
+          .orElseThrow(ErrorCode.RESOURCE_NOT_FOUND::toException);
+        String assistantMessage = ai.getAssistantMessage();
+        if (assistantMessage != null && !assistantMessage.isBlank()) {
+            chatService.appendHiddenDomainReply(session.getTask().getId(), assistantMessage);
+        }
+        if (!ai.isCompleted()) {
+            log.warn("매칭 재추출이 미완료를 돌려 기존 슬롯을 유지합니다. sessionId={}, missing={}",
+              sessionId, ai.getMissingFields());
+            return false;
+        }
+        upsertSlot(userId, session, ai);
+        upsertEmbedding(userId, ai.getEmbeddingVector());
+        return true;
+    }
+
+    private List<IntentExtractRequest.Message> extractMessages(Long taskId) {
+        List<AiChatMessage> taskMessages = chatService.findTaskMessages(taskId);
+        return IntentExtractMessageAssembler.assemble(taskMessages);
     }
 
     private User requireUser(Long userId) {

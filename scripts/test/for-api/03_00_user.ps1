@@ -61,6 +61,10 @@ if ($updatedProfile -and $updatedProfile.data) {
     Assert-Test -Title "3.2c 수정 응답에 방금 보낸 portfolio 가 실린다" `
         -Condition ($updatedProfile.data.portfolio -eq $portfolioText) `
         -Detail "응답=$($updatedProfile.data.portfolio)" | Out-Null
+
+    Assert-Test -Title "3.2c2 /me 에 매칭 토글 필드가 있다 (기본 false)" `
+        -Condition ($uKeys -contains 'matchIncludeProfile' -and $uKeys -contains 'matchIncludePortfolio') `
+        -Detail "matchIncludeProfile=$($updatedProfile.data.matchIncludeProfile), matchIncludePortfolio=$($updatedProfile.data.matchIncludePortfolio)" | Out-Null
 }
 
 # 3.2d 다시 조회해도 같은 값이어야 한다 (응답만 만들어 주고 저장이 안 된 경우를 잡는다)
@@ -77,6 +81,22 @@ $partial = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "
 Assert-Test -Title "3.2e portfolio 를 안 보내면 기존 값이 유지된다" `
     -Condition ($partial.data.portfolio -eq $portfolioText) `
     -Detail "tagline=$($partial.data.tagline), portfolio=$($partial.data.portfolio)" | Out-Null
+
+# 3.2f 매칭 토글을 켜면 응답에 true 가 실리고, 빼고 보내면 유지된다.
+$toggled = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "3.2f 매칭 토글 on" -Body @{
+    matchIncludeProfile   = $true
+    matchIncludePortfolio = $true
+}
+Assert-Test -Title "3.2f 토글을 켜면 true 가 실린다" `
+    -Condition ($toggled.data.matchIncludeProfile -eq $true -and $toggled.data.matchIncludePortfolio -eq $true) `
+    -Detail "profile=$($toggled.data.matchIncludeProfile), portfolio=$($toggled.data.matchIncludePortfolio)" | Out-Null
+
+$toggleKept = Invoke-Api -Method PUT -Path "/api/users/me" -Auth -PassThru -Title "3.2g 토글 없이 수정" -Body @{
+    tagline = "토글 유지 확인"
+}
+Assert-Test -Title "3.2g 토글을 안 보내면 기존 true 가 유지된다" `
+    -Condition ($toggleKept.data.matchIncludeProfile -eq $true -and $toggleKept.data.matchIncludePortfolio -eq $true) `
+    -Detail "profile=$($toggleKept.data.matchIncludeProfile), portfolio=$($toggleKept.data.matchIncludePortfolio)" | Out-Null
 
 # 3.3 마이페이지 조회
 Invoke-Api -Method GET -Path "/api/users/mypage" -Auth -Title "3.3 마이페이지 조회"

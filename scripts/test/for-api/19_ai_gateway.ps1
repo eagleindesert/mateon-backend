@@ -221,6 +221,16 @@ Assert-Test -Title "19.7b lastMessage 가 마지막 한 줄" -Condition ([bool]$
 
 # ── 19.8 매칭 위임 (대화 세션 B) ────────────────────────────────────────────
 # 새 대화 세션을 쓰는 이유는 상단 주석 (2) 참고 — 위임이 시작되면 그 대화 세션은 라우터를 건너뛴다.
+#
+# 3.2f 가 매칭 토글을 켜 두면 첫 extract 앞에 [자기소개서]/[포트폴리오] 접두가 붙는다.
+# 스텁은 메시지 개수로 완료를 가르고, 실제 LLM 도 프로필이 있으면 한 턴에 채운다.
+# 19.9 는 "진행 중 작업이 하나일 때 분류를 건너뛴다"를 보는 검사라 여기서는 토글을 끈다.
+Invoke-Api -Method PUT -Path "/api/users/me" -Auth `
+    -Title "19.8pre 매칭 접두 토글 off (첫 턴에 작업이 닫히지 않게)" -Body @{
+        matchIncludeProfile   = $false
+        matchIncludePortfolio = $false
+    }
+
 $sb = Invoke-Api -Method POST -Path "/api/ai/chat/sessions" -Auth -PassThru `
     -Title "19.8 새 대화 시작 (대화 세션 B - 매칭 위임 검증용)"
 $sessionB = $sb.data.sessionId
@@ -231,6 +241,7 @@ $match = Invoke-Api -Method POST -Path "/api/ai/chat/messages" -Auth -PassThru `
         message   = "백엔드 개발자인데 같이 공모전 나갈 팀 찾고 있어요"
     }
 
+$matchCompleted = $false
 if (-not $match.success) {
     Write-Host "  (!) 위임 호출이 실패했습니다: $($match.message)" -ForegroundColor Red
     Write-Host "      502/503 이면 백엔드가 FastAPI 에 닿지 못하는 상태입니다 (라우터가 아니라 도메인 AI)." -ForegroundColor Yellow
@@ -249,12 +260,16 @@ if (-not $match.success) {
         -Condition ($match.data.assistantMessage -eq $match.data.matching.assistantMessage)
     Assert-Test -Title "19.8f embeddingVector 가 응답에 없다 (1536개 float 를 프론트로 안 보낸다)" `
         -Condition ($null -eq $match.data.matching.embeddingVector)
+
+    $matchCompleted = [bool]$match.data.matching.completed
+    Write-Host "  (i) matching.completed=$matchCompleted (false 여야 19.9 지름길이 성립한다)" -ForegroundColor DarkGray
 }
 
 # ── 19.9 진행 중 작업이 하나면 분류를 건너뛴다 ──────────────────────────────
 # 19.8 이 이 대화 세션에 매칭 작업을 열었으므로, 이제 무슨 말을 해도 라우터를 안 타고
 # 그리로 간다. 사용자가 그 AI 의 질문에 답하는 중이라는 판단이다.
 # 일부러 범위 밖 발화를 보내 — 라우터를 탔다면 OUT_OF_SCOPE 가 나올 문장이다.
+# 다만 19.8 이 한 턴에 완료되면 작업이 닫혀 지름길이 없다. 그때는 단정하지 않는다.
 if ($match.success) {
     $shortcut = Invoke-Api -Method POST -Path "/api/ai/chat/messages" -Auth -PassThru `
         -Title "19.9 위임 중 대화 세션에 범위 밖 발화 (그래도 매칭으로 가야 정상)" -Body @{
@@ -264,9 +279,14 @@ if ($match.success) {
 
     if ($shortcut.success) {
         if ($routerLive) {
-            Assert-Test -Title "19.9a 분류를 건너뛰고 매칭으로 이어짐" `
-                -Condition ($shortcut.data.domain -eq "MATCHING_INTENT") `
-                -Detail "domain=$($shortcut.data.domain) (라우터를 탔다면 OUT_OF_SCOPE 였을 문장)"
+            if ($matchCompleted) {
+                Write-Host "  (i) 19.9a 지름길 검증 - 19.8 에서 매칭이 이미 완료되어 작업이 닫혔습니다." -ForegroundColor DarkGray
+                Write-Host "      분류를 건너뛸 진행 중 작업이 없어 단정하지 않습니다 (domain=$($shortcut.data.domain))." -ForegroundColor DarkGray
+            } else {
+                Assert-Test -Title "19.9a 분류를 건너뛰고 매칭으로 이어짐" `
+                    -Condition ($shortcut.data.domain -eq "MATCHING_INTENT") `
+                    -Detail "domain=$($shortcut.data.domain) (라우터를 탔다면 OUT_OF_SCOPE 였을 문장)"
+            }
         } else {
             Write-Host "  (i) 19.9a 지름길 검증 - 분류가 폴백 중이면 어차피 매칭이라 의미가 없어 건너뜁니다." -ForegroundColor DarkGray
         }

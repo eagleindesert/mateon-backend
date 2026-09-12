@@ -53,4 +53,18 @@ public class UserUpdateRequest {
     @Schema(description = "사용자가 직접 쓰는 포트폴리오 서술. PDF 업로드(/api/portfolios/summarize)와는 별개 항목이다.")
     @Size(max = 5000, message = "포트폴리오는 5000자 이하여야 합니다.")
     private String portfolio;
+
+    /**
+     * 매칭 임베딩에 프로필(학교/전공/학년/관심직무/한 줄 소개)을 넣을지.
+     *
+     * <p>
+     * 다른 필드와 같이 보낸 값만 바뀐다. 생략하거나 null 이면 기존 값이 유지된다.
+     */
+    @Schema(description = "매칭 의도 추출에 프로필(학교·전공·학년·관심직무·한 줄 소개)을 접두로 넣을지. "
+      + "보낸 필드만 바뀐다. 기본 false.")
+    private Boolean matchIncludeProfile;
+
+    @Schema(description = "매칭 의도 추출에 프로필 포트폴리오 서술을 접두로 넣을지. "
+      + "보낸 필드만 바뀐다. 기본 false. PDF 캐시가 아니라 users.portfolio 다.")
+    private Boolean matchIncludePortfolio;
 }

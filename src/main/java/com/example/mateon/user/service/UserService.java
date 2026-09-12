@@ -5,6 +5,7 @@ import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
 import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.event.MatchingIntentReextractRequestedEvent;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamMember;
@@ -20,6 +21,7 @@ import com.example.mateon.user.dto.UserProfileResponse;
 import com.example.mateon.user.dto.UserResponse;
 import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,7 @@ public class UserService {
     private final MatchingIntentSlotRepository matchingIntentSlotRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 내 프로필. 마이페이지 화면이 필요한 값(협업 온도, 참여 활동)까지 함께 싣는다.
@@ -63,6 +66,9 @@ public class UserService {
         User user = userRepository.findById(userId)
           .orElseThrow(ErrorCode.USER_NOT_FOUND::toException);
 
+        boolean reextract = matchingIntentSlotRepository.findByUserId(userId).isPresent()
+          && matchingSourcesChanged(user, request);
+
         user.update(
           request.getName(),
           request.getSchool(),
@@ -74,16 +80,67 @@ public class UserService {
           request.getInterestJobSecondary(),
           request.getInterestJobTertiary(),
           request.getTagline(),
-          request.getPortfolio()
+          request.getPortfolio(),
+          request.getMatchIncludeProfile(),
+          request.getMatchIncludePortfolio()
         );
 
         userRepository.save(user);
+        if (reextract) {
+            eventPublisher.publishEvent(new MatchingIntentReextractRequestedEvent(userId));
+        }
         // GET /me 와 같은 DTO 로 나가므로 온도·활동도 같이 싣는다. 한쪽만 담으면 프로필 수정 직후
         // 화면에서 그 값들이 사라진다.
         return UserResponse.ofFull(
           user,
           loadCollaborationScore(userId),
           loadParticipatedActivities(userId));
+    }
+
+    /**
+     * 매칭 임베딩 입력에 영향을 주는 값이 이번 요청에서 바뀌었는지.
+     *
+     * <p>
+     * 토글이 바뀌면 무조건 다시 뽑는다. 본문은 그 토글이 켜진 뒤에만 본다 — 꺼 둔 채
+     * 전공만 고치는 건 벡터와 무관하다. 이름만 바꾼 요청도 여기 안 걸린다.
+     */
+    private static boolean matchingSourcesChanged(User user, UserUpdateRequest request) {
+        boolean profileOn = request.getMatchIncludeProfile() != null
+          ? request.getMatchIncludeProfile() : user.isMatchIncludeProfile();
+        boolean portfolioOn = request.getMatchIncludePortfolio() != null
+          ? request.getMatchIncludePortfolio() : user.isMatchIncludePortfolio();
+
+        if (request.getMatchIncludeProfile() != null
+          && request.getMatchIncludeProfile() != user.isMatchIncludeProfile()) {
+            return true;
+        }
+        if (request.getMatchIncludePortfolio() != null
+          && request.getMatchIncludePortfolio() != user.isMatchIncludePortfolio()) {
+            return true;
+        }
+        if (profileOn && profileFieldsChanged(user, request)) {
+            return true;
+        }
+        return portfolioOn && sentAndDifferent(user.getPortfolio(), request.getPortfolio());
+    }
+
+    private static boolean profileFieldsChanged(User user, UserUpdateRequest request) {
+        return sentAndDifferent(user.getSchool(), request.getSchool())
+          || sentAndDifferent(user.getCampus(), request.getCampus())
+          || sentAndDifferent(user.getCollege(), request.getCollege())
+          || sentAndDifferent(user.getMajor(), request.getMajor())
+          || sentAndDifferent(user.getGrade(), request.getGrade())
+          || sentAndDifferent(user.getInterestJobPrimary(), request.getInterestJobPrimary())
+          || sentAndDifferent(user.getInterestJobSecondary(), request.getInterestJobSecondary())
+          || sentAndDifferent(user.getInterestJobTertiary(), request.getInterestJobTertiary())
+          || sentAndDifferent(user.getTagline(), request.getTagline());
+    }
+
+    /**
+     * 요청에 필드가 있고(null 이 아니고) 기존 값과 다를 때만 true. 생략은 유지이므로 변경이 아니다.
+     */
+    private static boolean sentAndDifferent(String current, String sent) {
+        return sent != null && !Objects.equals(current, sent);
     }
 
     /**

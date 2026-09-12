@@ -71,7 +71,7 @@ public class MatchingIntentService {
         //    실패하면 여기서 예외가 나가고 ①에서 표시한 사용자 메시지는 남는다 — 의도된 동작이다.
         //    채팅 로그로서 옳고, AI 가 stateless 라 다음 호출에 전체 배열을 다시 보내므로
         //    재시도가 자연히 이어진다.
-        IntentExtractResponse ai = client.extract(snapshot.getUserMessages());
+        IntentExtractResponse ai = client.extract(snapshot.getMessages());
 
         // ③ [TX2] ASSISTANT 메시지 + 진행상황 갱신 + (완료 시) 슬롯/임베딩 upsert → 커밋
         return sessionService.applyResult(snapshot.getSessionId(), userId, ai);
@@ -83,5 +83,19 @@ public class MatchingIntentService {
 
     public void restart(Long userId) {
         sessionService.restart(userId);
+    }
+
+    /**
+     * 이미 완료된 의도 추출을 최신 접두로 다시 돌린다.
+     *
+     * <p>
+     * 슬롯이 없으면 아무 일도 하지 않는다. 응답의 assistant 는 로그에만 남고 화면에는 안
+     * 나간다. 미완료면 기존 슬롯·벡터를 유지한다. 작업 status 는 CLOSED 그대로다.
+     */
+    public void reextractCompleted(Long userId) {
+        sessionService.prepareReextract(userId).ifPresent(snapshot -> {
+            IntentExtractResponse ai = client.extract(snapshot.getMessages());
+            sessionService.applyCompletedReextract(snapshot.getSessionId(), userId, ai);
+        });
     }
 }

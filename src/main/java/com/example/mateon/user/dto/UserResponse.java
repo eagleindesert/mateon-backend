@@ -74,6 +74,16 @@ public class UserResponse {
     @Schema(description = "사용자가 직접 쓴 포트폴리오 서술. 아직 안 썼으면 null.")
     private String portfolio;
     /**
+     * 매칭에 프로필을 넣을지. {@link #ofFull} 에서만 채운다. 지원서 applicant 처럼
+     * {@link #ofBasic} 으로 만든 응답에서는 null 이다 — 온도 건수와 같은 구분이다.
+     */
+    @Schema(description = "매칭 의도 추출에 프로필을 접두로 넣을지. "
+      + "내 프로필(/me)에서만 채워지고, 지원서 applicant 에서는 null 이다.")
+    private Boolean matchIncludeProfile;
+    @Schema(description = "매칭 의도 추출에 포트폴리오 서술을 접두로 넣을지. "
+      + "내 프로필(/me)에서만 채워지고, 지원서 applicant 에서는 null 이다.")
+    private Boolean matchIncludePortfolio;
+    /**
      * 프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null.
      */
     @Schema(description = "프로필 사진 공개 URL. 사진이 없거나 업로드가 아직 안 끝났으면 null "
@@ -136,6 +146,8 @@ public class UserResponse {
       UserCollaborationScore score,
       List<MyPageResponseDTO.ActivitySummaryDTO> activities) {
         return baseOf(user)
+          .matchIncludeProfile(user.isMatchIncludeProfile())
+          .matchIncludePortfolio(user.isMatchIncludePortfolio())
           .collaborationTemperature(score != null
             ? score.getTemperature()
             : CollaborationTemperatureCalculator.INITIAL)

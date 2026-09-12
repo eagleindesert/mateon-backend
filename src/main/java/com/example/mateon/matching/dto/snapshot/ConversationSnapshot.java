@@ -1,5 +1,6 @@
 package com.example.mateon.matching.dto.snapshot;
 
+import com.example.mateon.matching.client.intent.IntentExtractRequest;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +21,9 @@ public class ConversationSnapshot {
 
     private final Long sessionId;
 
-    /** 사용자 발화만, 대화 순서대로. FastAPI 로 그대로 보낸다. */
-    private final List<String> userMessages;
+    /**
+     * FastAPI 로 보낼 배열. 접두(있으면) 다음 일반 턴(USER+ASSISTANT). id 는 클라이언트가
+     * 보내기 직전에 1..N 으로 다시 매긴다.
+     */
+    private final List<IntentExtractRequest.Message> messages;
 }

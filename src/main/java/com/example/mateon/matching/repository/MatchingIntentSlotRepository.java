@@ -38,4 +38,12 @@ public interface MatchingIntentSlotRepository extends JpaRepository<MatchingInte
      */
     @Query("SELECT s FROM MatchingIntentSlot s JOIN FETCH s.user WHERE s.user.id = :userId")
     Optional<MatchingIntentSlot> findByUserIdWithUser(Long userId);
+
+    /**
+     * 재추출용. 슬롯을 만든 세션·작업·유저를 한 번에 읽는다 — 접두 sync 가 task 와 user 를
+     * 둘 다 필요로 하고, TX 밖에서 프록시를 만지면 안 된다.
+     */
+    @Query("SELECT s FROM MatchingIntentSlot s JOIN FETCH s.user JOIN FETCH s.session sess "
+      + "JOIN FETCH sess.task WHERE s.user.id = :userId")
+    Optional<MatchingIntentSlot> findByUserIdWithSessionTaskAndUser(Long userId);
 }

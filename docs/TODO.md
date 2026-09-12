@@ -24,3 +24,7 @@
     `TeamOfferControllerTest`, `AuthControllerTest` 의 `$.data` / `$.message` assert 를 함께 뒤집기
     (`AuthControllerTest.messagePlacementDiffersBetweenEndpoints` 가 두 모양을 나란히 보여 줌)
   - 11번의 `UserResponse.from` 오버로딩 정리와 성격이 같음
+
+- 유저 임베딩 및 팀 임베딩 스케줄러 도입
+- 관리자 대시보드로 위 스케줄링 수동 트리거 가능하게
+  - 이때 보안을 위해 2FA(Google Auth)까지 같이 구현해야 함

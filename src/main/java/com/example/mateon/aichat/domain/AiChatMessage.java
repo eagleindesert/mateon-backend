@@ -29,8 +29,8 @@ import java.time.LocalDateTime;
  * 참조 무결성이 생겼고, 매 행 반복되던 domain 값이 작업 행 하나로 모였다.
  *
  * <p>
- * seq 는 대화 세션 안의 정렬 키일 뿐이다. FastAPI 로 보낼 때는 USER 행만 골라 1..N 으로
- * 재채번한다 (AI 명세가 id 의 연속 증가를 요구한다).
+ * seq 는 그 행이 기록된 시점의 번호다. FastAPI 로 보낼 때는 접두(prefix_kind)를 앞에
+ * 두고 일반 턴을 seq 순으로 이은 뒤 1..N 으로 재채번한다.
  */
 @Entity
 @Table(name = "ai_chat_messages", indexes = {
@@ -67,14 +67,54 @@ public class AiChatMessage {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    /**
+     * 매칭 의도 추출 접두이면 PROFILE/PORTFOLIO. 일반 턴은 null.
+     *
+     * <p>
+     * extract 요청은 이 값으로 접두를 골라 배열 앞에 붙인다. 화면 숨김은
+     * {@link #clientVisible} 이 본다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "prefix_kind", length = 20)
+    private IntentPrefixKind prefixKind;
+
+    /**
+     * 화면·사이드바에 나갈지. 접두와 재추출 assistant 는 false.
+     *
+     * <p>
+     * prefix_kind 는 extract 접두 식별용이고, 숨김은 이 칼럼만 본다. Java boolean 기본값이
+     * false 라서 공개 생성자가 값을 항상 넣는다.
+     */
+    @Column(name = "client_visible", nullable = false)
+    private boolean clientVisible;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public AiChatMessage(AiChatSession chatSession, Integer seq, AiChatRole role, String content) {
+        this(chatSession, seq, role, content, null, true);
+    }
+
+    public AiChatMessage(AiChatSession chatSession, Integer seq, AiChatRole role, String content,
+      IntentPrefixKind prefixKind) {
+        this(chatSession, seq, role, content, prefixKind, prefixKind == null);
+    }
+
+    public AiChatMessage(AiChatSession chatSession, Integer seq, AiChatRole role, String content,
+      IntentPrefixKind prefixKind, boolean clientVisible) {
         this.chatSession = chatSession;
         this.seq = seq;
         this.role = role;
+        this.content = content;
+        this.prefixKind = prefixKind;
+        this.clientVisible = clientVisible;
+    }
+
+    /**
+     * 같은 접두 kind 를 다시 보낼 때 본문만 덮는다. seq 는 최초 전송 시점을 유지한다.
+     */
+    public void replaceContent(String content) {
         this.content = content;
     }
 
@@ -89,3 +129,4 @@ public class AiChatMessage {
         this.task = task;
     }
 }
+

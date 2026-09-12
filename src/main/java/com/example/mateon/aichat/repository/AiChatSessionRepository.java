@@ -31,14 +31,18 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, Lo
      * 조회하면 N+1 이 된다.
      *
      * <p>
-     * {@code m.seq = s.lastSeq} 로 마지막 한 줄을 집는다. 발화가 없는 새 대화 세션은
-     * lastSeq 가 0 이라 매칭되는 행이 없고 null 이 나온다.
+     * 미리보기는 <b>화면에 보이는 마지막 줄</b>이다. 접두·재추출 assistant 는 lastSeq 를
+     * 차지할 수 있어 {@code seq = lastSeq} 로 집으면 사이드바에 안 보일 문구가 나온다.
+     * {@code client_visible = true} 인 행 중 seq 가 가장 큰 줄을 고른다. 발화가 없는 새
+     * 대화는 서브쿼리가 빈다.
      */
     @Query("""
             SELECT new com.example.mateon.aichat.dto.AiChatSessionSummary(
                        s.id, s.title,
                        (SELECT m.content FROM AiChatMessage m
-                         WHERE m.chatSession = s AND m.seq = s.lastSeq),
+                         WHERE m.chatSession = s AND m.clientVisible = true
+                           AND m.seq = (SELECT MAX(m2.seq) FROM AiChatMessage m2
+                                         WHERE m2.chatSession = s AND m2.clientVisible = true)),
                        s.updatedAt)
             FROM AiChatSession s
             WHERE s.user.id = :userId
