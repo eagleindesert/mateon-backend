@@ -35,7 +35,7 @@ class UserTest {
           .build();
 
         user.update("새이름", "고려대학교", "서울", "정보대학", "컴퓨터학과", "4학년",
-          "프론트", "PM", "일러스트", "새 한 줄", "새 포트폴리오");
+          "프론트", "PM", "일러스트", "새 한 줄", "새 포트폴리오", true, false);
 
         assertThat(user.getName()).isEqualTo("새이름");
         assertThat(user.getSchool()).isEqualTo("고려대학교");
@@ -48,6 +48,8 @@ class UserTest {
         assertThat(user.getInterestJobTertiary()).isEqualTo("일러스트");
         assertThat(user.getTagline()).isEqualTo("새 한 줄");
         assertThat(user.getPortfolio()).isEqualTo("새 포트폴리오");
+        assertThat(user.isMatchIncludeProfile()).isTrue();
+        assertThat(user.isMatchIncludePortfolio()).isFalse();
     }
 
     @Test
@@ -67,7 +69,7 @@ class UserTest {
           .portfolio("기존")
           .build();
 
-        user.update(null, null, null, null, null, null, null, null, null, null, null);
+        user.update(null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertThat(user.getName()).isEqualTo("김루미");
         assertThat(user.getSchool()).isEqualTo("단국대학교");
@@ -80,6 +82,8 @@ class UserTest {
         assertThat(user.getInterestJobTertiary()).isEqualTo("디자인");
         assertThat(user.getTagline()).isEqualTo("한 줄");
         assertThat(user.getPortfolio()).isEqualTo("기존");
+        assertThat(user.isMatchIncludeProfile()).isFalse();
+        assertThat(user.isMatchIncludePortfolio()).isFalse();
     }
 
     @Test

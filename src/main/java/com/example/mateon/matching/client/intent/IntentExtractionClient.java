@@ -23,7 +23,8 @@ import java.util.List;
  * 별도 FastAPI AI 서버의 POST /intents/extract 를 호출한다.
  *
  * <p>AI 서버는 stateless — 매 호출마다 지금까지의 대화 전체를 보낸다. 추출/임베딩/문구 생성은
- * 전부 FastAPI 가 하고, 여기서는 요청을 만들어 보내고 응답을 받아오기만 한다.
+ * 전부 FastAPI 가 하고, 여기서는 요청을 만들어 보내고 응답을 받아오기만 한다. 배열에는
+ * 접두와 assistant 발화도 포함된다 (명세 2026-07-15).
  */
 @Slf4j
 @Component
@@ -46,15 +47,16 @@ public class IntentExtractionClient {
     }
 
     /**
-     * @param userMessages 사용자 발화만, 대화 순서대로. (AI 명세상 messages 는 "사용자가 한 말"만 담는다)
+     * @param turns 이미 명세 순(접두 → USER+ASSISTANT)으로 줄 세운 발화. id 는 여기서 1..N 으로 다시 매긴다.
      */
-    public IntentExtractResponse extract(List<String> userMessages) {
+    public IntentExtractResponse extract(List<IntentExtractRequest.Message> turns) {
         try {
             // AI 스펙: id 는 1부터 순서대로 증가. 배열 순서가 곧 대화 순서.
-            // DB 의 seq 를 그대로 쓰지 않고 여기서 재채번한다 (seq 는 ASSISTANT 행 때문에 건너뛴다).
-            List<IntentExtractRequest.Message> messages = new ArrayList<>();
-            for (int i = 0; i < userMessages.size(); i++) {
-                messages.add(new IntentExtractRequest.Message(i + 1, userMessages.get(i)));
+            // DB seq 는 기록 시점이라 접두·assistant 가 끼면 건너뛴다. 보내기 직전에 다시 매긴다.
+            List<IntentExtractRequest.Message> messages = new ArrayList<>(turns.size());
+            for (int i = 0; i < turns.size(); i++) {
+                IntentExtractRequest.Message turn = turns.get(i);
+                messages.add(new IntentExtractRequest.Message(i + 1, turn.getRole(), turn.getMessage()));
             }
 
             HttpHeaders headers = new HttpHeaders();

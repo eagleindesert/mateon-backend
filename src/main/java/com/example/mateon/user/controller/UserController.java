@@ -51,7 +51,12 @@ public class UserController {
                     수정 화면에서 바꾼 것만 실어 보내도 된다.
 
                     이메일·학교 인증 상태·비밀번호는 여기서 바꿀 수 없다
-                    (비밀번호는 `POST /api/users/password/change`).""")
+                    (비밀번호는 `POST /api/users/password/change`).
+
+                    `matchIncludeProfile` / `matchIncludePortfolio` 는 매칭 의도 추출에
+                    프로필·포트폴리오를 접두로 넣을지다. 기본 false 이고, 보낸 필드만 바뀐다.
+                    의도 추출을 이미 끝낸 뒤에 켜거나 본문을 바꾸면 서버가 같은 대화를
+                    다시 추출한다 (채팅을 다시 할 필요는 없다).""")
     @ApiResponse(responseCode = "200", description = "수정 후의 내 프로필.")
     @ApiResponse(responseCode = "404",
       description = "USER_NOT_FOUND — 사용자를 찾을 수 없습니다.")

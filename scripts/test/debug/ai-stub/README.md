@@ -28,7 +28,7 @@
 호출마다 요청을 콘솔에 덤프하고 자체 검증한다:
 
 - (intents) `id` 가 1 부터 연속 증가하는가 (백엔드가 DB 의 `seq` 대신 재채번하는지)
-- (intents) USER 발화만 들어있는가 (`assistant_message` 가 섞이지 않았는지), 호출할 때마다 누적되는가
+- (intents) `role` 이 `user`/`assistant` 로 실리는가, `[자기소개서]`/`[포트폴리오]` 접두가 배열 앞에 오는가
 - (teams) `intro_text`/`recruiting_roles`/`required_skills`/`contest_field` 가 제대로 실려 오는가
 - (contests) `event_id`/`title`/`description` 이 실려 오는가, 유사도 지도에 후보마다 `embedding_vector` 가 붙는가
 - (recommendations) `query_metadata` 가 실려 오는가, 후보마다 1536 차원 벡터와 정규화 메타데이터가

@@ -5,6 +5,7 @@ import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.service.AiChatService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.matching.client.intent.IntentExtractRequest;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.matching.client.intent.IntentExtractionClient;
 import com.example.mateon.matching.dto.response.MatchingIntentResponseDTO;
@@ -75,9 +76,9 @@ class MatchingIntentServiceTest {
     @DisplayName("세션 확보(TX1) → AI 호출(TX 밖) → 반영(TX2) 순서다 — 이 순서가 커넥션 풀을 지킨다")
     void followsTransactionBoundaries() {
         when(sessionService.bindTurn(USER_ID, TURN))
-          .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("디자인 팀 찾아요")));
+          .thenReturn(snapshot("디자인 팀 찾아요"));
         IntentExtractResponse ai = aiResponse();
-        when(client.extract(List.of("디자인 팀 찾아요"))).thenReturn(ai);
+        when(client.extract(IntentExtractRequest.users("디자인 팀 찾아요"))).thenReturn(ai);
         when(sessionService.applyResult(SESSION_ID, USER_ID, ai))
           .thenReturn(mock(MatchingIntentResponseDTO.class));
 
@@ -85,7 +86,7 @@ class MatchingIntentServiceTest {
 
         InOrder order = inOrder(sessionService, client);
         order.verify(sessionService).bindTurn(USER_ID, TURN);
-        order.verify(client).extract(List.of("디자인 팀 찾아요"));
+        order.verify(client).extract(IntentExtractRequest.users("디자인 팀 찾아요"));
         order.verify(sessionService).applyResult(SESSION_ID, USER_ID, ai);
     }
 
@@ -97,7 +98,7 @@ class MatchingIntentServiceTest {
         when(chatService.findOrCreateLatestSession(USER_ID)).thenReturn(session);
         when(chatService.appendUserMessage(USER_ID, 100L, "디자인 팀 찾아요")).thenReturn(TURN);
         when(sessionService.bindTurn(USER_ID, TURN))
-          .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("디자인 팀 찾아요")));
+          .thenReturn(snapshot("디자인 팀 찾아요"));
         when(client.extract(any())).thenReturn(aiResponse());
 
         service.submitMessage(USER_ID, "디자인 팀 찾아요");
@@ -111,7 +112,7 @@ class MatchingIntentServiceTest {
     @DisplayName("게이트웨이 진입점은 발화를 다시 기록하지 않는다 — 이중 기록이 이 설계의 유일한 함정이다")
     void gatewayEntryPointDoesNotRecordAgain() {
         when(sessionService.bindTurn(USER_ID, TURN))
-          .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("디자인 팀 찾아요")));
+          .thenReturn(snapshot("디자인 팀 찾아요"));
         when(client.extract(any())).thenReturn(aiResponse());
 
         service.submitTurn(USER_ID, TURN);
@@ -123,19 +124,19 @@ class MatchingIntentServiceTest {
     @DisplayName("AI 에는 그때까지의 사용자 발화 전체를 보낸다 (서버가 stateless 다)")
     void sendsWholeConversation() {
         when(sessionService.bindTurn(anyLong(), any()))
-          .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("첫 발화", "둘째 발화", "셋째 발화")));
+          .thenReturn(snapshot("첫 발화", "둘째 발화", "셋째 발화"));
         when(client.extract(any())).thenReturn(aiResponse());
 
         service.submitTurn(USER_ID, TURN);
 
-        verify(client).extract(List.of("첫 발화", "둘째 발화", "셋째 발화"));
+        verify(client).extract(IntentExtractRequest.users("첫 발화", "둘째 발화", "셋째 발화"));
     }
 
     @Test
     @DisplayName("AI 가 실패하면 반영 단계로 가지 않는다 — 앞서 기록한 사용자 발화는 그대로 남는다")
     void aiFailureStopsBeforeApply() {
         when(sessionService.bindTurn(anyLong(), any()))
-          .thenReturn(new ConversationSnapshot(SESSION_ID, List.of("발화")));
+          .thenReturn(snapshot("발화"));
         when(client.extract(any())).thenThrow(new MateonException(ErrorCode.AI_SERVER_UNAVAILABLE));
 
         assertThatThrownBy(() -> service.submitTurn(USER_ID, TURN))
@@ -163,6 +164,35 @@ class MatchingIntentServiceTest {
         when(sessionService.getCurrentSession(USER_ID)).thenReturn(java.util.Optional.empty());
 
         assertThat(service.getCurrentSession(USER_ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("재추출은 스냅샷이 있으면 extract 후 숨은 로그 경로로 반영한다")
+    void reextractCompletedAppliesWithoutChat() {
+        ConversationSnapshot snap = snapshot("발화");
+        when(sessionService.prepareReextract(USER_ID)).thenReturn(java.util.Optional.of(snap));
+        IntentExtractResponse ai = aiResponse();
+        when(client.extract(snap.getMessages())).thenReturn(ai);
+
+        service.reextractCompleted(USER_ID);
+
+        verify(client).extract(snap.getMessages());
+        verify(sessionService).applyCompletedReextract(SESSION_ID, USER_ID, ai);
+        verify(sessionService, never()).applyResult(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("슬롯이 없으면 재추출은 AI 를 부르지 않는다")
+    void reextractSkippedWithoutSlot() {
+        when(sessionService.prepareReextract(USER_ID)).thenReturn(java.util.Optional.empty());
+
+        service.reextractCompleted(USER_ID);
+
+        verify(client, never()).extract(any());
+    }
+
+    private ConversationSnapshot snapshot(String... texts) {
+        return new ConversationSnapshot(SESSION_ID, IntentExtractRequest.users(texts));
     }
 
     private IntentExtractResponse aiResponse() {

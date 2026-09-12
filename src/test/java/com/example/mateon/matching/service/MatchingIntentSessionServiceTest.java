@@ -4,6 +4,7 @@ import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.aichat.domain.AiChatRole;
 import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.domain.AiDomainTask;
+import com.example.mateon.aichat.domain.IntentPrefixKind;
 import com.example.mateon.aichat.domain.RoutableDomain;
 import com.example.mateon.aichat.domain.TaskCloseReason;
 import com.example.mateon.aichat.dto.AiChatTurn;
@@ -11,6 +12,7 @@ import com.example.mateon.aichat.service.AiChatService;
 import com.example.mateon.aichat.service.AiDomainTaskService;
 import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
+import com.example.mateon.matching.client.intent.IntentExtractRequest;
 import com.example.mateon.matching.client.intent.IntentExtractResponse;
 import com.example.mateon.common.ai.AiServerProperties;
 import com.example.mateon.matching.domain.IntentSessionStatus;
@@ -43,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -118,10 +121,13 @@ class MatchingIntentSessionServiceTest {
         service = new MatchingIntentSessionService(sessionRepository, chatService, taskService,
           slotRepository, userRepository, userEmbeddingRepository, properties, new ObjectMapper());
 
-        user = User.builder().id(USER_ID).name("김학생").build();
+        user = User.builder().id(USER_ID).name("김학생").school("단국대학교").major("소프트웨어학과")
+          .build();
         chatSession = TestEntities.withId(new AiChatSession(user), CHAT_SESSION_ID);
         task = TestEntities.withId(
           new AiDomainTask(chatSession, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(chatService.findTaskMessages(TASK_ID)).thenReturn(List.of());
     }
 
     @Nested
@@ -171,7 +177,8 @@ class MatchingIntentSessionServiceTest {
 
             InOrder order = inOrder(chatService);
             order.verify(chatService).assignTask(MESSAGE_ID, TASK_ID);
-            order.verify(chatService).findUserContents(TASK_ID);
+            order.verify(chatService).syncIntentPrefixes(eq(TASK_ID), any());
+            order.verify(chatService).findTaskMessages(TASK_ID);
         }
 
         @Test
@@ -180,12 +187,40 @@ class MatchingIntentSessionServiceTest {
             givenTaskOpened();
             givenMatchingRowExists();
             // 같은 대화 세션의 옛 작업(TASK_ID 아님) 발화는 이 스텁에 걸리지 않는다.
-            when(chatService.findUserContents(TASK_ID)).thenReturn(List.of("첫 발화", "둘째 발화"));
+            when(chatService.findTaskMessages(TASK_ID)).thenReturn(List.of(
+              new AiChatMessage(chatSession, 1, AiChatRole.USER, "첫 발화"),
+              new AiChatMessage(chatSession, 2, AiChatRole.USER, "둘째 발화")));
 
             ConversationSnapshot snapshot = service.bindTurn(USER_ID, TURN);
 
             assertThat(snapshot.getSessionId()).isEqualTo(SESSION_ID);
-            assertThat(snapshot.getUserMessages()).containsExactly("첫 발화", "둘째 발화");
+            assertThat(snapshot.getMessages())
+              .extracting(IntentExtractRequest.Message::getMessage)
+              .containsExactly("첫 발화", "둘째 발화");
+        }
+
+        @Test
+        @DisplayName("접두는 extract 스냅샷 앞에 오고, 숨은 assistant 는 빠진다")
+        void prefixesLeadTheExtractSnapshot() {
+            givenTaskOpened();
+            givenMatchingRowExists();
+            when(chatService.findTaskMessages(TASK_ID)).thenReturn(List.of(
+              new AiChatMessage(chatSession, 1, AiChatRole.USER, "프론트엔드로 하고 싶어요"),
+              new AiChatMessage(chatSession, 2, AiChatRole.USER,
+                "[자기소개서]\n전공: 소프트웨어학과", IntentPrefixKind.PROFILE),
+              new AiChatMessage(chatSession, 3, AiChatRole.USER,
+                "[포트폴리오]\n게시판 CRUD", IntentPrefixKind.PORTFOLIO),
+              new AiChatMessage(chatSession, 4, AiChatRole.ASSISTANT, "슬롯을 다시 정리했어요",
+                null, false)));
+
+            ConversationSnapshot snapshot = service.bindTurn(USER_ID, TURN);
+
+            assertThat(snapshot.getMessages())
+              .extracting(IntentExtractRequest.Message::getMessage)
+              .containsExactly(
+                "[자기소개서]\n전공: 소프트웨어학과",
+                "[포트폴리오]\n게시판 CRUD",
+                "프론트엔드로 하고 싶어요");
         }
 
         @Test
@@ -214,7 +249,7 @@ class MatchingIntentSessionServiceTest {
             service.bindTurn(USER_ID, TURN);
 
             verify(sessionRepository, never()).save(any());
-            verify(userRepository, never()).findById(anyLong());
+            verify(userRepository).findById(USER_ID);
         }
 
         @Test
@@ -469,13 +504,17 @@ class MatchingIntentSessionServiceTest {
         }
 
         @Test
-        @DisplayName("대화는 seq 순으로 USER/ASSISTANT 가 섞인 채 복원된다")
+        @DisplayName("대화는 화면용 턴만 seq 순으로 복원된다 — 접두·숨은 assistant 는 FE 에 안 나간다")
         void restoresMessagesInOrder() {
             givenActiveTask();
             when(sessionRepository.findByTaskId(TASK_ID)).thenReturn(Optional.of(session()));
             when(chatService.findTaskMessages(TASK_ID)).thenReturn(List.of(
               new AiChatMessage(chatSession, 1, AiChatRole.USER, "디자인 팀 찾아요"),
-              new AiChatMessage(chatSession, 2, AiChatRole.ASSISTANT, "어떤 기술을?")));
+              new AiChatMessage(chatSession, 2, AiChatRole.USER,
+                "[자기소개서]\n전공: 소프트웨어학과", IntentPrefixKind.PROFILE),
+              new AiChatMessage(chatSession, 3, AiChatRole.ASSISTANT, "어떤 기술을?"),
+              new AiChatMessage(chatSession, 4, AiChatRole.ASSISTANT, "슬롯을 다시 정리했어요",
+                null, false)));
 
             assertThat(service.getCurrentSession(USER_ID).orElseThrow().getMessages())
               .extracting(IntentSessionResponseDTO.MessageDTO::getMessage)
@@ -491,6 +530,51 @@ class MatchingIntentSessionServiceTest {
 
             verify(chatService).findTaskMessages(TASK_ID);
             verify(chatService, never()).findSessionMessages(anyLong(), anyLong());
+        }
+    }
+
+    @Nested
+    @DisplayName("완료된 의도 재추출")
+    class Reextract {
+
+        @Test
+        @DisplayName("슬롯이 없으면 스냅샷이 비다")
+        void noSlotIsEmpty() {
+            when(slotRepository.findByUserIdWithSessionTaskAndUser(USER_ID))
+              .thenReturn(Optional.empty());
+
+            assertThat(service.prepareReextract(USER_ID)).isEmpty();
+            verify(chatService, never()).syncIntentPrefixes(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("완료 응답이면 슬롯과 벡터를 덮고 숨은 assistant 만 남긴다")
+        void completedOverwritesSlotWithHiddenChat() {
+            givenSessionExists();
+            givenSlotAndEmbeddingAbsent();
+            IntentExtractResponse ai = completed(new double[]{0.1, 0.2, 0.3});
+
+            assertThat(service.applyCompletedReextract(SESSION_ID, USER_ID, ai)).isTrue();
+
+            verify(slotRepository).save(any());
+            verify(userEmbeddingRepository).save(any());
+            verify(chatService).appendHiddenDomainReply(TASK_ID, "정리했어요!");
+            verify(chatService, never()).appendDomainReply(anyLong(), any());
+            verify(taskService, never()).close(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("미완료 응답이면 기존 슬롯을 유지하고 숨은 답만 남긴다")
+        void incompleteKeepsExisting() {
+            givenSessionExists();
+            IntentExtractResponse ai = incomplete("한 가지 더");
+
+            assertThat(service.applyCompletedReextract(SESSION_ID, USER_ID, ai)).isFalse();
+
+            verify(chatService).appendHiddenDomainReply(TASK_ID, "한 가지 더");
+            verify(slotRepository, never()).save(any());
+            verify(userEmbeddingRepository, never()).save(any());
+            verify(taskService, never()).close(anyLong(), any());
         }
     }
 

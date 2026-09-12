@@ -73,13 +73,14 @@ class IntentExtractionClientTest {
                     .andExpect(method(HttpMethod.POST))
                     .andExpect(header("X-Internal-Secret", "test-secret"))
                     .andExpect(jsonPath("$.messages[0].id").value(1))
+                    .andExpect(jsonPath("$.messages[0].role").value("user"))
                     .andExpect(jsonPath("$.messages[0].message").value("디자인 팀 찾아요"))
                     .andExpect(jsonPath("$.messages[1].id").value(2))
                     .andExpect(jsonPath("$.messages[1].message").value("주 2회 정도요"))
                     .andExpect(jsonPath("$.messages[2].id").value(3))
                     .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
 
-            client.extract(List.of("디자인 팀 찾아요", "주 2회 정도요", "온라인이면 좋겠어요"));
+            client.extract(IntentExtractRequest.users("디자인 팀 찾아요", "주 2회 정도요", "온라인이면 좋겠어요"));
 
             server.verify();
         }
@@ -97,14 +98,14 @@ class IntentExtractionClientTest {
                     .andExpect(content().json("""
                             {
                               "messages": [
-                                {"id": 1, "message": "디자인 팀 찾아요"},
-                                {"id": 2, "message": "주 2회 정도요"}
+                                {"id": 1, "role": "user", "message": "디자인 팀 찾아요"},
+                                {"id": 2, "role": "user", "message": "주 2회 정도요"}
                               ]
                             }
                             """, JsonCompareMode.STRICT))
                     .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
 
-            client.extract(List.of("디자인 팀 찾아요", "주 2회 정도요"));
+            client.extract(IntentExtractRequest.users("디자인 팀 찾아요", "주 2회 정도요"));
 
             server.verify();
         }
@@ -117,7 +118,30 @@ class IntentExtractionClientTest {
                     .andExpect(jsonPath("$.messages.length()").value(1))
                     .andRespond(withSuccess(incompleteJson(), MediaType.APPLICATION_JSON));
 
-            client.extract(List.of("안녕하세요"));
+            client.extract(IntentExtractRequest.users("안녕하세요"));
+
+            server.verify();
+        }
+
+        @Test
+        @DisplayName("접두와 assistant 가 그대로 실리고 id 만 1부터 다시 매긴다")
+        void keepsRoleAndRenumbers() {
+            server.expect(requestTo(EXTRACT_URL))
+                    .andExpect(jsonPath("$.messages.length()").value(3))
+                    .andExpect(jsonPath("$.messages[0].id").value(1))
+                    .andExpect(jsonPath("$.messages[0].role").value("user"))
+                    .andExpect(jsonPath("$.messages[0].message").value("[자기소개서]\n전공: 소프트웨어"))
+                    .andExpect(jsonPath("$.messages[1].id").value(2))
+                    .andExpect(jsonPath("$.messages[1].role").value("assistant"))
+                    .andExpect(jsonPath("$.messages[1].message").value("어떤 역할?"))
+                    .andExpect(jsonPath("$.messages[2].id").value(3))
+                    .andExpect(jsonPath("$.messages[2].role").value("user"))
+                    .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
+
+            client.extract(List.of(
+              IntentExtractRequest.Message.user("[자기소개서]\n전공: 소프트웨어"),
+              IntentExtractRequest.Message.assistant("어떤 역할?"),
+              IntentExtractRequest.Message.user("백엔드요")));
 
             server.verify();
         }
@@ -133,7 +157,7 @@ class IntentExtractionClientTest {
             server.expect(requestTo(EXTRACT_URL))
                     .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
 
-            IntentExtractResponse response = client.extract(List.of("m"));
+            IntentExtractResponse response = client.extract(IntentExtractRequest.users("m"));
 
             assertThat(response.getAssistantMessage()).isEqualTo("정리했어요!");
             assertThat(response.getMissingFields()).isEmpty();
@@ -149,7 +173,7 @@ class IntentExtractionClientTest {
             server.expect(requestTo(EXTRACT_URL))
                     .andRespond(withSuccess(completedJson(), MediaType.APPLICATION_JSON));
 
-            IntentExtractResponse.Extracted extracted = client.extract(List.of("m")).getExtracted();
+            IntentExtractResponse.Extracted extracted = client.extract(IntentExtractRequest.users("m")).getExtracted();
 
             assertThat(extracted.getDesiredRoles()).containsExactly("디자이너");
             assertThat(extracted.getSkills()).containsExactly("Figma");
@@ -165,7 +189,7 @@ class IntentExtractionClientTest {
             server.expect(requestTo(EXTRACT_URL))
                     .andRespond(withSuccess(incompleteJson(), MediaType.APPLICATION_JSON));
 
-            IntentExtractResponse response = client.extract(List.of("m"));
+            IntentExtractResponse response = client.extract(IntentExtractRequest.users("m"));
 
             assertThat(response.isCompleted()).isFalse();
             assertThat(response.getMissingFields()).containsExactly("skills", "activity_goal");
@@ -181,7 +205,7 @@ class IntentExtractionClientTest {
                              "new_field_from_ai":{"nested":true}}
                             """, MediaType.APPLICATION_JSON));
 
-            assertThat(client.extract(List.of("m")).getAssistantMessage()).isEqualTo("안녕");
+            assertThat(client.extract(IntentExtractRequest.users("m")).getAssistantMessage()).isEqualTo("안녕");
         }
     }
 
@@ -259,7 +283,7 @@ class IntentExtractionClientTest {
         }
 
         private void assertExtractFails(ErrorCode expected) {
-            assertThatThrownBy(() -> client.extract(List.of("m")))
+            assertThatThrownBy(() -> client.extract(IntentExtractRequest.users("m")))
                     .isInstanceOf(MateonException.class)
                     .extracting("errorCode").isEqualTo(expected);
         }

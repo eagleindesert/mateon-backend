@@ -4,6 +4,8 @@ import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.aichat.domain.AiChatRole;
 import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.domain.AiDomainTask;
+import com.example.mateon.aichat.domain.IntentPrefixKind;
+import com.example.mateon.aichat.domain.IntentPrefixLine;
 import com.example.mateon.aichat.domain.RoutableDomain;
 import com.example.mateon.aichat.dto.AiChatTurn;
 import com.example.mateon.aichat.repository.AiChatMessageRepository;
@@ -23,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -195,6 +198,25 @@ class AiChatServiceTest {
             AiChatMessage saved = captureSaved();
             assertThat(saved.getTask()).isSameAs(task);
             assertThat(saved.getRole()).isEqualTo(AiChatRole.ASSISTANT);
+            assertThat(saved.isClientVisible()).isTrue();
+        }
+
+        @Test
+        @DisplayName("숨은 도메인 답은 화면에 안 나가고 제목도 안 채운다")
+        void hiddenDomainReplyIsNotClientVisible() {
+            AiDomainTask task = task();
+            when(taskRepository.findById(TASK_ID)).thenReturn(Optional.of(task));
+            givenSessionLocked();
+            givenMessageSaved();
+
+            service.appendHiddenDomainReply(TASK_ID, "슬롯을 다시 정리했어요");
+
+            AiChatMessage saved = captureSaved();
+            assertThat(saved.getTask()).isSameAs(task);
+            assertThat(saved.getRole()).isEqualTo(AiChatRole.ASSISTANT);
+            assertThat(saved.isClientVisible()).isFalse();
+            assertThat(saved.getPrefixKind()).isNull();
+            assertThat(session.getTitle()).isNull();
         }
 
         @Test
@@ -346,6 +368,74 @@ class AiChatServiceTest {
             assertThatThrownBy(() -> service.assignTask(200L, TASK_ID))
               .isInstanceOf(MateonException.class)
               .extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("접두 동기화")
+    class PrefixSync {
+
+        private AiDomainTask task;
+
+        @BeforeEach
+        void givenTaskAndLockedSession() {
+            task = TestEntities.withId(
+              new AiDomainTask(session, user, RoutableDomain.MATCHING_INTENT), TASK_ID);
+            when(taskRepository.findById(TASK_ID)).thenReturn(Optional.of(task));
+            givenSessionLocked();
+        }
+
+        @Test
+        @DisplayName("없는 kind 는 nextSeq 로 insert 하고 제목은 안 건드린다")
+        void insertsNewKindWithoutTitle() {
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PROFILE))
+              .thenReturn(Optional.empty());
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PORTFOLIO))
+              .thenReturn(Optional.empty());
+
+            service.syncIntentPrefixes(TASK_ID, List.of(
+              new IntentPrefixLine(IntentPrefixKind.PROFILE, "[자기소개서]\n전공: 컴공")));
+
+            ArgumentCaptor<AiChatMessage> saved = ArgumentCaptor.forClass(AiChatMessage.class);
+            verify(messageRepository).save(saved.capture());
+            assertThat(saved.getValue().getPrefixKind()).isEqualTo(IntentPrefixKind.PROFILE);
+            assertThat(saved.getValue().isClientVisible()).isFalse();
+            assertThat(saved.getValue().getSeq()).isEqualTo(1);
+            assertThat(saved.getValue().getTask()).isSameAs(task);
+            assertThat(session.getTitle()).isNull();
+        }
+
+        @Test
+        @DisplayName("있는 kind 는 본문만 덮고 seq 는 유지한다")
+        void updatesContentKeepsSeq() {
+            AiChatMessage existing = new AiChatMessage(
+              session, 4, AiChatRole.USER, "[자기소개서]\n옛 본문", IntentPrefixKind.PROFILE);
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PROFILE))
+              .thenReturn(Optional.of(existing));
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PORTFOLIO))
+              .thenReturn(Optional.empty());
+
+            service.syncIntentPrefixes(TASK_ID, List.of(
+              new IntentPrefixLine(IntentPrefixKind.PROFILE, "[자기소개서]\n새 본문")));
+
+            assertThat(existing.getContent()).isEqualTo("[자기소개서]\n새 본문");
+            assertThat(existing.getSeq()).isEqualTo(4);
+            verify(messageRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("목록에 없는 kind 행은 지운다")
+        void deletesUnwantedKind() {
+            AiChatMessage leftover = new AiChatMessage(
+              session, 5, AiChatRole.USER, "[포트폴리오]\n옛", IntentPrefixKind.PORTFOLIO);
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PROFILE))
+              .thenReturn(Optional.empty());
+            when(messageRepository.findByTaskIdAndPrefixKind(TASK_ID, IntentPrefixKind.PORTFOLIO))
+              .thenReturn(Optional.of(leftover));
+
+            service.syncIntentPrefixes(TASK_ID, List.of());
+
+            verify(messageRepository).delete(leftover);
         }
     }
 

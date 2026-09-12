@@ -15,8 +15,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * AI 대화 세션과 메시지의 DB 작업. 어떤 도메인에도 의존하지 않는다 — 게이트웨이도, matching 도
@@ -108,17 +110,70 @@ public class AiChatService {
      * 어긋난 조합을 넘길 수 있다.
      */
     public void appendDomainReply(Long taskId, String content) {
+        saveDomainReply(taskId, content, true);
+    }
+
+    /**
+     * 재추출처럼 화면에는 안 나가는 도메인 답. 닫힌 작업의 로그에도 붙인다.
+     *
+     * <p>
+     * status 는 건드리지 않는다. 제목도 안 채운다. seq 는 {@link AiChatSession#nextSeq()} 라
+     * 세션 활동 시각이 함께 갱신된다.
+     */
+    public void appendHiddenDomainReply(Long taskId, String content) {
+        saveDomainReply(taskId, content, false);
+    }
+
+    private void saveDomainReply(Long taskId, String content, boolean clientVisible) {
         AiDomainTask task = requireTask(taskId);
         AiChatSession session = requireSession(task.getChatSession().getId());
 
         AiChatMessage message = new AiChatMessage(
-          session, session.nextSeq(), AiChatRole.ASSISTANT, content);
+          session, session.nextSeq(), AiChatRole.ASSISTANT, content, null, clientVisible);
         message.assignTask(task);
         messageRepository.save(message);
     }
 
     /**
-     * 특정 도메인 작업에 속한 사용자 발화만 순서대로. 도메인 AI 로 보낼 배열의 재료다.
+     * 이 작업의 접두 행을 원하는 목록과 맞춘다. extract 직전에 불러 실제로 보내는 본문을 로그에
+     * 남긴다.
+     *
+     * <p>
+     * 새 kind 만 {@code nextSeq()} 로 insert 한다 — seq 는 보낸 시점이다. 이미 있는 kind 는
+     * 본문만 덮고 seq 는 최초 전송을 유지한다. 목록에 없는 kind 는 지운다.
+     *
+     * <p>
+     * 제목({@link AiChatSession#titleFrom})은 건드리지 않는다. 접두는 사용자가 친 말이 아니다.
+     */
+    public void syncIntentPrefixes(Long taskId, List<IntentPrefixLine> prefixes) {
+        AiDomainTask task = requireTask(taskId);
+        AiChatSession session = requireSession(task.getChatSession().getId());
+
+        Set<IntentPrefixKind> wanted = EnumSet.noneOf(IntentPrefixKind.class);
+        for (IntentPrefixLine prefix : prefixes) {
+            wanted.add(prefix.kind());
+            Optional<AiChatMessage> existing =
+              messageRepository.findByTaskIdAndPrefixKind(taskId, prefix.kind());
+            if (existing.isPresent()) {
+                existing.get().replaceContent(prefix.content());
+            } else {
+                AiChatMessage created = new AiChatMessage(
+                  session, session.nextSeq(), AiChatRole.USER, prefix.content(), prefix.kind());
+                created.assignTask(task);
+                messageRepository.save(created);
+            }
+        }
+
+        for (IntentPrefixKind kind : IntentPrefixKind.values()) {
+            if (!wanted.contains(kind)) {
+                messageRepository.findByTaskIdAndPrefixKind(taskId, kind)
+                  .ifPresent(messageRepository::delete);
+            }
+        }
+    }
+
+    /**
+     * 특정 도메인 작업에 속한 사용자 발화만 순서대로. 화면용 턴만 고른다.
      *
      * <p>
      * 읽기 전용이고 TX 밖에서 쓰이므로 문자열만 뽑는다.
@@ -129,7 +184,8 @@ public class AiChatService {
     }
 
     /**
-     * 특정 도메인 작업의 대화 전체 (USER + ASSISTANT). 그 도메인의 복원 API 가 쓴다.
+     * 특정 도메인 작업의 대화 전체 (접두·숨은 행 포함). extract 조립과 재추출이 쓴다.
+     * 화면 복원은 {@code client_visible} 을 호출부가 걸러 낸다.
      */
     @Transactional(readOnly = true)
     public List<AiChatMessage> findTaskMessages(Long taskId) {
@@ -137,7 +193,7 @@ public class AiChatService {
     }
 
     /**
-     * 대화 세션 하나를 통째로 복원한다. 게이트웨이 턴도 포함된다.
+     * 대화 세션 하나를 통째로 복원한다. 게이트웨이 턴도 포함되고, 화면용 턴만 나온다.
      */
     @Transactional(readOnly = true)
     public List<AiChatMessage> findSessionMessages(Long userId, Long chatSessionId) {

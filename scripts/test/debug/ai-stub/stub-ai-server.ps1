@@ -18,7 +18,7 @@
 # 실제 서버가 준비되면 이 스텁 대신 AI_BASE_URL 만 실제 주소로 바꾸면 된다.
 #
 # 진짜 목적: 백엔드가 보내는 요청을 콘솔에 덤프해서
-#   - (intents) messages 의 id 가 1 부터 연속 증가하는지, USER 발화만 들어있는지, 누적되는지
+#   - (intents) messages 의 id 가 1 부터 연속 증가하는지, role 이 실리는지, 접두 라벨이 앞에 오는지
 #   - (teams)   intro_text/recruiting_roles/required_skills/contest_field 가 제대로 실려 오는지
 #   - (recommendations) query_metadata 가 실려 오는지, 후보마다 1536 차원 벡터와
 #     team_embeddings 의 정규화 메타데이터가 붙어 오는지, 제외 대상(내 팀/지원한 팀)이 빠졌는지
@@ -802,7 +802,13 @@ try {
         $messages = @($body.messages)
         Write-Host "  받은 messages ($($messages.Count)개):" -ForegroundColor White
         foreach ($m in $messages) {
-            Write-Host ("    id={0}  message={1}" -f $m.id, $m.message) -ForegroundColor Gray
+            $role = if ($null -ne $m.role) { $m.role } else { "user" }
+            $preview = [string]$m.message
+            if ($preview.Length -gt 80) { $preview = $preview.Substring(0, 80) + "..." }
+            $mark = ""
+            if ($preview.StartsWith("[자기소개서]")) { $mark = "  <<PROFILE>>" }
+            if ($preview.StartsWith("[포트폴리오]")) { $mark = "  <<PORTFOLIO>>" }
+            Write-Host ("    id={0}  role={1}  message={2}{3}" -f $m.id, $role, $preview, $mark) -ForegroundColor Gray
         }
 
         # id 가 1..N 연속인지 자체 검증

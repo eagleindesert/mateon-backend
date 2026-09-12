@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -81,7 +82,8 @@ class UserProfileControllerTest {
           eventRepository,
           slotRepository,
           passwordEncoder,
-          refreshTokenRepository);
+          refreshTokenRepository,
+          mock(ApplicationEventPublisher.class));
 
         mockMvc = MockMvcBuilders
           .standaloneSetup(new UserController(userService, mock(ProfileImageService.class)))
@@ -118,6 +120,15 @@ class UserProfileControllerTest {
                 .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
               .andExpect(jsonPath("$.data.schoolVerified").value(true))
               .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
+        }
+
+        @Test
+        @DisplayName("매칭 토글은 공개 프로필에 없다")
+        void doesNotExposeMatchingToggles() throws Exception {
+            mockMvc.perform(get("/api/users/{userId}", TARGET_ID).principal(auth(VIEWER_ID)))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.matchIncludeProfile").doesNotExist())
+              .andExpect(jsonPath("$.data.matchIncludePortfolio").doesNotExist());
         }
 
         @Test
@@ -352,7 +363,9 @@ class UserProfileControllerTest {
               .andExpect(jsonPath("$.data.portfolio")
                 .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"))
               .andExpect(jsonPath("$.data.schoolVerified").value(true))
-              .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"));
+              .andExpect(jsonPath("$.data.interestJobPrimary").value("백엔드 개발자"))
+              .andExpect(jsonPath("$.data.matchIncludeProfile").value(false))
+              .andExpect(jsonPath("$.data.matchIncludePortfolio").value(false));
         }
     }
 
@@ -396,6 +409,30 @@ class UserProfileControllerTest {
               .andExpect(jsonPath("$.data.tagline").value("프론트도 해보고 싶어요"))
               .andExpect(jsonPath("$.data.portfolio")
                 .value("사이드 프로젝트 3개를 했어요.\n- 마테온: Spring Boot 백엔드"));
+        }
+
+        @Test
+        @DisplayName("매칭 토글을 보내면 응답에 새 값이 실린다")
+        void updatesMatchingToggles() throws Exception {
+            mockMvc.perform(put("/api/users/me")
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"matchIncludeProfile\":true,\"matchIncludePortfolio\":true}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.matchIncludeProfile").value(true))
+              .andExpect(jsonPath("$.data.matchIncludePortfolio").value(true));
+        }
+
+        @Test
+        @DisplayName("토글을 빼고 보내면 기존 값이 지워지지 않는다")
+        void omittedTogglesAreLeftAlone() throws Exception {
+            mockMvc.perform(put("/api/users/me")
+              .principal(auth(TARGET_ID))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"tagline\":\"프론트도 해보고 싶어요\"}"))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.matchIncludeProfile").value(false))
+              .andExpect(jsonPath("$.data.matchIncludePortfolio").value(false));
         }
 
         @Test

@@ -43,6 +43,9 @@ erDiagram
         varchar_100 interest_job_secondary
         varchar_100 interest_job_tertiary
         varchar_200 tagline
+        text portfolio
+        boolean match_include_profile "NOT NULL, default false"
+        boolean match_include_portfolio "NOT NULL, default false"
         timestamp created_at "NOT NULL"
         timestamp updated_at "NOT NULL"
     }
@@ -152,6 +155,9 @@ erDiagram
 | `interest_job_secondary` | `varchar(100)` | | 희망직무 2순위 |
 | `interest_job_tertiary` | `varchar(100)` | | 희망직무 3순위 |
 | `tagline` | `varchar(200)` | | 한 줄 소개 |
+| `portfolio` | `text` | | 프로필 서술형 포트폴리오 |
+| `match_include_profile` | `boolean` | NOT NULL, default `false` | 매칭 추출에 프로필 접두를 넣을지 |
+| `match_include_portfolio` | `boolean` | NOT NULL, default `false` | 매칭 추출에 포트폴리오 접두를 넣을지 |
 | `created_at` | `timestamp` | NOT NULL, 불변 | 감사 필드 (`@CreatedDate`) |
 | `updated_at` | `timestamp` | NOT NULL | 감사 필드 (`@LastModifiedDate`) |
 

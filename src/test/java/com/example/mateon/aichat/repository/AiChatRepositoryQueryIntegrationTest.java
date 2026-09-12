@@ -2,6 +2,7 @@ package com.example.mateon.aichat.repository;
 
 import com.example.mateon.aichat.domain.AiChatMessage;
 import com.example.mateon.aichat.domain.AiChatRole;
+import com.example.mateon.aichat.domain.IntentPrefixKind;
 import com.example.mateon.aichat.domain.AiChatSession;
 import com.example.mateon.aichat.domain.AiDomainTask;
 import com.example.mateon.aichat.domain.AiDomainTaskStatus;
@@ -131,6 +132,42 @@ class AiChatRepositoryQueryIntegrationTest extends IntegrationTestBase {
         }
 
         @Test
+        @DisplayName("접두 행이 마지막 seq 여도 lastMessage 는 화면에 보이는 마지막 줄이다")
+        void lastMessageSkipsPrefix() {
+            AiChatSession session = newSession(user);
+            appendMessage(session, AiChatRole.USER, "백엔드 팀 찾아요");
+            appendPrefix(session, IntentPrefixKind.PROFILE, "[자기소개서]\n전공: 컴공");
+            endRequest();
+
+            assertThat(summaries(user).get(0).lastMessage()).isEqualTo("백엔드 팀 찾아요");
+        }
+
+        @Test
+        @DisplayName("숨은 assistant 가 마지막 seq 여도 lastMessage 는 화면에 보이는 마지막 줄이다")
+        void lastMessageSkipsHiddenAssistant() {
+            AiChatSession session = newSession(user);
+            appendMessage(session, AiChatRole.USER, "백엔드 팀 찾아요");
+            appendHidden(session, "슬롯을 다시 정리했어요");
+            endRequest();
+
+            assertThat(summaries(user).get(0).lastMessage()).isEqualTo("백엔드 팀 찾아요");
+        }
+
+        @Test
+        @DisplayName("세션 복원은 접두와 숨은 행을 빼고 화면 턴만 준다")
+        void sessionRestoreSkipsHiddenAndPrefix() {
+            AiChatSession session = newSession(user);
+            appendMessage(session, AiChatRole.USER, "백엔드 팀 찾아요");
+            appendPrefix(session, IntentPrefixKind.PROFILE, "[자기소개서]\n전공: 컴공");
+            appendHidden(session, "슬롯을 다시 정리했어요");
+            endRequest();
+
+            assertThat(messageRepository.findByChatSessionIdOrderBySeqAsc(session.getId()))
+              .extracting(AiChatMessage::getContent)
+              .containsExactly("백엔드 팀 찾아요");
+        }
+
+        @Test
         @DisplayName("발화가 없는 새 대화는 lastMessage 가 null 이다 (lastSeq 0 에 맞는 행이 없다)")
         void emptySessionHasNullLastMessage() {
             newSession(user);
@@ -239,6 +276,18 @@ class AiChatRepositoryQueryIntegrationTest extends IntegrationTestBase {
 
     private void appendMessage(AiChatSession session, AiChatRole role, String content) {
         messageRepository.save(new AiChatMessage(session, session.nextSeq(), role, content));
+        sessionRepository.save(session);
+    }
+
+    private void appendPrefix(AiChatSession session, IntentPrefixKind kind, String content) {
+        messageRepository.save(new AiChatMessage(
+          session, session.nextSeq(), AiChatRole.USER, content, kind));
+        sessionRepository.save(session);
+    }
+
+    private void appendHidden(AiChatSession session, String content) {
+        messageRepository.save(new AiChatMessage(
+          session, session.nextSeq(), AiChatRole.ASSISTANT, content, null, false));
         sessionRepository.save(session);
     }
 }

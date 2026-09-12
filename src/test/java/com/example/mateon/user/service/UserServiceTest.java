@@ -5,6 +5,8 @@ import com.example.mateon.common.exception.ErrorCode;
 import com.example.mateon.common.exception.MateonException;
 import com.example.mateon.events.models.Event;
 import com.example.mateon.events.repository.EventRepository;
+import com.example.mateon.matching.domain.MatchingIntentSlot;
+import com.example.mateon.matching.event.MatchingIntentReextractRequestedEvent;
 import com.example.mateon.matching.repository.MatchingIntentSlotRepository;
 import com.example.mateon.teams.domain.Team;
 import com.example.mateon.teams.domain.TeamMember;
@@ -14,6 +16,7 @@ import com.example.mateon.user.domain.User;
 import com.example.mateon.user.domain.UserCollaborationScore;
 import com.example.mateon.user.dto.MyPageResponseDTO;
 import com.example.mateon.user.dto.PasswordChangeRequest;
+import com.example.mateon.user.dto.UserUpdateRequest;
 import com.example.mateon.user.repository.UserCollaborationScoreRepository;
 import com.example.mateon.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -72,6 +76,7 @@ class UserServiceTest {
     private MatchingIntentSlotRepository matchingIntentSlotRepository;
     private PasswordEncoder passwordEncoder;
     private RefreshTokenRepository refreshTokenRepository;
+    private ApplicationEventPublisher eventPublisher;
     private UserService service;
 
     private User user;
@@ -85,9 +90,11 @@ class UserServiceTest {
         matchingIntentSlotRepository = mock(MatchingIntentSlotRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         refreshTokenRepository = mock(RefreshTokenRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
 
         service = new UserService(userRepository, teamMemberRepository, collaborationScoreRepository,
-          eventRepository, matchingIntentSlotRepository, passwordEncoder, refreshTokenRepository);
+          eventRepository, matchingIntentSlotRepository, passwordEncoder, refreshTokenRepository,
+          eventPublisher);
 
         user = User.builder()
           .id(USER_ID).name("나").email("me@example.com")
@@ -327,6 +334,48 @@ class UserServiceTest {
               .isInstanceOf(MateonException.class);
 
             verify(matchingIntentSlotRepository, never()).findByUserId(anyLong());
+        }
+    }
+
+    @Nested
+    @DisplayName("프로필 수정이 매칭 재추출을 띄우는 조건")
+    class MatchingReextract {
+
+        @Test
+        @DisplayName("슬롯이 있고 토글을 켜면 재추출 이벤트를 낸다")
+        void toggleOnWithSlotPublishes() {
+            when(matchingIntentSlotRepository.findByUserId(USER_ID))
+              .thenReturn(Optional.of(new MatchingIntentSlot(user)));
+            UserUpdateRequest request = new UserUpdateRequest();
+            request.setMatchIncludeProfile(true);
+
+            service.updateMyProfile(USER_ID, request);
+
+            verify(eventPublisher).publishEvent(any(MatchingIntentReextractRequestedEvent.class));
+        }
+
+        @Test
+        @DisplayName("슬롯이 없으면 토글을 켜도 이벤트를 내지 않는다")
+        void noSlotSkipsEvent() {
+            UserUpdateRequest request = new UserUpdateRequest();
+            request.setMatchIncludeProfile(true);
+
+            service.updateMyProfile(USER_ID, request);
+
+            verify(eventPublisher, never()).publishEvent(any());
+        }
+
+        @Test
+        @DisplayName("이름만 바꾸면 이벤트를 내지 않는다")
+        void nameOnlySkipsEvent() {
+            when(matchingIntentSlotRepository.findByUserId(USER_ID))
+              .thenReturn(Optional.of(new MatchingIntentSlot(user)));
+            UserUpdateRequest request = new UserUpdateRequest();
+            request.setName("새이름");
+
+            service.updateMyProfile(USER_ID, request);
+
+            verify(eventPublisher, never()).publishEvent(any());
         }
     }
 
