@@ -11,7 +11,7 @@
 # 시크릿은 application.yml 과 .env 가 계속 맡는다 — 프로필 파일에 시크릿을 넣지 않는다.
 # ------------------------------------------------------------------------------
 spring:
-  # bootRun 시 docker-compose.yml 의 postgres/pgadmin 을 자동으로 up 하고, datasource 접속
+  # bootRun 시 docker-compose.yml 의 postgres 를 자동으로 up 하고, datasource 접속
   # 정보는 postgres 서비스에서 자동 연결된다. 앱 종료 시 stop 까지 한다(start_and_stop).
   #
   # 파일 경로는 지정하지 않는다 — docker-compose.yml 은 Boot 이 작업 디렉터리에서 자동 탐지하는

@@ -1,0 +1,72 @@
+# 범용 pgAdmin (특정 앱/DB compose 에 묶지 않음)
+# ------------------------------------------------------------------------------
+# 어떤 Postgres 든 UI 에서 서버를 등록해 붙인다. 이 파일에 DB 호스트·계정·
+# 네트워크 이름을 박지 않는다.
+#
+# 전제 (Ubuntu 24.04):
+#   sudo apt-get update
+#   sudo apt-get install -y docker.io docker-compose-v2
+#   sudo systemctl enable --now docker
+#
+# 기동 (이 파일과 .env 를 같은 디렉터리에 둔다):
+#   docker compose -f docker-compose-pgadmin.yml up -d
+# 종료:
+#   docker compose -f docker-compose-pgadmin.yml down
+#
+# 호스트 브라우저: http://localhost:5050
+# (5050 은 127.0.0.1 에만 묶인다. 노트북에서 보려면
+#  ssh -L 5050:127.0.0.1:5050 user@this-host)
+#
+# DB 는 호스트에 열린 localhost 포트로 등록한다. host 네트워크라 UI 의 localhost 가
+# 곧 호스트의 localhost 다. Docker 네트워크 이름(컨테이너 DNS)은 쓰지 못한다.
+#
+# pgAdmin UI 에서 Register → Server:
+#   Host name/address : localhost
+#   Port              : 그 DB 가 호스트에 연 포트 (예: 5432)
+#   Maintenance DB    : 해당 DB 이름
+#   Username/Password : 해당 컨테이너 계정
+#
+# 여러 DB 면 포트만 다르게 등록하면 된다 (5432, 5433, …).
+# 각 DB compose 는 호스트에 포트를 열어 두어야 한다. 예)
+#   ports: ["127.0.0.1:5432:5432"]
+#
+# 로그인: admin@admin.com / admin
+#
+# name 을 고정한다. 디렉터리명 프로젝트를 쓰면 옆에 둔 다른 compose 와 down 이 섞인다.
+# ------------------------------------------------------------------------------
+name: pgadmin-host
+
+services:
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: pgadmin
+    restart: unless-stopped
+    # UI 에서 localhost 로 호스트에 열린 DB 포트에 붙이려면 host 네트워크가 필요하다.
+    # 브리지면 컨테이너의 localhost 는 호스트가 아니다.
+    network_mode: host
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      # host 네트워크에서는 ports 매핑이 무시되므로 여기서 직접 듣는다.
+      PGADMIN_LISTEN_ADDRESS: 127.0.0.1
+      PGADMIN_LISTEN_PORT: ${PGADMIN_PORT:-5050}
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "True"
+      PGADMIN_DISABLE_POSTFIX: "true"
+      TZ: ${TZ:-Asia/Seoul}
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://127.0.0.1:${PGADMIN_PORT:-5050}/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  pgadmin-data:

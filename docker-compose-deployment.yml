@@ -14,6 +14,9 @@
 # 종료:  docker compose -f docker-compose-deployment.yml down
 # 갱신:  docker compose -f docker-compose-deployment.yml pull && \
 #        docker compose -f docker-compose-deployment.yml up -d
+#
+# pgAdmin 은 이 파일에 없다. DB GUI 는 docker-compose-pgadmin.yml 을 따로 띄운다
+# (특정 앱에 묶이지 않은 범용 파일). 호스트 localhost:5433 로 postgres 에 붙는다.
 # ------------------------------------------------------------------------------
 services:
   app:
@@ -43,8 +46,8 @@ services:
         max-file: "10"
     # 설정은 .env, 시크릿은 .env.secret 에서 주입한다. 뒤에 온 파일이 이긴다.
     #
-    # .env.secret 을 app 에만 물리는 게 이 분리의 요점이다 — 아래 postgres/pgadmin 에는
-    # 붙이지 않는다. 한 파일로 두면 DB·pgAdmin 컨테이너 안에서도 OPENAI_API_KEY 와
+    # .env.secret 을 app 에만 물리는 게 이 분리의 요점이다 — 아래 postgres 에는
+    # 붙이지 않는다. 한 파일로 두면 DB 컨테이너 안에서도 OPENAI_API_KEY 와
     # JWT_SECRET 이 env 로 보인다.
     #
     # 파일이 없으면 up 이 통째로 실패한다(required 기본값). 앱은 어차피 시크릿 없이
@@ -95,9 +98,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       TZ: Asia/Seoul
-    # 외부에 DB 를 노출할 필요가 없다면 ports 블록은 주석 처리하세요(보안 권장).
-    # ports:
-      # - "${POSTGRES_PORT:-5433}:5432"
+    # 호스트 localhost:5433 으로 붙는다 (pgAdmin / psql). 127.0.0.1 에만 묶이므로
+    # 공인 IP 로는 안 열린다. 앱은 계속 compose 네트워크의 postgres:5432.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - mateon-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -106,31 +110,5 @@ services:
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: mateon-pgadmin
-    restart: unless-stopped
-    # gunicorn 액세스 로그를 요청마다 찍는다. 여기서 볼 게 사실상 없어서 상한도 짜게 준다
-    # (총 30MB). pgAdmin 을 안 쓰는 동안에도 헬스체크성 요청이 계속 남는다.
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    environment:
-      # 접속 계정/비밀번호는 .env 로 오버라이드 권장 (기본값은 개발용).
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      TZ: Asia/Seoul
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
-    volumes:
-      - mateon-pgadmin-data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   mateon-postgres-data:
-  mateon-pgadmin-data:
