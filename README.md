@@ -28,7 +28,7 @@
 ## 로컬 실행
 
 `bootRun` 실행 시 Spring Boot Docker Compose 지원이 [docker-compose.yml](docker-compose.yml) 의
-PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이어야 합니다.)
+PostgreSQL 을 자동으로 기동합니다. (Docker 가 실행 중이어야 합니다.)
 
 ```bash
 ./gradlew bootRun        # macOS / Linux
@@ -37,7 +37,10 @@ PostgreSQL / pgAdmin 을 자동으로 기동합니다. (Docker 가 실행 중이
 
 - 애플리케이션: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
-- pgAdmin: `http://localhost:5050` (admin@admin.com / admin)
+
+DB GUI 는 [docker-compose-pgadmin.yml](docker-compose-pgadmin.yml) 을 앱/DB compose 와 따로 띄운다
+(특정 앱에 묶이지 않은 범용 파일). 호스트에서 `http://localhost:5050` 으로 연 뒤, pgAdmin UI 에서
+`localhost` 와 그 DB 의 호스트 포트로 서버를 등록한다.
 
 ## CI / CD
 

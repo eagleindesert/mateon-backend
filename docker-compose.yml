@@ -1,13 +1,15 @@
 # 로컬 개발용 Compose (인프라 + 선택적 앱 컨테이너)
 # ------------------------------------------------------------------------------
-# postgres/pgadmin 은 프로파일이 없어 항상 기동된다. 반면 app 은 "app" 프로파일에 묶여 있어
+# postgres 는 프로파일이 없어 항상 기동된다. 반면 app 은 "app" 프로파일에 묶여 있어
 # 명시적으로 켤 때만 뜬다 — bootRun 은 앱을 Gradle 이 직접 실행하므로 컨테이너 앱까지
 # 같이 뜨면 8080 포트가 겹친다.
 #
 #   ./gradlew bootRun                    # Boot 의 Compose 지원이 이 파일을 자동 탐지해
-#                                        # postgres/pgadmin 만 기동 (앱은 Gradle 이 실행)
+#                                        # postgres 만 기동 (앱은 Gradle 이 실행)
 #   docker compose --profile app up -d   # 앱까지 컨테이너로 띄우는 전체 스택
 #   docker compose down                  # 종료 (--profile 없이도 전체가 내려간다)
+#
+# pgAdmin 은 여기 두지 않는다. 클라우드에서 쓸 때는 docker-compose-pgadmin.yml.
 #
 # restart 정책은 두지 않는다. 로컬 컨테이너는 bootRun 이 수명을 관리하면 그만인데,
 # unless-stopped 를 걸면 Docker 데스크톱을 켤 때마다 postgres 가 되살아나고, 그러면
@@ -36,22 +38,6 @@ services:
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: mateon-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      TZ: Asia/Seoul
-    ports:
-      - "5050:80"
-    volumes:
-      - mateon-pgadmin-dev-data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   app:
     # 프로파일이 지정된 서비스는 --profile app 을 줄 때만 기동된다.
     profiles: ["app"]
@@ -60,7 +46,7 @@ services:
       dockerfile: Dockerfile
     container_name: mateon-app
     # 설정은 .env, 시크릿은 .env.secret. 배포 파일과 같은 구성이다(그쪽 주석 참고).
-    # postgres/pgadmin 에는 일부러 붙이지 않는다.
+    # postgres 에는 일부러 붙이지 않는다.
     env_file:
       - .env
       - .env.secret
@@ -82,4 +68,3 @@ services:
 # mateon-postgres-data 와 반드시 구분되어야 한다 — 두 볼륨은 스키마 계보가 다르다.
 volumes:
   mateon-postgres-dev-data:
-  mateon-pgadmin-dev-data:

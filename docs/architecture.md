@@ -275,17 +275,16 @@ graph TB
 
 ## 6. 배포 토폴로지
 
-로컬 개발은 `bootRun` 이 `compose-dev.yml`(PostgreSQL + pgAdmin)을 자동 기동합니다.
+로컬 개발은 `bootRun` 이 `docker-compose.yml`(PostgreSQL)을 자동 기동합니다.
 배포는 멀티스테이지 Docker 이미지(빌드 amd64 네이티브 → 실행 arm64)를 DockerHub 로 push 후, ARM 클라우드에서 compose 로 실행합니다.
+pgAdmin 은 앱/DB 스택에 넣지 않고 [docker-compose-pgadmin.yml](../docker-compose-pgadmin.yml) 을 따로 띄웁니다. 특정 앱에 묶이지 않은 범용 파일이라, 호스트 `localhost` 로 열린 DB 포트를 UI 에서 등록합니다.
 
 ```mermaid
 graph TB
-    subgraph Dev["로컬 개발 (compose-dev.yml)"]
+    subgraph Dev["로컬 개발 (docker-compose.yml)"]
         BR["gradlew bootRun<br/>Spring Boot :8080"]
         PGD[("postgres:16<br/>:5432")]
-        PGA["pgAdmin :5050"]
         BR -->|자동 기동| PGD
-        PGA --> PGD
     end
 
     subgraph Build["빌드/배포 파이프라인"]
@@ -296,8 +295,13 @@ graph TB
 
     subgraph Prod["ARM 클라우드 (docker-compose-deployment.yml)"]
         APP["mateon-app<br/>:8081→8080"]
-        PGP[("mateon-postgres<br/>:5433→5432<br/>volume 영속화")]
+        PGP[("mateon-postgres<br/>127.0.0.1:5432")]
         APP -->|"postgres:5432"| PGP
+    end
+
+    subgraph PgAdmin["pgAdmin (docker-compose-pgadmin.yml)"]
+        PGA["pgAdmin<br/>127.0.0.1:5050"]
+        PGA -->|"UI 등록 localhost:5432"| PGP
     end
 
     HUB -->|pull| APP
@@ -305,8 +309,9 @@ graph TB
 
 | 환경 | Compose 파일 | 앱 포트 | DB 포트 | 비고 |
 | --- | --- | --- | --- | --- |
-| 로컬 개발 | `compose-dev.yml` | 8080 (bootRun) | 5432 | pgAdmin 5050 포함 |
-| 배포(ARM) | `docker-compose-deployment.yml` | 8081→8080 | 5433→5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
+| 로컬 개발 | `docker-compose.yml` | 8080 (bootRun) | 5432 | postgres 만 자동 기동 |
+| 배포(ARM) | `docker-compose-deployment.yml` | 8081→8080 | 127.0.0.1:5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
+| pgAdmin | `docker-compose-pgadmin.yml` | — | — | 범용. `localhost:5050` → UI 에서 Host `localhost` + DB 호스트 포트 등록 |
 
 - **시크릿 주입**: `MAIL_*`, `JWT_*`, `AI_*` 는 `.env`(로컬) 또는 compose `env_file`/`environment`(배포)로 주입.
 - **DataSource**: 배포 시 `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mateon_db` 로 compose 네트워크 내 서비스명 접속.
