@@ -1,0 +1,211 @@
+# API 테스트 스크립트 — 원격 서버 대상 (`for-api-server`)
+
+> **이 스위트의 정체는 FE↔BE 연동을 검증하는 e2e 테스트다.** 내부 구현을 들여다보는 단위
+> 테스트가 아니라, **프론트가 실제로 관찰하는 계약**(REST 응답 필드, WebSocket/STOMP 메시지)이
+> 그대로 오가는지를 확인하는 것이 목적이다. 그래서 [DB 초기화 SQL](#잔존-데이터로-인해-한-번만-성립하는-검증)
+> 한 군데를 빼면, 여기 나머지 전부는 실제 FE가 BE와 통신할 때 그대로 타는 기술이어야 한다 —
+> curl.exe 의 REST 호출은 프론트가 보내는 HTTP 요청/응답과 동일한 스키마이고,
+> `System.Net.WebSockets` 기반 STOMP 호출은 프론트가 실시간 채팅/알림을 주고받는 것과 같은
+> 프로토콜이다. DB 초기화 SQL만 유일하게 "테스트 환경을 준비하는 도구"이지 FE↔BE 통신 자체는
+> 아니다.
+
+**원격 서버**를 대상으로 각 도메인 API 를 검증하는 버전입니다. curl.exe(REST) +
+`System.Net.WebSockets`(STOMP) 로 호출합니다. 인증코드는 로컬 도커 DB 조회 없이
+**사람이 직접 입력**(메일 확인 또는 원격 DB 조회)하는 방식이라, API 서버가 어디 있든
+(원격 VM 포함) 그대로 작동합니다.
+
+## 인증코드 확인 방법
+
+각 스크립트는 `email/request` 후 콘솔에서 6자리 코드를 물어봅니다. 코드는 둘 중 하나로 확인합니다.
+
+1. **서버가 보낸 메일**에서 확인 → 접근 가능한 실제 이메일 주소를 테스트 계정으로 써야 합니다.
+2. **원격 DB 조회** (pgAdmin 또는 psql). 서버가 `email_verifications` 에 저장한 최신 코드를 읽습니다:
+   ```sql
+   SELECT code FROM email_verifications WHERE email='test22@example.ac.kr' ORDER BY id DESC LIMIT 1;
+   ```
+
+   - 조회 이메일과 스크립트의 `-Email`(기본 `test22@example.ac.kr`)을 반드시 일치시키세요.
+   - `email` 에 unique 제약이 없어 가장 최근(`id` 최대) 코드를 읽습니다.
+
+> 코드 입력 프롬프트에서 그냥 **Enter**(빈 값)를 치면 해당 verify/signup 단계를 건너뜁니다.
+> 이미 가입된 계정이라면 이후 login 은 코드 없이 진행됩니다.
+
+## 구성
+
+| 파일                            | 대상                                                                                                                                                                                                           | 인증                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `00_common.ps1`                 | 공통 헬퍼 + **설정(CONFIG) 블록** (curl 호출, 토큰 저장/재사용, `.env` 로드, 수동 코드 입력)                                                                                                                   | -                                     |
+| `01_health.ps1`                 | Health (헬스체크)                                                                                                                                                                                              | 불필요                                |
+| `auth/00_before_auth.ps1`       | 회원가입 전 원격 DB 정리 SQL 생성 (DB 직접 실행용)                                                                                                                                                             | -                                     |
+| `auth/02_auth.ps1`              | Auth `/api/auth` — **유저 A·B 생성**(각각 수동 코드) 후 A 토큰 저장                                                                                                                                            | 불필요                                |
+| `03_00_user.ps1`                | User `/api/users`                                                                                                                                                                                              | **필요**                              |
+| `04_00_event_init.ps1`          | Event 데이터 준비 — 활동 3건 등록(POST `/api/events`), id 를 `.event-ids.json` 에 저장                                                                                                                         | **필요**                              |
+| `04_01_event.ps1`               | Event 조회 `/api/events` (검색·분야 필터·추천). `.event-ids.json` 이 있으면 등록분 포함/제외까지 검증                                                                                                          | 일부 필요                             |
+| `20_contest_similarity_map.ps1` | 공모전 유사도 지도 `GET /api/events/{id}/similarity-map` — CONTEST 3건 등록 후 형제 2건이 points 에 들어올 때까지 폴링해 좌표 응답을 검증                                                                      | **필요**(등록) / 조회는 비로그인 가능 |
+| `05_team.ps1`                   | Team `/api/teams`                                                                                                                                                                                              | **필요**                              |
+| `06_notification.ps1`           | Notification `/api/notifications`                                                                                                                                                                              | **필요**                              |
+| `auth/07_school_auth.ps1`       | 학교 이메일 인증 `/api/auth/school/email` (request→수동 코드→verify)                                                                                                                                           | **필요**                              |
+| `auth/08_social_kakao.ps1`      | 카카오 소셜 로그인/회원가입 `/api/auth/social/kakao`                                                                                                                                                           | 불필요                                |
+| `auth/09_three_users.ps1`       | **유저 A·B·C 준비** — 로그인 먼저 시도해 기존 계정이면 코드 입력 없이 통과. 토큰을 슬롯에 저장                                                                                                                 | 불필요                                |
+| `15_review.ps1`                 | 협업 온도 `/api/teams/{id}/complete`, `/reviews` — 3명이 서로 평가하는 전 과정                                                                                                                                 | **필요**                              |
+| `10_chat.ps1`                   | Chat `/api/chat` + **WebSocket(STOMP)** 양방향 송수신 (B 는 로그인만)                                                                                                                                          | **필요**                              |
+| `11_matching_intent.ps1`        | Matching Intent `/api/matching/intents` — 별도 **AI 서버(FastAPI)** 연동                                                                                                                                       | **필요**                              |
+| `14_reverse_offer.ps1`          | 역제안 `/api/matching/recommendations/team-to-user` + `/api/teams/{id}/offers` — 팀장이 제안하고 유저가 수락하는 전 과정 (A·B 필요)                                                                            | **필요**                              |
+| `16_recommendation_reason.ps1`  | 추천 상세 이유 `/api/matching/recommendations/reason/{방향}` — 양방향 생성 + **캐시 hit**(재요청 시 AI 재호출 없음) 검증 (A·B 필요)                                                                            | **필요**                              |
+| `17_proposal_assembly.ps1`      | 최종 제안 조립 `/api/matching/proposals/{방향}` — AI 가 지원/제안 문구 초안을 쓴다. **저장하지 않는 게 계약**이라 재요청 시 새 문구가 나와야 하고(16 번과 반대), 초안 → `/apply` 발송까지 이어 검증 (A·B 필요) | **필요**                              |
+| `99_run_all.ps1`                | 위 스크립트 전체 순차 실행                                                                                                                                                                                     | -                                     |
+
+## 설정(CONFIG)
+
+모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 관리하며, 같은 폴더의 `.env` 로
+덮어쓸 수 있습니다(`.env` > 셸 환경변수 > 기본값 순).
+
+| 설정             | 셸 환경변수                 | 기본값                   | 용도                                                                              |
+| ---------------- | --------------------------- | ------------------------ | --------------------------------------------------------------------------------- |
+| BaseUrl          | `MATEON_BASE_URL`           | `http://localhost:8080`  | **원격 서버 주소 — 반드시 지정**                                                  |
+| TestEmail        | `MATEON_TEST_EMAIL`         | `test22@example.ac.kr`   | 유저 A 이메일                                                                     |
+| TestPassword     | `MATEON_TEST_PASSWORD`      | `Password1234`           | 유저 A 비밀번호                                                                   |
+| TestName         | `MATEON_TEST_NAME`          | `테스트유저`             | 유저 A 이름                                                                       |
+| UserBEmail       | `MATEON_USERB_EMAIL`        | `chatmate@example.ac.kr` | 유저 B(채팅 상대) 이메일                                                          |
+| UserBPassword    | `MATEON_USERB_PASSWORD`     | `Password1234`           | 유저 B 비밀번호                                                                   |
+| UserBName        | `MATEON_USERB_NAME`         | `채팅메이트`             | 유저 B 이름                                                                       |
+| UserCEmail       | `MATEON_USERC_EMAIL`        | (빈 값)                  | 유저 C(협업 온도 3번째 계정) 이메일                                               |
+| UserCPassword    | `MATEON_USERC_PASSWORD`     | (빈 값)                  | 유저 C 비밀번호                                                                   |
+| UserCName        | `MATEON_USERC_NAME`         | `협업메이트`             | 유저 C 이름                                                                       |
+| SchoolEmail      | `MATEON_SCHOOL_EMAIL`       | (빈 값)                  | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
+| KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값)                  | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증                  |
+
+`.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
+
+```ini
+# scripts/test/for-api-server/.env  (커밋 금지)
+MATEON_BASE_URL=https://your-remote-server.example.com
+MATEON_TEST_EMAIL=test22@example.ac.kr
+MATEON_USERB_EMAIL=chatmate@example.ac.kr
+```
+
+## 사전 준비
+
+- **PowerShell 7 (pwsh)** 권장 — 특히 `10_chat.ps1` 의 WebSocket(STOMP) 은 pwsh 7 이 필요합니다.
+  (Windows PowerShell 5.1 의 `ClientWebSocket` 은 Connection 헤더를 거부해 STOMP 연결이 실패합니다.)
+- `.env` 에 `MATEON_BASE_URL` 을 원격 서버 주소로 지정.
+- 인증코드를 읽을 수단: 접근 가능한 실제 메일함, 또는 원격 DB 접속(pgAdmin/psql).
+
+## 실행 방법
+
+`auth` 폴더 내의 스크립트들(`00_before_auth`, `02_auth`, `07_school_auth`, `08_social_kakao`)은 계정 생성, 소셜 로그인 등 테스트 환경 구성이 필요할 때 **필요 시에만 개별적으로 실행**하십시오.
+
+`99_run_all.ps1` 은 유저 준비를 `auth/09_three_users.ps1 -LoginOnly` 로 수행합니다. `02_auth` 와 달리
+09 는 **로그인을 먼저 시도**해 기존 계정이면 코드 입력 없이 통과하고, `-LoginOnly` 라서 계정이 없어도
+가입 절차(수동 코드 프롬프트)로 넘어가지 않습니다 — 무인 실행 중에 멈추지 않게 하기 위함입니다.
+따라서 **계정 생성은 09 를 단독 실행**해서 미리 해두어야 합니다.
+
+각 스크립트는 독립 실행 가능하지만, **인증이 필요한 스크립트는 먼저 로그인이 선행**되어야 합니다. 로그인 성공 시 accessToken 이 `.auth-token.txt` 에 저장되어 이후 스크립트가 재사용합니다.
+
+```powershell
+# [필요 시] 회원가입 전 테스트 계정 DB 정리 SQL 생성 및 복사
+pwsh -File .\auth\00_before_auth.ps1 -Clip
+
+# [필요 시] 유저 A·B 신규 생성 (각각 코드 수동 입력) — 전체 테스트 전 계정 세팅
+pwsh -File .\auth\02_auth.ps1 -Email me@example.ac.kr -Password Password1234
+
+# 개별 실행
+pwsh -File .\03_00_user.ps1
+pwsh -File .\auth\07_school_auth.ps1   # [필요 시] 학교 이메일 코드도 수동 입력
+pwsh -File .\10_chat.ps1               # 유저 B 는 로그인만 (코드 불필요)
+
+# 전체 순차 실행 (계정 생성을 생략하고 로그인만으로 테스트 진행)
+pwsh -File .\99_run_all.ps1 -Email me@example.ac.kr -Password Password1234
+
+# 협업 온도 시나리오 (유저 3명 필요)
+pwsh -File .\auth\09_three_users.ps1   # A/B/C 토큰 슬롯 확보 (기존 계정이면 코드 입력 0번)
+pwsh -File .\15_review.ps1             # 팀 생성 → 지원/승인 → 종료 → 상호 평가 → 온도 확인
+```
+
+> `99_run_all.ps1` 도 15 번을 포함합니다. 러너는 **로그인만** 하므로 유저 C 계정이 없으면
+> 그 항목만 조용히 스킵됩니다 — 계정이 없다면 `auth\09_three_users.ps1` 을 먼저 한 번 돌리세요.
+
+## 멀티 유저 (토큰 슬롯)
+
+협업 온도처럼 **여러 사람이 서로에게** 요청을 보내야 하는 시나리오를 위해, `00_common.ps1` 이
+유저별 토큰 슬롯을 제공합니다. 기존 스크립트가 읽는 `.auth-token.txt`("활성 세션")는 그대로 두고,
+`auth/09_three_users.ps1` 이 슬롯 사본(`.auth-token-A.txt` 등)을 만듭니다.
+
+```powershell
+Use-User "B"            # 슬롯 B 를 활성 세션으로 → 이후 Invoke-Api -Auth 는 B 로 나간다
+Get-SlotUserId "B"      # 슬롯 B 의 userId (JWT subject) — 평가 대상 지정 등에 사용
+```
+
+> 유저 C 는 협업 온도 때문에 필요합니다. 온도는 받은 평가가 **2건 이상**이어야 공개되는데
+> (1건이면 2인 팀에서 누가 줬는지 자명해 익명성이 깨집니다), 2명으로는 서로 1건씩만 주고받게 되어
+> 온도가 끝내 뜨지 않습니다.
+
+## 주의
+
+- `.auth-token.txt`, `.refresh-token.txt` 에 토큰이 평문 저장됩니다. (`.gitignore` 로 커밋 제외)
+- 비밀번호 변경/로그아웃/팀 삭제/지원 취소 등 **부작용이 큰 호출은 기본적으로 주석 처리**되어
+  있습니다. 필요 시 해당 스크립트에서 주석을 해제하세요.
+- 같은 이메일로 두 번째부터는 signup 이 `EMAIL_ALREADY_EXISTS` 로 실패하지만, 이어지는 login 이
+  성공해 토큰은 정상 저장됩니다.
+- 이 스위트는 **프로덕션 서버에는 절대 실행하지 않고, 로컬/테스트 서버 대상으로만** 돌리는 것을
+  전제로 합니다. 그래서 잔존 데이터로 인한 아래 문제는 "DB 를 통째로 밀고 다시 시작"으로 해결하면
+  됩니다.
+
+### 잔존 데이터로 인해 한 번만 성립하는 검증
+
+`13_recommendation.ps1` 의 **13.3**(의도 추출 미완료 상태 → 400 차단 기대)은 유저 B 가 의도
+추출을 **한 번도 완료한 적이 없어야** 통과합니다. 그런데 완료된 의도 슬롯을 되돌리는 API 가
+없고(`/api/matching/intents/session/restart` 는 진행 중 세션만 버릴 뿐, 완료된 슬롯은 그대로
+남습니다), `14_reverse_offer.ps1`/`16_recommendation_reason.ps1` 이 매 실행마다 B 의 의도
+추출을 완료시키므로, `99_run_all.ps1` 을 한 번이라도 끝까지 돌리면 그 이후로 13.3 은 계속
+200(실패)으로 뜹니다. 이건 회귀가 아니라 **잔존 데이터 때문에 전제가 깨진 것**이니, 다시
+검증하려면 DB 를 초기화하세요.
+
+```powershell
+# 1) DB 초기화 (아래 SQL 을 psql/pgAdmin 으로 실행 — users 는 보존되므로 재가입 불필요)
+# 2) 전체 순차 실행
+pwsh -File .\99_run_all.ps1
+```
+
+```sql
+-- ================================================================
+--  테스트 데이터 초기화 SQL (로컬/테스트 서버 전용)
+--  db/migration/V1~V37 기준 애플리케이션 테이블을 비운다.
+--  users 는 남겨두어 수동 재가입(이메일 인증) 없이 즉시 테스트 가능하며,
+--  flyway_schema_history 는 마이그레이션 이력이므로 제외한다.
+--  매칭/AI채팅/팀/활동/공모전임베딩/비밀번호찾기토큰 등 잔존 테스트 데이터만 비운다.
+--  TRUNCATE ... CASCADE 라 FK 순서를 신경 쓸 필요는 없다.
+-- ================================================================
+TRUNCATE TABLE
+    ai_chat_messages,
+    ai_chat_sessions,
+    ai_domain_tasks,
+    chat_messages,
+    chat_room_members,
+    chat_rooms,
+    email_verifications,
+    event_bookmarks,
+    event_embeddings,
+    events,
+    matching_intent_messages,
+    matching_intent_sessions,
+    matching_intent_slots,
+    notification,
+    oauth_debug_codes,
+    password_reset_tokens,
+    refresh_tokens,
+    team_applications,
+    team_embeddings,
+    team_members,
+    team_offers,
+    team_reviews,
+    team_to_user_recommendation_items,
+    team_to_user_recommendation_logs,
+    teams,
+    user_collaboration_scores,
+    user_embeddings,
+    user_portfolios,
+    user_to_team_recommendation_items,
+    user_to_team_recommendation_logs
+RESTART IDENTITY CASCADE;
+```
