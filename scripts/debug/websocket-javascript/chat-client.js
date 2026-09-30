@@ -3,7 +3,7 @@
 // launch.js 가 이 스크립트를 새 콘솔 창 2개로 각각 띄운다 (--config 로 자격증명 전달).
 // 직접 실행도 가능하다 (아래 "수동 실행" 참고).
 //
-// PowerShell 판(../../for-api-server/parallel-chat/chat-client.ps1)과 프로토콜은 동일하다:
+// Bash 판(scripts/test/for-api/parallel-chat/chat-client.sh)과 프로토콜은 동일하다:
 //   - 엔드포인트: /ws-stomp (네이티브 WebSocket)
 //   - 인증: STOMP CONNECT 프레임의 native header "Authorization: Bearer <token>"
 //     (브라우저/undici WebSocket API 는 핸드셰이크에 커스텀 HTTP 헤더를 못 붙이므로

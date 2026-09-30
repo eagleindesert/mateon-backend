@@ -2,7 +2,7 @@
 # AI 스텁 두 개와 백엔드를 시작하고 종료 시 스텁을 정리한다.
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-project_root="$(cd -- "$script_dir/../../../.." && pwd)"
+project_root="$(cd -- "$script_dir/../../.." && pwd)"
 port=8000; embedding_dimension=1536; expected_secret=''; router_port=8001
 router_force_domain=''; router_failure_mode=none; no_router_stub=false
 while (($#)); do

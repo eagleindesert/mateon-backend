@@ -81,7 +81,7 @@ public final class AiStubSupport {
         String baseUrl = System.getenv(BASE_URL_ENV);
         if (!StringUtils.hasText(baseUrl)) {
             return BASE_URL_ENV + " 가 없습니다. ai-stub 을 띄우고 이 변수를 지정하세요 "
-              + "(scripts/test/debug/ai-stub/README.md 참고).";
+              + "(scripts/debug/ai-stub/README.md 참고).";
         }
 
         String body;

@@ -1,6 +1,6 @@
 # websocket-javascript (debug) — Node.js로 두 창 실시간 채팅 테스트하기
 
-`../../for-api-server/parallel-chat`(PowerShell 판)와 같은 방식으로, 유저 A·B 의 실시간 채팅을
+`scripts/test/for-api/parallel-chat`(Bash 판)와 같은 방식으로, 유저 A·B 의 실시간 채팅을
 **콘솔 창 2개**로 띄워서 눈으로 확인하는 순수 Node.js 버전입니다. **npm install 이 필요 없습니다** —
 Node 18+ 의 전역 `fetch`, Node 21+ 의 전역 `WebSocket` 만 사용합니다 (`node --version` 으로 확인,
 이 레포 기준 v24 확인됨).
@@ -11,15 +11,15 @@ Node 18+ 의 전역 `fetch`, Node 21+ 의 전역 `WebSocket` 만 사용합니다
 |------|------|
 | `launch.js` | 유저 A·B 로그인 + DM 방 준비 후 **채팅 창 2개 자동 실행** (보통 이것만 실행) |
 | `chat-client.js` | 한 유저용 인터랙티브 클라이언트 (창 1개 = 유저 1명). `launch.js` 가 새 콘솔 창으로 띄운다 |
-| `.env` | 이 폴더 전용 설정 (커밋 금지). `scripts/test/debug/oauth/.env` 와 같은 패턴 — for-api-server 폴더 밖에 있어도 동작하도록 자체 `.env` 를 둔다 |
+| `.env` | 이 폴더 전용 설정 (커밋 금지). `scripts/debug/oauth/.env` 와 같은 패턴 — API 테스트 폴더 밖에 있어도 동작하도록 자체 `.env` 를 둔다 |
 
 ## 사전 조건
 
 1. 이 폴더의 `.env` 에 `MATEON_BASE_URL`(원격 서버 주소), `MATEON_TEST_EMAIL`/`MATEON_TEST_PASSWORD`
    (유저 A), `MATEON_USERB_EMAIL`/`MATEON_USERB_PASSWORD`(유저 B) 가 설정되어 있어야 합니다.
-   `../../for-api-server/.env` 를 거슬러 올라가 읽지 않으므로, 그쪽 값이 바뀌면 이 폴더의 `.env` 도
+   `scripts/test/for-api/.env` 를 거슬러 올라가 읽지 않으므로, 그쪽 값이 바뀌면 이 폴더의 `.env` 도
    직접 갱신하세요.
-2. 두 계정이 이미 가입되어 있어야 합니다. 아직 없다면 `../../for-api-server/auth/02_auth.ps1` 로
+2. 두 계정이 이미 가입되어 있어야 합니다. 아직 없다면 `scripts/test/for-api/auth/02_auth.sh` 로
    먼저 만들어 두세요 (`launch.js` 는 로그인만 시도하고, 계정을 새로 만들어주지는 않습니다).
 3. 인증은 HTTP 헤더가 아니라 **STOMP CONNECT 프레임의 `Authorization: Bearer ...` 헤더**로 이루어집니다
    (브라우저/Node 의 `WebSocket` API 는 핸드셰이크에 커스텀 HTTP 헤더를 못 붙이기 때문 —
@@ -56,7 +56,7 @@ node chat-client.js --label A --email test10@snu.ac.kr --password ****** --room 
 - 엔드포인트: `/ws-stomp` (네이티브 WebSocket. `ws://` 또는 `wss://` 는 `MATEON_BASE_URL` 의 스킴에서 자동 변환)
 - 발행: `/app/chat.send` — body `{ roomId, content }`
 - 구독: `/topic/room.{roomId}`
-- STOMP 프레임 형식은 `COMMAND\n header:value\n\n body\0` (NUL 종료) — `../../for-api-server/parallel-chat/_stomp-lib.ps1` 과 동일
+- STOMP 프레임 형식은 `COMMAND\n header:value\n\n body\0` (NUL 종료) — `scripts/test/for-api/parallel-chat/_stomp-lib.sh` 과 동일
 
 ## 참고: PowerShell 판과의 차이
 

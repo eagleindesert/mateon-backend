@@ -45,11 +45,11 @@
 
 ## 사용법
 
-**pwsh 7 이상**에서 실행한다.
+**Bash와 Python 3**으로 실행한다.
 
-```powershell
+```bash
 # 1) 스텁 서버 기동 (별도 터미널)
-pwsh -File scripts/test/debug/ai-stub/stub-ai-server.ps1 -Port 8001
+bash scripts/debug/ai-stub/stub-ai-server.sh --port 8001
 
 # 2) 백엔드를 이 주소로 띄운다 — .env 에 추가
 #    AI_BASE_URL=http://localhost:8001
@@ -57,19 +57,19 @@ pwsh -File scripts/test/debug/ai-stub/stub-ai-server.ps1 -Port 8001
 ./gradlew bootRun
 
 # 3) E2E 실행
-pwsh -File scripts/test/for-api/11_matching_intent.ps1
+bash scripts/test/for-api/11_matching_intent.sh
 ```
 
 포트를 바꿨다면 백엔드의 `AI_BASE_URL` 과 반드시 맞춰야 한다.
 
 `AI_INTERNAL_SECRET` 은 **스텁을 쓸 때도 반드시 있어야 한다**. 값 자체는 아무거나 좋다(스텁은
-`-ExpectedSecret` 을 주지 않으면 검증하지 않는다). 백엔드가 이 값을 필수로 요구하는 건
+`--expected-secret` 을 주지 않으면 검증하지 않는다). 백엔드가 이 값을 필수로 요구하는 건
 `JWT_SECRET` 과 같은 관례로, 시크릿 없이 실서버를 호출하다 401 을 맞는 상황을
 부팅 시점에 막기 위해서다.
 
 시크릿 검증까지 재현하려면 양쪽 값을 맞춘다:
-```powershell
-pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTERNAL_SECRET 과 동일하게
+```bash
+bash scripts/debug/ai-stub/stub-ai-server.sh --expected-secret "dev-secret"   # .env 의 AI_INTERNAL_SECRET 과 동일하게
 ```
 
 ## 동작
@@ -116,13 +116,13 @@ pwsh -File stub-ai-server.ps1 -ExpectedSecret "dev-secret"   # .env 의 AI_INTER
 E2E 스크립트 없이, JUnit 이 직접 이 스텁에 붙어 **AI 응답이 DTO 로 채워지는지와 DB 까지
 저장되는지**를 확인한다. 백엔드를 띄울 필요가 없다.
 
-```powershell
+```bash
 # 1) 스텁 기동 (별도 터미널)
-pwsh -File scripts/test/debug/ai-stub/stub-ai-server.ps1 -Port 8001 -ExpectedSecret "stub-secret"
+bash scripts/debug/ai-stub/stub-ai-server.sh --port 8001 --expected-secret "stub-secret"
 
 # 2) 게이트 변수를 주고 실행 (Docker 도 떠 있어야 한다 — 저장 테스트가 Postgres 를 띄운다)
-$env:AI_STUB_BASE_URL = "http://localhost:8001"
-$env:AI_STUB_SECRET   = "stub-secret"
+export AI_STUB_BASE_URL="http://localhost:8001"
+export AI_STUB_SECRET="stub-secret"
 ./gradlew liveTest
 ```
 
@@ -144,8 +144,8 @@ $env:AI_STUB_SECRET   = "stub-secret"
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `-Port` | `8000` | 리스닝 포트 |
-| `-EmbeddingDimension` | `1536` | 임베딩 차원. `user_embeddings.embedding` 이 `vector(1536)` 이므로 기본값을 바꾸면 백엔드가 502 로 거른다 (차원 검증 테스트용) |
-| `-ExpectedSecret` | (없음) | 주면 `X-Internal-Secret` 을 검증해 불일치/누락 시 **401**. 안 주면 받은 값을 마스킹해 출력만 한다 |
+| `--port` | `8000` | 리스닝 포트 |
+| `--embedding-dimension` | `1536` | 임베딩 차원. `user_embeddings.embedding` 이 `vector(1536)` 이므로 기본값을 바꾸면 백엔드가 502 로 거른다 (차원 검증 테스트용) |
+| `--expected-secret` | (없음) | 주면 `X-Internal-Secret` 을 검증해 불일치/누락 시 **401**. 안 주면 받은 값을 마스킹해 출력만 한다 |
 
 중지는 `Ctrl+C`.

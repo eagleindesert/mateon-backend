@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // launch.js — 유저 A·B 의 실시간 채팅을 콘솔 창 2개로 띄운다.
-// PowerShell 판(../../for-api-server/parallel-chat/launch.ps1)과 흐름은 동일하다:
+// Bash 판(scripts/test/for-api/parallel-chat/launch.sh)과 흐름은 동일하다:
 //   1) .env 의 유저 A(MATEON_TEST_*) / 유저 B(MATEON_USERB_*) 로 로그인
-//      (계정이 아직 없다면 이 스크립트는 만들어주지 않는다 — 먼저 ../../for-api-server/auth/02_auth.ps1 로 준비)
+//      (계정이 아직 없다면 이 스크립트는 만들어주지 않는다 — 먼저 scripts/test/for-api/auth/02_auth.sh 로 준비)
 //   2) A 토큰으로 A<->B DM 방 조회/생성 (멱등) -> roomId 확보
 //   3) chat-client.js 를 새 콘솔 창 2개로 실행 (A=cyan, B=green)
 //
@@ -21,9 +21,9 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 
 // ----------------------------------------------------------------------------
-// 0) .env 로드 — 이 폴더(websocket-javascript) 자체 .env 를 쓴다 (scripts/test/debug/oauth/.env
-//    와 같은 패턴). for-api-server 폴더 밖으로 옮겨져도 동작하도록 상위 폴더를 거슬러 올라가지
-//    않는다 — for-api-server/.env 와 값이 달라지면 이 폴더의 .env 를 직접 갱신해야 한다.
+// 0) .env 로드 — 이 폴더(websocket-javascript) 자체 .env 를 쓴다 (scripts/debug/oauth/.env
+//    와 같은 패턴). scripts/test/for-api 폴더 밖으로 옮겨져도 동작하도록 상위 폴더를 거슬러 올라가지
+//    않는다 — scripts/test/for-api/.env 와 값이 달라지면 이 폴더의 .env 를 직접 갱신해야 한다.
 // ----------------------------------------------------------------------------
 function loadDotEnv(filePath) {
     if (!fs.existsSync(filePath)) return;
@@ -126,7 +126,7 @@ async function main() {
     const tokenB = await login(userB.email, userB.password);
 
     if (!tokenA || !tokenB) {
-        console.error("\n(!) 로그인 실패 — 계정이 아직 없다면 ../../for-api-server/auth/02_auth.ps1 로 유저 A/B 를 먼저 만드세요.");
+        console.error("\n(!) 로그인 실패 — 계정이 아직 없다면 scripts/test/for-api/auth/02_auth.sh 로 유저 A/B 를 먼저 만드세요.");
         console.error("    (MATEON_BASE_URL 로 서버에 닿는지도 확인하세요: " + baseUrl + ")");
         process.exit(1);
     }
