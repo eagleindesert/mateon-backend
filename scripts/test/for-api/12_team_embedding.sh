@@ -7,11 +7,11 @@ while (($#)); do
   case "$1" in
     --cleanup) cleanup=true; shift ;;
     -h|--help) echo '사용법: 12_team_embedding.sh [--cleanup]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 12. Team Embedding ##########\n'
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+mateon_color_printf Magenta '\n########## 12. Team Embedding ##########\n'
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 state_file="$script_dir/.event-ids.json"
 linked_event_id=''
 if [[ -s "$state_file" ]]; then
@@ -75,9 +75,9 @@ if [[ -n "$team_id" ]]; then
 fi
 sleep 3
 if [[ "$cleanup" == true ]]; then
-  printf '  (i) --cleanup이 주어졌지만 원본과 같이 팀 삭제는 비활성화합니다. teamId=%s teamId2=%s\n' "$team_id" "$team_id_2"
+  mateon_color_printf Yellow '  (i) --cleanup이 주어졌지만 원본과 같이 팀 삭제는 비활성화합니다. teamId=%s teamId2=%s\n' "$team_id" "$team_id_2"
 else
-  printf '  (i) 만든 팀을 남깁니다. teamId=%s teamId2=%s\n' "$team_id" "$team_id_2"
+  mateon_color_printf Yellow '  (i) 만든 팀을 남깁니다. teamId=%s teamId2=%s\n' "$team_id" "$team_id_2"
 fi
-printf '  DB 확인: SELECT embedding_text, activity_goal, missing_fields, vector_dims(embedding) FROM team_embeddings WHERE team_id=%s;\n' "$team_id"
+mateon_color_printf DarkGray '  DB 확인: SELECT embedding_text, activity_goal, missing_fields, vector_dims(embedding) FROM team_embeddings WHERE team_id=%s;\n' "$team_id"
 write_test_summary

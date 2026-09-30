@@ -8,7 +8,7 @@ while (($#)); do
   case "$1" in
     --clip) clip=true; shift ;;
     -h|--help) echo '사용법: 00_before_auth.sh [--clip]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
 
@@ -23,7 +23,7 @@ for email in "${MATEON_TEST_EMAIL:-}" "${MATEON_USERB_EMAIL:-}" "${MATEON_SCHOOL
 done
 
 if ((${#emails[@]} == 0)); then
-  echo '정리할 이메일이 없습니다. MATEON_TEST_EMAIL / MATEON_USERB_EMAIL / MATEON_SCHOOL_EMAIL을 확인하세요.' >&2
+  mateon_color_printf Red '%s\n' '정리할 이메일이 없습니다. MATEON_TEST_EMAIL / MATEON_USERB_EMAIL / MATEON_SCHOOL_EMAIL을 확인하세요.' >&2
   exit 1
 fi
 
@@ -56,8 +56,10 @@ DELETE FROM users WHERE email IN ($in_list) OR school_email IN ($in_list);
 COMMIT;
 EOF
 )"
-printf '\n########## 0. Before-Auth DB 정리 SQL 생성 (BaseUrl=%s) ##########\n' "$mateon_base_url"
-printf '  대상 이메일: %s\n  아래 SQL을 원격 DB에 붙여넣어 실행하세요.\n\n%s\n' "$email_list" "$sql"
+mateon_color_printf Magenta '\n########## 0. Before-Auth DB 정리 SQL 생성 (BaseUrl=%s) ##########\n' "$mateon_base_url"
+mateon_color_printf DarkGray '  대상 이메일: %s\n' "$email_list"
+mateon_color_printf Yellow '  아래 SQL을 원격 DB에 붙여넣어 실행하세요.\n'
+printf '\n%s\n' "$sql"
 
 if [[ "$clip" == true ]]; then
   if command -v wl-copy >/dev/null 2>&1; then
@@ -67,8 +69,8 @@ if [[ "$clip" == true ]]; then
   elif command -v pbcopy >/dev/null 2>&1; then
     printf '%s' "$sql" | pbcopy
   else
-    echo '클립보드 도구(wl-copy, xclip, pbcopy)를 찾을 수 없습니다.' >&2
+    mateon_color_printf Red '%s\n' '클립보드 도구(wl-copy, xclip, pbcopy)를 찾을 수 없습니다.' >&2
     exit 1
   fi
-  echo 'SQL을 클립보드에 복사했습니다.'
+  mateon_color_printf Green '%s\n' 'SQL을 클립보드에 복사했습니다.'
 fi

@@ -8,14 +8,14 @@ while (($#)); do
     --image-path) image_path=${2:?이미지 경로가 필요합니다}; shift 2 ;;
     --timeout-sec) timeout_sec=${2:?초 값이 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 03_01_user_profile_image.sh [--image-path FILE] [--timeout-sec 30]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 3-1. 프로필 사진 ##########\n'
+mateon_color_printf Magenta '\n########## 3-1. 프로필 사진 ##########\n'
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
 if [[ -n "$image_path" ]]; then
-  [[ -f "$image_path" ]] || { echo "이미지가 없습니다: $image_path" >&2; exit 1; }
+  [[ -f "$image_path" ]] || { mateon_color_printf Red '%s\n' "이미지가 없습니다: $image_path" >&2; exit 1; }
   png_path="$image_path"; replace_path="$image_path"
 else
   png_path="$temp_dir/profile-1.png"; replace_path="$temp_dir/profile-2.png"
@@ -27,7 +27,7 @@ mime=image/png
 [[ "$png_path" =~ \.[Jj][Pp][Ee]?[Gg]$ ]] && mime=image/jpeg
 gif_path="$temp_dir/invalid.gif"; cp -- "$png_path" "$gif_path"
 huge_path="$temp_dir/huge.png"; truncate -s 11M "$huge_path"
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 my_id="$(jwt_subject "$(get_access_token)")"
 path='/api/users/me/profile-image'
 

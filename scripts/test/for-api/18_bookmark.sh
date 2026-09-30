@@ -2,11 +2,11 @@
 set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
-printf '\n########## 18. Bookmark (활동 북마크) ##########\n'
+mateon_color_printf Magenta '\n########## 18. Bookmark (활동 북마크) ##########\n'
 
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없어 북마크 테스트를 건너뜁니다.'; exit 0; }
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Yellow '%s\n' 'accessToken이 없어 북마크 테스트를 건너뜁니다.'; exit 0; }
 state_file="$script_dir/.event-ids.json"
-[[ -s "$state_file" ]] || { echo '.event-ids.json이 없어 북마크 테스트를 건너뜁니다.'; exit 0; }
+[[ -s "$state_file" ]] || { mateon_color_printf Yellow '%s\n' '.event-ids.json이 없어 북마크 테스트를 건너뜁니다.'; exit 0; }
 target_id="$(python3 - "$state_file" <<'PY'
 import json,sys
 try:
@@ -21,8 +21,8 @@ try: print(json.load(open(sys.argv[1])).get('__runTag',''))
 except (OSError,ValueError): print('')
 PY
 )"
-[[ -n "$target_id" ]] || { echo '대상 활동 ID가 없어 건너뜁니다.'; exit 0; }
-printf '  (i) 대상 활동 eventId=%s\n' "$target_id"
+[[ -n "$target_id" ]] || { mateon_color_printf Yellow '%s\n' '대상 활동 ID가 없어 건너뜁니다.'; exit 0; }
+mateon_color_printf DarkCyan '  (i) 대상 활동 eventId=%s\n' "$target_id"
 path="/api/bookmarks/events/$target_id"
 cleanup() { invoke_api --method DELETE --path "$path" --auth --no-track >/dev/null; }
 trap cleanup EXIT

@@ -7,11 +7,11 @@ while (($#)); do
   case "$1" in
     --strict-routing) strict_routing=true; shift ;;
     -h|--help) echo '사용법: 19_ai_gateway.sh [--strict-routing]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 19. AI Gateway ##########\n'
-[[ -n "$(get_access_token || true)" ]] || { echo '먼저 auth/02_auth.sh로 로그인하세요.' >&2; exit 1; }
+mateon_color_printf Magenta '\n########## 19. AI Gateway ##########\n'
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' '먼저 auth/02_auth.sh로 로그인하세요.' >&2; exit 1; }
 turn_shape() {
   local prefix=$1 turn=$2 expected=$3 domain endpoint matching
   [[ "$(json_get "$turn" data.sessionId)" == "$expected" ]] && ok=true || ok=false
@@ -152,7 +152,7 @@ invoke_api --path /api/ai/chat/sessions/99999999 --auth --title '19.10d 없는 �
 invoke_api --path /api/ai/chat/sessions --title '19.11 인증 없이 목록 (차단 기대)' >/dev/null
 invoke_api --method POST --path /api/matching/intents/session/restart --auth --title '19.12 매칭 작업 정리' >/dev/null
 if [[ "$router_live" == false ]]; then
-  if [[ "$strict_routing" == true ]]; then assert_test '19.x 라우터 분류 수행' false; else echo '라우터가 매칭으로 폴백했습니다.'; fi
+  if [[ "$strict_routing" == true ]]; then assert_test '19.x 라우터 분류 수행' false; else mateon_color_printf Yellow '%s\n' '라우터가 매칭으로 폴백했습니다.'; fi
 fi
-printf '대화 세션 A=%s B=%s\n' "$session_a" "$session_b"
+mateon_color_printf DarkGray '대화 세션 A=%s B=%s\n' "$session_a" "$session_b"
 write_test_summary

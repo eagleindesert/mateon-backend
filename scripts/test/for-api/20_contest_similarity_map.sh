@@ -2,8 +2,8 @@
 set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
-printf '\n########## 20. 공모전 유사도 지도 ##########\n'
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+mateon_color_printf Magenta '\n########## 20. 공모전 유사도 지도 ##########\n'
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 run_tag="$(date +%H%M%S)"
 today="$(date +%F)"
 labels=('기준' '유사A' '유사B')
@@ -26,7 +26,7 @@ PY
     --title "20.1 활동 등록 (${labels[$i]}, 임베딩은 비동기)" --body "$body"
   printf '\n'
   id="$(json_get "$mateon_response" data.id)"
-  [[ -n "$id" ]] || { echo "등록 응답에 id가 없습니다: ${labels[$i]}" >&2; write_test_summary; exit 1; }
+  [[ -n "$id" ]] || { mateon_color_printf Red '%s\n' "등록 응답에 id가 없습니다: ${labels[$i]}" >&2; write_test_summary; exit 1; }
   created_ids+=("$id")
 done
 query_id=${created_ids[0]}

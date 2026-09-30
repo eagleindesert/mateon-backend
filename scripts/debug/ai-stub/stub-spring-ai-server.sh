@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # OpenAI Chat Completions 호환 라우터 스텁 (Python 표준 라이브러리 HTTP 서버).
 set -euo pipefail
-python3 - "$@" <<'PY'
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 - "$script_dir/../../lib" "$@" <<'PY'
 import argparse
 import json
 import sys
+sys.path.insert(0,sys.argv.pop(1))
+from colors import color_print
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,9 +28,11 @@ def completion(model, content):
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *values):
-        print('[router]', fmt % values, flush=True)
+        color_print('Cyan', '[router]', fmt % values, flush=True)
 
     def send_json(self, value, status=200):
+        color = 'Yellow' if status == 404 or args.failure_mode != 'none' else 'Green' if status < 400 else 'Red'
+        color_print(color, f'  -> {status}', flush=True)
         data=json.dumps(value,ensure_ascii=False,separators=(',',':')).encode()
         self.send_response(status)
         self.send_header('Content-Type','application/json; charset=utf-8')
@@ -41,7 +46,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'error':{'message':'Unknown path','type':'invalid_request_error'}},404)
             return
         if self.headers.get('Authorization'):
-            print('[!!] Authorization 헤더가 실려 왔습니다', flush=True)
+            color_print('Yellow', '[!!] Authorization 헤더가 실려 왔습니다', flush=True)
         try:
             body=json.loads(self.rfile.read(int(self.headers.get('Content-Length','0'))))
         except (ValueError,TypeError):
@@ -56,9 +61,9 @@ class Handler(BaseHTTPRequestHandler):
         for marker in ('Your response should be in JSON','Here is the JSON Schema','```'):
             utterance=utterance.split(marker,1)[0]
         utterance=utterance.strip()
-        print(f'model={model} temperature={body.get("temperature")} utterance={utterance}', flush=True)
+        color_print('Gray', f'model={model} temperature={body.get("temperature")} utterance={utterance}', flush=True)
         missing=[x for x in ('MATCHING_INTENT','UNCLEAR','OUT_OF_SCOPE') if x not in system]
-        print('[OK] 도메인 카탈로그' if not missing else f'[!!] 빠진 도메인: {missing}', flush=True)
+        color_print('Red' if missing else 'Green', '[OK] 도메인 카탈로그' if not missing else f'[!!] 빠진 도메인: {missing}', flush=True)
         if args.failure_mode=='http-500':
             self.send_json({'error':{'message':'stub injected failure','type':'server_error'}},500)
             return
@@ -89,9 +94,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_json({'error':{'message':'Unknown path','type':'invalid_request_error'}},404)
 
-print(f'라우터 스텁: http://localhost:{args.port}/v1/chat/completions',flush=True)
+color_print('Magenta', 'Spring AI 라우터 스텁', flush=True)
+color_print('Green', f'라우터 스텁: http://localhost:{args.port}/v1/chat/completions',flush=True)
 try:
     ThreadingHTTPServer(('127.0.0.1',args.port),Handler).serve_forever()
 except KeyboardInterrupt:
-    pass
+    color_print('DarkGray', '라우터 스텁을 중지했습니다.', flush=True)
 PY

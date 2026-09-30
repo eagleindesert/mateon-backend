@@ -7,10 +7,10 @@ while (($#)); do
   case "$1" in
     --pdf-path) pdf_path=${2:?PDF 경로가 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 03_02_portfolio_summarize.sh [--pdf-path FILE]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 3-2. Portfolio PDF 요약 ##########\n'
+mateon_color_printf Magenta '\n########## 3-2. Portfolio PDF 요약 ##########\n'
 run_tag="pdf$RANDOM$RANDOM"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
@@ -39,7 +39,7 @@ pathlib.Path(path).write_bytes(b''.join(parts))
 PY
 }
 if [[ -n "$pdf_path" ]]; then
-  [[ -f "$pdf_path" ]] || { echo "PDF가 없습니다: $pdf_path" >&2; exit 1; }
+  [[ -f "$pdf_path" ]] || { mateon_color_printf Red '%s\n' "PDF가 없습니다: $pdf_path" >&2; exit 1; }
   pdf_file="$pdf_path"
 else
   pdf_file="$temp_dir/portfolio.pdf"

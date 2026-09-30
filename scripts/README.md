@@ -51,3 +51,11 @@ CI의 GitHub 토큰/runner 변수는 GitHub Actions가 제공하고, DockerHub S
 카카오 토큰 획득 도구는 `debug/.env`에 토큰을 기록합니다. API 테스트에 사용하려면 `test/.env`의 `MATEON_KAKAO_ACCESS_TOKEN`으로 복사하거나 `--kakao-access-token` 옵션으로 전달하세요.
 
 인증 테스트는 먼저 `auth/09_three_users.sh`를 실행해 A/B/C 토큰을 저장해야 합니다. 실제 백엔드와 AI 서비스가 필요한 통합 시나리오는 실행 환경에 따라 과금될 수 있습니다. 로컬 AI 스텁은 `scripts/debug/ai-stub`에 있습니다.
+
+### 출력 색상
+
+Bash/Python 도구는 `.legacies/scripts`의 대응 파일에 지정된 PowerShell 색상을 ANSI 색상으로 사용합니다. 제목은 Magenta, API 단계는 Cyan, 성공은 Green, 주의는 Yellow, 실패는 Red이며 안내 문구는 원본의 DarkGray/DarkCyan 등을 따릅니다. 공통 함수는 `lib/colors.sh`와 `lib/colors.py`에 있습니다.
+
+터미널에서 실행하면 색상이 표시됩니다. 리다이렉트·파이프 또는 `TERM=dumb`에서는 일반 텍스트를 출력합니다. `NO_COLOR=1`로 색상을 끄거나 `FORCE_COLOR=1`로 강제할 수 있으며, 두 변수가 모두 있으면 `NO_COLOR`가 우선합니다. JSON 응답·토큰·SQL·STOMP 프레임 등 데이터에는 색상 코드를 넣지 않습니다.
+
+`parallel-chat/chat-client.sh --color Cyan`과 `notification-client.sh --color Magenta`로 창별 색상을 지정할 수 있습니다. 채팅의 상대 메시지는 Yellow, 내 메시지 확인과 대화 이력은 DarkGray로 표시됩니다.

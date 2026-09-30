@@ -9,21 +9,21 @@ while (($#)); do
     --user-b-email) user_b_email=${2:?이메일이 필요합니다}; shift 2 ;;
     --user-b-password) user_b_password=${2:?비밀번호가 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 13_recommendation.sh [--cleanup] [--user-b-email EMAIL --user-b-password PASSWORD]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 13. Recommendation (유저→팀) ##########\n'
+mateon_color_printf Magenta '\n########## 13. Recommendation (유저→팀) ##########\n'
 token_a="$(get_access_token || true)"
-[[ -n "$token_a" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+[[ -n "$token_a" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 trap 'save_access_token "$token_a"' EXIT
 id_a="$(jwt_subject "$token_a")"
 login_body="$(python3 -c 'import json,sys; print(json.dumps({"email":sys.argv[1],"password":sys.argv[2]}))' "$user_b_email" "$user_b_password")"
 invoke_api --method POST --path /api/auth/login --title '13.0 유저 B 로그인' --body "$login_body"
 token_b="$(json_get "$mateon_response" data.accessToken)"
 printf '\n'
-[[ -n "$token_b" ]] || { echo 'B 로그인 실패' >&2; write_test_summary; exit 1; }
+[[ -n "$token_b" ]] || { mateon_color_printf Red '%s\n' 'B 로그인 실패' >&2; write_test_summary; exit 1; }
 id_b="$(jwt_subject "$token_b")"
-[[ "$id_a" != "$id_b" ]] || { echo 'A/B가 동일 계정입니다.' >&2; exit 1; }
+[[ "$id_a" != "$id_b" ]] || { mateon_color_printf Red '%s\n' 'A/B가 동일 계정입니다.' >&2; exit 1; }
 save_access_token "$token_b"
 invoke_api --path /api/events --title '13.0b 활동 목록 조회'
 linked_id="$(json_get "$mateon_response" data.0.id)"
@@ -144,6 +144,6 @@ if [[ "$cleanup" == true ]]; then
   printf '\n'
   save_access_token "$token_a"
 else
-  printf '  (i) B가 만든 팀을 남깁니다: BE=%s FE=%s\n' "$team_be_id" "$team_fe_id"
+  mateon_color_printf Yellow '  (i) B가 만든 팀을 남깁니다: BE=%s FE=%s\n' "$team_be_id" "$team_fe_id"
 fi
 write_test_summary

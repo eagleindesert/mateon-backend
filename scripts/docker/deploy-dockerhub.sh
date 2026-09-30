@@ -3,6 +3,7 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/../lib/colors.sh"
 project_root="$(cd -- "$script_dir/../.." && pwd)"
 username=""
 image_name="mateon-backend"
@@ -22,7 +23,7 @@ EOF
 while (($#)); do
   case "$1" in
     --username|--image-name|--tag|--platform)
-      (($# >= 2)) || { echo "인자 값이 필요합니다: $1" >&2; exit 2; }
+      (($# >= 2)) || { mateon_color_printf Red '%s\n' "인자 값이 필요합니다: $1" >&2; exit 2; }
       case "$1" in
         --username) username=$2 ;;
         --image-name) image_name=$2 ;;
@@ -33,14 +34,14 @@ while (($#)); do
     --no-latest) latest_too=false; shift ;;
     --no-push) push=false; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
-step() { printf '\n==> %s\n' "$*"; }
-ok() { printf '  [OK] %s\n' "$*"; }
-warn() { printf '  [!] %s\n' "$*" >&2; }
-fail() { printf '  [X] %s\n' "$*" >&2; exit 1; }
+step() { mateon_color_printf Cyan '\n==> %s\n' "$*"; }
+ok() { mateon_color_printf Green '  [OK] %s\n' "$*"; }
+warn() { mateon_color_printf Yellow '  [!] %s\n' "$*" >&2; }
+fail() { mateon_color_printf Red '  [X] %s\n' "$*" >&2; exit 1; }
 
 step "프로젝트 루트: $project_root"
 step '사전 점검'
@@ -138,7 +139,7 @@ if [[ "$push" == true ]]; then
   ok "빌드 및 push 완료: $full_tag ($platform)"
   [[ "$latest_too" == true && "$tag" != latest ]] && ok "push 완료: $latest_tag"
   step '배포 완료'
-  printf '  docker pull %s\n' "$full_tag"
+  mateon_color_printf Green '  docker pull %s\n' "$full_tag"
 else
   ok "빌드/로드 완료: $full_tag"
 fi

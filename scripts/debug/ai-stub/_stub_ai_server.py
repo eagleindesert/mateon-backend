@@ -3,6 +3,9 @@ import argparse
 import json
 import random
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lib"))
+from colors import color_print
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 parser = argparse.ArgumentParser()
@@ -103,9 +106,9 @@ def intent(body):
     messages = body.get('messages') or []
     for item in messages:
         message = str(item.get('message') or '')
-        print(f"id={item.get('id')} role={item.get('role', 'user')} message={message[:80]}", flush=True)
+        color_print("Gray", f"id={item.get('id')} role={item.get('role', 'user')} message={message[:80]}", flush=True)
     ids_ok = all(item.get('id') == index for index, item in enumerate(messages, 1))
-    print('[OK] id 연속 증가' if ids_ok else '[!!] id 불연속', flush=True)
+    color_print('Green' if ids_ok else 'Red', '[OK] id 연속 증가' if ids_ok else '[!!] id 불연속', flush=True)
     dialogue = [item for item in messages if not str(item.get('message') or '').startswith(('[자기소개서]', '[포트폴리오]'))]
     extracted = {'desired_roles': ['BE'], 'skills': ['React', 'TypeScript'],
                  'interests': [] if len(dialogue) <= 1 else ['커머스'],
@@ -124,9 +127,13 @@ def intent(body):
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *values):
-        print('[ai-stub]', fmt % values, flush=True)
+        color_print('Cyan', '[ai-stub]', fmt % values, flush=True)
 
     def send_json(self, value, status=200):
+        color = 'Yellow' if status == 404 else 'Green' if status < 400 else 'Red'
+        if self.path == '/intents/extract' and value.get('missing_fields'):
+            color = 'Yellow'
+        color_print(color, f'  -> {status}', flush=True)
         data = json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -147,9 +154,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         secret = self.headers.get('X-Internal-Secret')
         if secret:
-            print(f'X-Internal-Secret: present (len={len(secret)})', flush=True)
+            color_print('Gray', f'X-Internal-Secret: present (len={len(secret)})', flush=True)
         else:
-            print('[!!] X-Internal-Secret 헤더 없음', flush=True)
+            color_print('Red', '[!!] X-Internal-Secret 헤더 없음', flush=True)
         if args.expected_secret:
             if not secret:
                 self.send_json({'detail': 'Missing X-Internal-Secret'}, 401)
@@ -160,8 +167,8 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(int(self.headers.get('Content-Length', '0')))
         if self.path == '/contests/extract-image':
             head = raw[:512].decode(errors='replace')
-            print(f'Content-Type: {self.headers.get("Content-Type")} bytes={len(raw)}', flush=True)
-            print('[OK] img_file' if 'name="img_file"' in head else '[!!] img_file 없음', flush=True)
+            color_print('Gray', f'Content-Type: {self.headers.get("Content-Type")} bytes={len(raw)}', flush=True)
+            color_print('Green' if 'name="img_file"' in head else 'Red', '[OK] img_file' if 'name="img_file"' in head else '[!!] img_file 없음', flush=True)
             self.send_json({'external_id': None, 'category': 'CONTEST', 'field': 'PLANNING_IDEA',
                             'title': '2026 제10회 <051영화제> 51초 영화 공모전',
                             'organizer': '부산시사회복지협의회', 'target_school': None,
@@ -174,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/portfolios/summarize':
             counters['portfolio'] += 1
             head = raw[:512].decode(errors='replace')
-            print('[OK] pdf_file' if 'name="pdf_file"' in head else '[!!] pdf_file 없음', flush=True)
+            color_print('Green' if 'name="pdf_file"' in head else 'Red', '[OK] pdf_file' if 'name="pdf_file"' in head else '[!!] pdf_file 없음', flush=True)
             self.send_json({'pdf_id': '0' * 64,
                             'response': f"- [stub#{counters['portfolio']}] OO 서비스 프론트엔드 개발, React/TypeScript 로 대시보드 UI 구현\n"
                                         '- OO 해커톤 팀 프로젝트, 백엔드 API 설계 및 배포\n\n'
@@ -185,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, TypeError):
             self.send_json({'detail': 'Invalid JSON'}, 400)
             return
-        print(f'{self.path}: {json.dumps(body, ensure_ascii=False)[:1200]}', flush=True)
+        color_print('Gray', f'{self.path}: {json.dumps(body, ensure_ascii=False)[:1200]}', flush=True)
         if self.path == '/internal/teams/embedding:refresh':
             roles = body.get('recruiting_roles') or []
             skills = body.get('required_skills') or []
@@ -206,7 +213,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == '/selection-events':
             context = body.get('selection_context') or {}
             shown = context.get('shown_candidates') or []
-            print(f"direction={body.get('direction')} selected={body.get('selected_candidate_id')} shown={len(shown)}", flush=True)
+            color_print("White", f"direction={body.get('direction')} selected={body.get('selected_candidate_id')} shown={len(shown)}", flush=True)
             self.send_json({'accepted': True})
         elif self.path == '/recommendations/reason':
             counters['reason'] += 1
@@ -218,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
             direction = 'USER_TO_TEAM' if self.path.endswith('user-to-team') else 'TEAM_TO_USER'
             expected_sender = body.get('user_id') if direction == 'USER_TO_TEAM' else body.get('team_id')
             expected_receiver = body.get('team_id') if direction == 'USER_TO_TEAM' else body.get('user_id')
-            print('[OK] sender/receiver' if body.get('sender_id') == expected_sender and body.get('receiver_id') == expected_receiver
+            color_print('Green' if body.get('sender_id') == expected_sender and body.get('receiver_id') == expected_receiver else 'Red', '[OK] sender/receiver' if body.get('sender_id') == expected_sender and body.get('receiver_id') == expected_receiver
                   else '[!!] sender/receiver 뒤바뀜', flush=True)
             result = {key: body.get(key) for key in ('user_id', 'team_id', 'contest_id', 'sender_id',
                                                       'receiver_id', 'intent_id', 'synergy_score')}
@@ -230,8 +237,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(intent(body))
 
 
-print(f'AI 스텁: http://localhost:{args.port}/ (embedding dimension={args.embedding_dimension})', flush=True)
+color_print('Magenta', 'AI 서버 스텁', flush=True)
+color_print('Green', f'AI 스텁: http://localhost:{args.port}/', flush=True)
+color_print('DarkGray', f'  임베딩 차원: {args.embedding_dimension}', flush=True)
 try:
     HTTPServer(('127.0.0.1', args.port), Handler).serve_forever()
 except KeyboardInterrupt:
-    pass
+    color_print('DarkGray', '스텁 서버를 중지했습니다.', flush=True)

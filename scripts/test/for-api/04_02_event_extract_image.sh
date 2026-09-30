@@ -8,15 +8,15 @@ while (($#)); do
     --image-path) image_path=${2:?이미지 경로가 필요합니다}; shift 2 ;;
     --skip-register) skip_register=true; shift ;;
     -h|--help) echo '사용법: 04_02_event_extract_image.sh [--image-path FILE] [--skip-register]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 4-2. 공모전 이미지 자동 입력 ##########\n'
+mateon_color_printf Magenta '\n########## 4-2. 공모전 이미지 자동 입력 ##########\n'
 run_tag="img$RANDOM$RANDOM"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
 if [[ -n "$image_path" ]]; then
-  [[ -f "$image_path" ]] || { echo "이미지가 없습니다: $image_path" >&2; exit 1; }
+  [[ -f "$image_path" ]] || { mateon_color_printf Red '%s\n' "이미지가 없습니다: $image_path" >&2; exit 1; }
   png_path="$image_path"
 else
   png_path="$temp_dir/poster.png"

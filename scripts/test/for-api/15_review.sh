@@ -6,17 +6,17 @@ while (($#)); do
   case "$1" in
     --keep-team) shift ;; # 기본 동작도 종료된 팀을 남긴다.
     -h|--help) echo '사용법: 15_review.sh [--keep-team]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 15. Review (협업 온도) ##########\n'
+mateon_color_printf Magenta '\n########## 15. Review (협업 온도) ##########\n'
 for slot in A B C; do
-  [[ -n "$(get_slot_user_id "$slot")" ]] || { echo "유저 A/B/C 슬롯이 필요합니다. auth/09_three_users.sh를 실행하세요." >&2; exit 1; }
+  [[ -n "$(get_slot_user_id "$slot")" ]] || { mateon_color_printf Red '%s\n' "유저 A/B/C 슬롯이 필요합니다. auth/09_three_users.sh를 실행하세요." >&2; exit 1; }
 done
 id_a="$(get_slot_user_id A)"
 id_b="$(get_slot_user_id B)"
 id_c="$(get_slot_user_id C)"
-printf '유저: A=%s B=%s C=%s\n' "$id_a" "$id_b" "$id_c"
+mateon_color_printf DarkGray '유저: A=%s B=%s C=%s\n' "$id_a" "$id_b" "$id_c"
 today="$(date +%F)"
 end_date="$(date -d '+30 days' +%F)"
 use_user A >/dev/null
@@ -27,7 +27,7 @@ PY
 )"
 invoke_api --method POST --path /api/teams --auth --title '15.1 팀 생성 (팀장 A)' --body "$body" >/dev/null
 team_id="$(json_get "$mateon_response" data.id)"
-[[ -n "$team_id" ]] || { echo '팀 생성 실패' >&2; write_test_summary; exit 1; }
+[[ -n "$team_id" ]] || { mateon_color_printf Red '%s\n' '팀 생성 실패' >&2; write_test_summary; exit 1; }
 [[ "$(json_get "$mateon_response" data.currentMemberCount)" == 1 ]] && ok=true || ok=false
 assert_test '15.1b 생성 직후 인원 = 1' "$ok"
 for slot in B C; do
@@ -156,5 +156,5 @@ PY
   assert_test '15.14c 평가 0건 B 온도 = 36.5' "$ok"
 fi
 use_user A >/dev/null
-printf '종료된 팀 %s 유지. 활성 유저 A.\n' "$team_id"
+mateon_color_printf DarkGray '종료된 팀 %s 유지. 활성 유저 A.\n' "$team_id"
 write_test_summary

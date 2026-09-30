@@ -8,12 +8,12 @@ while (($#)); do
     --user-b-email) user_b_email=${2:?이메일이 필요합니다}; shift 2 ;;
     --user-b-password) user_b_password=${2:?비밀번호가 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 05_team.sh [--user-b-email EMAIL --user-b-password PASSWORD]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 5. Team (팀 모집/지원) ##########\n'
+mateon_color_printf Magenta '\n########## 5. Team (팀 모집/지원) ##########\n'
 token_a="$(get_access_token || true)"
-[[ -n "$token_a" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+[[ -n "$token_a" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 trap 'save_access_token "$token_a"' EXIT
 
 team_body() {
@@ -229,5 +229,5 @@ if [[ -n "$token_b" ]]; then
     save_access_token "$token_a"
   fi
 fi
-printf '  (i) 메인 팀은 원본과 같이 남깁니다: teamId=%s\n' "$team_id"
+mateon_color_printf Yellow '  (i) 메인 팀은 원본과 같이 남깁니다: teamId=%s\n' "$team_id"
 write_test_summary

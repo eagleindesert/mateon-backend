@@ -2,7 +2,7 @@
 set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
-printf '\n########## 4-1. Event (활동) 조회 ##########\n'
+mateon_color_printf Magenta '\n########## 4-1. Event (활동) 조회 ##########\n'
 has_token=false
 [[ -n "$(get_access_token || true)" ]] && has_token=true
 state_file="$script_dir/.event-ids.json"
@@ -18,9 +18,9 @@ try:
 except (OSError,ValueError): pass
 PY
 )
-  printf '  (i) init이 등록한 활동 %d건을 검증에 사용합니다.\n' "${#event_ids[@]}"
+  mateon_color_printf DarkCyan '  (i) init이 등록한 활동 %d건을 검증에 사용합니다.\n' "${#event_ids[@]}"
 else
-  echo '  (i) .event-ids.json 없음: 등록 활동 증분 검증을 건너뜁니다.'
+  mateon_color_printf Yellow '%s\n' '  (i) .event-ids.json 없음: 등록 활동 증분 검증을 건너뜁니다.'
 fi
 
 invoke_api --path /api/events/search --title '4.1 활동 검색 (필터 없음)'

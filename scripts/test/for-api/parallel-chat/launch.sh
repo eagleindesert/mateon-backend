@@ -14,14 +14,14 @@ while (($#)); do
       esac
       shift 2 ;;
     -h|--help) echo '사용법: launch.sh [--user-a-email EMAIL ...] [--user-b-email EMAIL ...]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## parallel-chat launcher ##########\n'
+mateon_color_printf Magenta '\n########## parallel-chat launcher ##########\n'
 [[ -n "$email_a" && -n "$password_a" && -n "$email_b" && -n "$password_b" ]] || {
-  echo 'A/B 계정 이메일과 비밀번호를 설정하세요.' >&2; exit 1;
+  mateon_color_printf Red '%s\n' 'A/B 계정 이메일과 비밀번호를 설정하세요.' >&2; exit 1;
 }
-[[ "$email_a" != "$email_b" ]] || { echo 'A와 B는 다른 계정이어야 합니다.' >&2; exit 1; }
+[[ "$email_a" != "$email_b" ]] || { mateon_color_printf Red '%s\n' 'A와 B는 다른 계정이어야 합니다.' >&2; exit 1; }
 
 ensure_user() {
   local email=$1 password=$2 name=$3 body code ticket token
@@ -31,7 +31,7 @@ ensure_user() {
   if [[ -n "$token" ]]; then ensured_token=$token; return 0; fi
   request="$(python3 -c 'import json,sys; print(json.dumps({"email":sys.argv[1]}))' "$email")"
   invoke_api --method POST --path /api/auth/email/request --title "이메일 인증코드 요청: $email" --body "$request" >/dev/null
-  printf '\n  %s로 발송된 인증코드: ' "$email" >&2
+  mateon_color_printf Yellow '\n  %s로 발송된 인증코드: ' "$email" >&2
   IFS= read -r code
   if [[ -n "$code" ]]; then
     verify="$(python3 -c 'import json,sys; print(json.dumps({"email":sys.argv[1],"code":sys.argv[2]}))' "$email" "$code")"
@@ -57,20 +57,22 @@ PY
   ensured_token=$token
 }
 
+mateon_color_printf Cyan '\n[1] 유저 A 준비: %s\n' "$email_a"
 ensure_user "$email_a" "$password_a" "$name_a" || true
 token_a="${ensured_token:-}"
 ensured_token=''
+mateon_color_printf Green '\n[1] 유저 B 준비: %s\n' "$email_b"
 ensure_user "$email_b" "$password_b" "$name_b" || true
 token_b="${ensured_token:-}"
-[[ -n "$token_a" && -n "$token_b" ]] || { echo '계정 준비 실패' >&2; exit 1; }
+[[ -n "$token_a" && -n "$token_b" ]] || { mateon_color_printf Red '%s\n' '계정 준비 실패' >&2; exit 1; }
 id_a="$(jwt_subject "$token_a")"; id_b="$(jwt_subject "$token_b")"
-[[ -n "$id_a" && -n "$id_b" && "$id_a" != "$id_b" ]] || { echo 'A/B userId가 같거나 유효하지 않습니다.' >&2; exit 1; }
+[[ -n "$id_a" && -n "$id_b" && "$id_a" != "$id_b" ]] || { mateon_color_printf Red '%s\n' 'A/B userId가 같거나 유효하지 않습니다.' >&2; exit 1; }
 save_access_token "$token_a"
 body="$(python3 -c 'import json,sys; print(json.dumps({"targetUserId":int(sys.argv[1])}))' "$id_b")"
 invoke_api --method POST --path /api/chat/rooms/dm --auth --title 'DM 방 생성 (A→B)' --body "$body"
 room_id="$(json_get "$mateon_response" data.roomId)"
 printf '\n'
-[[ "$room_id" =~ ^[0-9]+$ ]] || { echo 'roomId 확보 실패' >&2; exit 1; }
+[[ "$room_id" =~ ^[0-9]+$ ]] || { mateon_color_printf Red '%s\n' 'roomId 확보 실패' >&2; exit 1; }
 
 if command -v gnome-terminal >/dev/null 2>&1; then
   terminal=gnome-terminal
@@ -79,7 +81,7 @@ elif command -v xterm >/dev/null 2>&1; then
 elif command -v x-terminal-emulator >/dev/null 2>&1; then
   terminal=x-terminal-emulator
 else
-  echo '새 창을 띄울 터미널(gnome-terminal/xterm)이 없습니다.' >&2
+  mateon_color_printf Red '%s\n' '새 창을 띄울 터미널(gnome-terminal/xterm)이 없습니다.' >&2
   exit 1
 fi
 start_window() {
@@ -97,4 +99,4 @@ start_window "$script_dir/chat-client.sh" --label B --email "$email_b" --passwor
 sleep 0.4
 start_window "$script_dir/notification-client.sh" --label B-noti --email "$email_b" \
   --password "$password_b" --base-url "$mateon_base_url" --color Magenta
-printf '채팅 창 2개와 알림 창 1개를 시작했습니다. roomId=%s\n' "$room_id"
+mateon_color_printf Green '채팅 창 2개와 알림 창 1개를 시작했습니다. roomId=%s\n' "$room_id"

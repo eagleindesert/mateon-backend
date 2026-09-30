@@ -19,22 +19,22 @@ while (($#)); do
     --force-signup) force_signup=true; shift ;;
     --login-only) login_only=true; shift ;;
     -h|--help) echo '사용법: 09_three_users.sh [--login-only|--force-signup] [--email-a ...]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 9. 유저 3명 준비 ##########\n'
+mateon_color_printf Magenta '\n########## 9. 유저 3명 준비 ##########\n'
 if [[ -z "$email_a" || -z "$email_b" || -z "$email_c" ]]; then
-  echo 'MATEON_TEST_EMAIL / MATEON_USERB_EMAIL / MATEON_USERC_EMAIL을 모두 지정하세요.' >&2
+  mateon_color_printf Red '%s\n' 'MATEON_TEST_EMAIL / MATEON_USERB_EMAIL / MATEON_USERC_EMAIL을 모두 지정하세요.' >&2
   exit 1
 fi
 if [[ "$email_a" == "$email_b" || "$email_a" == "$email_c" || "$email_b" == "$email_c" ]]; then
-  echo '세 유저의 이메일이 서로 달라야 합니다.' >&2
+  mateon_color_printf Red '%s\n' '세 유저의 이메일이 서로 달라야 합니다.' >&2
   exit 1
 fi
 
 initialize_user_slot() {
   local slot=$1 email=$2 password=$3 name=$4 body code ticket access refresh
-  printf '\n[유저 %s] %s\n' "$slot" "$email"
+  mateon_color_printf Cyan '\n[유저 %s] %s\n' "$slot" "$email"
   if [[ "$force_signup" != true ]]; then
     if connect_user_slot "$slot" "$email" "$password"; then
       assert_test "9.$slot 유저 $slot 로그인" true "email=$email (기존 계정)"
@@ -47,7 +47,7 @@ initialize_user_slot() {
   fi
   body="$(python3 -c 'import json,sys; print(json.dumps({"email":sys.argv[1]}))' "$email")"
   invoke_api --method POST --path /api/auth/email/request --title "9.$slot 이메일 인증코드 요청" --body "$body"
-  printf '\n  %s로 발송된 인증코드 (건너뛰려면 Enter): ' "$email"
+  mateon_color_printf Yellow '\n  %s로 발송된 인증코드 (건너뛰려면 Enter): ' "$email"
   IFS= read -r code
   if [[ -z "$code" ]]; then
     clear_user_slot "$slot"

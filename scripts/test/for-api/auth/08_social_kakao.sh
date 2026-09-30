@@ -7,10 +7,10 @@ while (($#)); do
   case "$1" in
     --kakao-access-token) kakao_access_token=${2:?토큰 값이 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 08_social_kakao.sh [--kakao-access-token TOKEN]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 8. Social Login (Kakao) ##########\n'
+mateon_color_printf Magenta '\n########## 8. Social Login (Kakao) ##########\n'
 invoke_api --method POST --path /api/auth/social/kakao \
   --title '8.1 (invalid) 카카오 로그인 시도 → 차단 기대' \
   --body '{"accessToken":"invalid-token"}'
@@ -20,7 +20,7 @@ if [[ "$invalid_status" =~ ^[0-9]+$ && "$invalid_status" -ge 400 ]]; then result
 assert_test '8.1 잘못된 토큰 카카오 로그인 차단(4xx)' "$result" "status=$invalid_status"
 
 if [[ -z "$kakao_access_token" ]]; then
-  echo '[8.2 실제 카카오 로그인] 스킵: 실제 토큰이 없습니다.'
+  mateon_color_printf Yellow '%s\n' '[8.2 실제 카카오 로그인] 스킵: 실제 토큰이 없습니다.'
   write_test_summary
   exit $?
 fi

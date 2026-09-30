@@ -8,12 +8,12 @@ while (($#)); do
     --user-b-email) user_b_email=${2:?이메일이 필요합니다}; shift 2 ;;
     --user-b-password) user_b_password=${2:?비밀번호가 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 10_chat.sh [--user-b-email EMAIL --user-b-password PASSWORD]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 10. Chat (REST + WebSocket/STOMP) ##########\n'
+mateon_color_printf Magenta '\n########## 10. Chat (REST + WebSocket/STOMP) ##########\n'
 token_a="$(get_access_token || true)"
-[[ -n "$token_a" ]] || { echo 'A accessToken이 없습니다.' >&2; exit 1; }
+[[ -n "$token_a" ]] || { mateon_color_printf Red '%s\n' 'A accessToken이 없습니다.' >&2; exit 1; }
 id_a="$(jwt_subject "$token_a")"
 [[ "$id_a" =~ ^[0-9]+$ ]] && result=true || result=false
 assert_test '10.0 유저 A userId 확보' "$result" "userIdA=$id_a"
@@ -21,7 +21,7 @@ body="$(python3 -c 'import json,sys; print(json.dumps({"email":sys.argv[1],"pass
 invoke_api --method POST --path /api/auth/login --title '10.0 B 로그인' --body "$body"
 token_b="$(json_get "$mateon_response" data.accessToken)"
 printf '\n'
-[[ -n "$token_b" ]] || { echo 'B 로그인 실패' >&2; write_test_summary; exit 1; }
+[[ -n "$token_b" ]] || { mateon_color_printf Red '%s\n' 'B 로그인 실패' >&2; write_test_summary; exit 1; }
 id_b="$(jwt_subject "$token_b")"
 [[ "$id_b" =~ ^[0-9]+$ && "$id_b" != "$id_a" ]] && result=true || result=false
 assert_test '10.0 유저 B userId 확보' "$result" "userIdB=$id_b"

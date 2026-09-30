@@ -2,8 +2,8 @@
 set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
-printf '\n########## 11. Matching Intent ##########\n'
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
+mateon_color_printf Magenta '\n########## 11. Matching Intent ##########\n'
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
 user_id="$(jwt_subject "$(get_access_token)")"
 message_path='/api/matching/intents/messages'
 session_path='/api/matching/intents/session'
@@ -100,5 +100,5 @@ invoke_api --method POST --path "$message_path" --auth \
 printf '\n'
 invoke_api --path "$session_path" --title '11.7 인증 없이 세션 조회 (차단 기대)'
 printf '\n'
-printf '  원격 DB 참고: SELECT vector_dims(embedding) FROM user_embeddings WHERE user_id=%s;\n' "$user_id"
+mateon_color_printf DarkGray '  원격 DB 참고: SELECT vector_dims(embedding) FROM user_embeddings WHERE user_id=%s;\n' "$user_id"
 write_test_summary

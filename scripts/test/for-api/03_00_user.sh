@@ -2,9 +2,9 @@
 set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
-printf '\n########## 3. User (사용자) ##########\n'
+mateon_color_printf Magenta '\n########## 3. User (사용자) ##########\n'
 token="$(get_access_token || true)"
-[[ -n "$token" ]] || { echo 'accessToken이 없습니다. auth/02_auth.sh를 먼저 실행하세요.' >&2; exit 1; }
+[[ -n "$token" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다. auth/02_auth.sh를 먼저 실행하세요.' >&2; exit 1; }
 
 invoke_api --path /api/users/me --auth --title '3.1 내 프로필 조회'
 profile=$mateon_response

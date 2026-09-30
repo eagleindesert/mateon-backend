@@ -7,12 +7,12 @@ while (($#)); do
   case "$1" in
     --email) email=${2:?이메일 값이 필요합니다}; shift 2 ;;
     -h|--help) echo '사용법: 07_school_auth.sh [--email SCHOOL_EMAIL]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 7. School Email Auth ##########\n'
-[[ -n "$(get_access_token || true)" ]] || { echo 'accessToken이 없습니다.' >&2; exit 1; }
-[[ -n "$email" ]] || { echo '학교 이메일을 지정하세요.' >&2; exit 1; }
+mateon_color_printf Magenta '\n########## 7. School Email Auth ##########\n'
+[[ -n "$(get_access_token || true)" ]] || { mateon_color_printf Red '%s\n' 'accessToken이 없습니다.' >&2; exit 1; }
+[[ -n "$email" ]] || { mateon_color_printf Red '%s\n' '학교 이메일을 지정하세요.' >&2; exit 1; }
 
 request_body="$(python3 -c 'import json,sys; print(json.dumps({"schoolEmail":sys.argv[1]}))' "$email")"
 invoke_api --method POST --path /api/auth/school/email/request --auth \
@@ -22,10 +22,10 @@ request_status=$mateon_last_status
 if [[ "$request_status" =~ ^2[0-9][0-9]$ ]]; then result=true; else result=false; fi
 assert_test '7.1 학교 이메일 코드 요청 성공(2xx)' "$result" "status=$request_status"
 
-printf '\n%s로 발송된 인증코드 (건너뛰려면 Enter): ' "$email"
+mateon_color_printf Yellow '\n%s로 발송된 인증코드 (건너뛰려면 Enter): ' "$email"
 IFS= read -r school_code
 if [[ -z "$school_code" ]]; then
-  echo '코드 미입력: verify 이후 단계를 건너뜁니다.'
+  mateon_color_printf Yellow '%s\n' '코드 미입력: verify 이후 단계를 건너뜁니다.'
   write_test_summary
   exit $?
 fi

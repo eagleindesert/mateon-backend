@@ -9,10 +9,10 @@ while (($#)); do
     --user-b-email) user_b_email=${2:?}; shift 2 ;;
     --user-b-password) user_b_password=${2:?}; shift 2 ;;
     -h|--help) echo '사용법: 16_recommendation_reason.sh [--cleanup] [--user-b-email EMAIL --user-b-password PASSWORD]'; exit 0 ;;
-    *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
+    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-printf '\n########## 16. Recommendation Reason ##########\n'
+mateon_color_printf Magenta '\n########## 16. Recommendation Reason ##########\n'
 token_a="$(get_access_token || true)"
 trap '[[ -n "$token_a" ]] && save_access_token "$token_a"' EXIT
 recommendation_fixture 16 이유테스트 || { write_test_summary; exit 1; }
@@ -46,7 +46,7 @@ if [[ -n "$target_user_id" ]]; then
   save_access_token "$token_a"
   invoke_api --method POST --path /api/matching/recommendations/reason/team-to-user --auth --title '16.7 타인 팀 역방향 이유 (차단 기대)' --body "$reverse_body" >/dev/null
 else
-  echo '역방향 후보가 0건이라 해당 검증을 건너뜁니다.'
+  mateon_color_printf Yellow '%s\n' '역방향 후보가 0건이라 해당 검증을 건너뜁니다.'
 fi
 recommendation_fixture_cleanup 16
 write_test_summary

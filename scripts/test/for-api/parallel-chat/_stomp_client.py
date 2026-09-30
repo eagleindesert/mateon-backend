@@ -8,6 +8,9 @@ import socket
 import ssl
 import struct
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "lib"))
+from colors import color_print
 import threading
 from urllib.parse import urlparse
 
@@ -113,6 +116,7 @@ def main():
     parser.add_argument("--room-id", required=True)
     parser.add_argument("--my-id", required=True)
     parser.add_argument("--label", required=True)
+    parser.add_argument("--color", default="Cyan")
     args = parser.parse_args()
     ws = WebSocket(args.base_url)
     ws.send(stomp("CONNECT", {"accept-version": "1.2", "host": "localhost",
@@ -122,7 +126,7 @@ def main():
         raise ConnectionError(f"STOMP CONNECT failed: {response}")
     ws.send(stomp("SUBSCRIBE", {"id": "sub-" + args.label,
                                  "destination": "/topic/room." + args.room_id}))
-    print(f"연결됨 — room #{args.room_id} 구독 완료. /quit 또는 /exit로 종료", flush=True)
+    color_print(args.color, f"연결됨 — room #{args.room_id} 구독 완료. /quit 또는 /exit로 종료", flush=True)
 
     stop = threading.Event()
 
@@ -142,9 +146,9 @@ def main():
                         continue
                     stamp = str(message.get("createdAt") or "")[11:19]
                     if str(message.get("senderId")) == args.my_id:
-                        print(f"[{stamp}] 나 ✓  {message.get('content', '')}", flush=True)
+                        color_print("DarkGray", f"[{stamp}] 나 ✓  {message.get('content', '')}", flush=True)
                     else:
-                        print(f"\n[{stamp}] {message.get('senderName', '')} ▶  {message.get('content', '')}", flush=True)
+                        color_print("Yellow", f"\n[{stamp}] {message.get('senderName', '')} ▶  {message.get('content', '')}", flush=True)
             except (OSError, ConnectionError):
                 stop.set()
                 break
@@ -170,5 +174,5 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, ConnectionError, ValueError) as exc:
-        print(f"채팅 연결 오류: {exc}", file=sys.stderr)
+        color_print("Red", f"채팅 연결 오류: {exc}", file=sys.stderr)
         sys.exit(1)

@@ -3,7 +3,7 @@ set -u
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/00_common.sh"
 
-printf '\n########## 4-0. Event (활동) 데이터 준비 ##########\n'
+mateon_color_printf Magenta '\n########## 4-0. Event (활동) 데이터 준비 ##########\n'
 run_tag="auto$RANDOM$RANDOM"
 mabc_external_id="$run_tag-mabc"
 state_file="$script_dir/.event-ids.json"
@@ -12,7 +12,7 @@ trap 'rm -f "$ids_file"' EXIT
 printf '{}\n' > "$ids_file"
 
 if [[ -z "$(get_access_token || true)" ]]; then
-  echo '[4.0 활동 등록] 스킵: 인증이 필요합니다.'
+  mateon_color_printf Yellow '%s\n' '[4.0 활동 등록] 스킵: 인증이 필요합니다.'
   invoke_api --method POST --path /api/events \
     --title '4.0 활동 등록 (비인증 - 차단 기대)' \
     --body '{"category":"CONTEST","title":"비인증 등록 시도"}'
@@ -74,7 +74,7 @@ p = pathlib.Path(sys.argv[1]); data = json.loads(p.read_text())
 data[sys.argv[2]] = int(sys.argv[3]) if sys.argv[3].isdigit() else sys.argv[3]
 p.write_text(json.dumps(data, ensure_ascii=False))
 PY
-    printf '  (i) 생성된 eventId = %s (%s)\n' "$new_id" "$label"
+    mateon_color_printf Green '  (i) 생성된 eventId = %s (%s)\n' "$new_id" "$label"
   fi
 done
 
@@ -88,5 +88,5 @@ if data:
 else:
     target.unlink(missing_ok=True)
 PY
-printf '  (i) 등록한 eventId 저장: %s\n' "$state_file"
+mateon_color_printf DarkCyan '  (i) 등록한 eventId 저장: %s\n' "$state_file"
 write_test_summary
