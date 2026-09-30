@@ -86,12 +86,13 @@ PY
   invoke_api --method POST --path /api/teams --title '5.3e 비로그인 작성 - 차단 기대' \
     --body '{"title":"비로그인 작성 시도","capacity":2}'
   printf '\n'
-  [[ "$(json_get "$mateon_response" success)" == false ]] && result=true || result=false
-  assert_test '5.3e 비로그인 작성은 여전히 차단' "$result"
+  # 인증 차단은 Spring Security가 반환하므로 공통 응답의 success 필드가 없다.
+  [[ "$mateon_last_status" == 403 ]] && result=true || result=false
+  assert_test '5.3e 비로그인 작성은 여전히 차단' "$result" "status=$mateon_last_status"
   invoke_api --path "/api/teams/$team_id/applications" --title '5.3f 비로그인 지원서 목록 - 차단 기대'
   printf '\n'
-  [[ "$(json_get "$mateon_response" success)" == false ]] && result=true || result=false
-  assert_test '5.3f 비로그인 지원서 목록은 여전히 차단' "$result"
+  [[ "$mateon_last_status" == 403 ]] && result=true || result=false
+  assert_test '5.3f 비로그인 지원서 목록은 여전히 차단' "$result" "status=$mateon_last_status"
   body="$(team_body '수정된 팀 모집글' '수정된 홍보 문구' '백엔드' '수정된 특징' 3 15)"
   invoke_api --method PUT --path "/api/teams/$team_id" --auth --title '5.4 팀 모집글 수정' --body "$body"
   printf '\n'
