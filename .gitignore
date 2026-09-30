@@ -53,3 +53,7 @@ http-client.private.env.json
 
 ### Node ###
 node_modules/
+
+### Python ###
+__pycache__/
+*.py[cod]

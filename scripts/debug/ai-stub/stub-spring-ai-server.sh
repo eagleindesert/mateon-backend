@@ -8,6 +8,7 @@ import json
 import sys
 sys.path.insert(0,sys.argv.pop(1))
 from colors import color_print
+from http_body import read_http_body
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -48,8 +49,15 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get('Authorization'):
             color_print('Yellow', '[!!] Authorization 헤더가 실려 왔습니다', flush=True)
         try:
-            body=json.loads(self.rfile.read(int(self.headers.get('Content-Length','0'))))
+            raw_body=read_http_body(self)
+        except ValueError as error:
+            color_print('Red', f'  detail: {error}', flush=True)
+            self.send_json({'error':{'message':str(error),'type':'invalid_request_error'}},400)
+            return
+        try:
+            body=json.loads(raw_body)
         except (ValueError,TypeError):
+            color_print('Red', '  detail: Invalid JSON', flush=True)
             self.send_json({'error':{'message':'Invalid JSON','type':'invalid_request_error'}},400)
             return
         model=body.get('model') or 'unknown'

@@ -47,6 +47,16 @@
 
 **Bash와 Python 3**으로 실행한다.
 
+AI 스텁과 라우터 스텁은 `Content-Length` 및 `Transfer-Encoding: chunked` 본문을
+모두 지원한다. 백엔드의 스트리밍 JSON·multipart 요청도 읽을 수 있다.
+400 응답의 원인은 스텁 로그의 `detail` 에 출력된다.
+
+본문 읽기 회귀 테스트:
+
+```bash
+python3 -m unittest discover -s scripts/debug/ai-stub/tests -v
+```
+
 ```bash
 # 1) 스텁 서버 기동 (별도 터미널)
 bash scripts/debug/ai-stub/stub-ai-server.sh --port 8001

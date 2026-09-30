@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lib"))
 from colors import color_print
+from http_body import read_http_body
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 parser = argparse.ArgumentParser()
@@ -134,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/intents/extract' and value.get('missing_fields'):
             color = 'Yellow'
         color_print(color, f'  -> {status}', flush=True)
+        if status >= 400:
+            color_print('Red', f"  detail: {value.get('detail')}", flush=True)
         data = json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -164,7 +167,11 @@ class Handler(BaseHTTPRequestHandler):
             if secret != args.expected_secret:
                 self.send_json({'detail': 'Invalid X-Internal-Secret'}, 401)
                 return
-        raw = self.rfile.read(int(self.headers.get('Content-Length', '0')))
+        try:
+            raw = read_http_body(self)
+        except ValueError as error:
+            self.send_json({'detail': str(error)}, 400)
+            return
         if self.path == '/contests/extract-image':
             head = raw[:512].decode(errors='replace')
             color_print('Gray', f'Content-Type: {self.headers.get("Content-Type")} bytes={len(raw)}', flush=True)
