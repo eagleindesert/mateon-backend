@@ -1,7 +1,10 @@
 # === Secrets & Environment (절대 이미지/빌드 컨텍스트에 포함 금지) ===
-**/.env
-**/.env.*
-**/*.env
+# 루트/하위 디렉토리의 환경 설정, 시크릿, 백업/복사본을 모두 제외한다.
+# Git에서 추적하는 .env.example / .env.secret.example도 이미지에는 넣지 않는다.
+.env*
+*.env*
+**/.env*
+**/*.env*
 application-local.properties
 application-secret.properties
 http-client.private.env.json
