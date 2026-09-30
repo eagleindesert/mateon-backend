@@ -21,9 +21,7 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 
 // ----------------------------------------------------------------------------
-// 0) .env 로드 — 이 폴더(websocket-javascript) 자체 .env 를 쓴다 (scripts/debug/oauth/.env
-//    와 같은 패턴). scripts/test/for-api 폴더 밖으로 옮겨져도 동작하도록 상위 폴더를 거슬러 올라가지
-//    않는다 — scripts/test/for-api/.env 와 값이 달라지면 이 폴더의 .env 를 직접 갱신해야 한다.
+// 0) .env 로드 — scripts/debug/.env를 CORS 검사 및 카카오 도구와 공유한다.
 // ----------------------------------------------------------------------------
 function loadDotEnv(filePath) {
     if (!fs.existsSync(filePath)) return;
@@ -33,11 +31,15 @@ function loadDotEnv(filePath) {
         const idx = line.indexOf("=");
         if (idx < 0) continue;
         const key = line.slice(0, idx).trim();
-        const value = line.slice(idx + 1).trim();
+        let value = line.slice(idx + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
         if (key) process.env[key] = value;
     }
 }
-loadDotEnv(path.join(__dirname, ".env"));
+loadDotEnv(path.join(__dirname, "..", ".env"));
 
 const baseUrl = process.env.MATEON_BASE_URL || "http://localhost:8080";
 const userA = { email: process.env.MATEON_TEST_EMAIL, password: process.env.MATEON_TEST_PASSWORD };

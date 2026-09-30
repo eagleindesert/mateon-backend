@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bash API 테스트 공통 헬퍼. source 해서 사용한다.
 mateon_script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-mateon_env_file="${MATEON_ENV_FILE:-$mateon_script_dir/.env}"
+mateon_env_file="${MATEON_ENV_FILE:-$mateon_script_dir/../.env}"
 
 mateon_load_env() {
   local line key value

@@ -2,7 +2,7 @@
 # 로컬 테스트용 카카오 인가코드 → 액세스 토큰 교환
 set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-env_file="$script_dir/.env"
+env_file="$script_dir/../.env"
 
 if [[ -f "$env_file" ]]; then
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -26,7 +26,7 @@ client_secret="${MATEON_KAKAO_CLIENT_SECRET:-}"
 
 printf '\n########## 카카오 액세스 토큰 자동 획득 ##########\n'
 if [[ -z "$rest_api_key" ]]; then
-  echo 'MATEON_KAKAO_REST_API_KEY가 없습니다. debug/oauth/.env에 설정하세요.' >&2
+  echo 'MATEON_KAKAO_REST_API_KEY가 없습니다. scripts/debug/.env에 설정하세요.' >&2
   exit 1
 fi
 

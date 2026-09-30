@@ -16,7 +16,7 @@ while (($#)); do
     *) echo "알 수 없는 인자: $1" >&2; exit 2 ;;
   esac
 done
-if [[ -f "$script_dir/.env" ]]; then
+if [[ -f "$script_dir/../.env" ]]; then
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" == *=* ]] || continue
     key="${line%%=*}"; key="${key//[[:space:]]/}"
@@ -26,7 +26,7 @@ if [[ -f "$script_dir/.env" ]]; then
     value="${value%"${value##*[![:space:]]}"}"
     if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then value="${value:1:${#value}-2}"; fi
     export "$key=$value"
-  done < "$script_dir/.env"
+  done < "$script_dir/../.env"
 fi
 base_url="${base_url:-${MATEON_BASE_URL:-http://localhost:8080}}"
 known_origins=('http://localhost:3000' 'http://localhost:5173')

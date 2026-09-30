@@ -11,14 +11,13 @@ Node 18+ 의 전역 `fetch`, Node 21+ 의 전역 `WebSocket` 만 사용합니다
 |------|------|
 | `launch.js` | 유저 A·B 로그인 + DM 방 준비 후 **채팅 창 2개 자동 실행** (보통 이것만 실행) |
 | `chat-client.js` | 한 유저용 인터랙티브 클라이언트 (창 1개 = 유저 1명). `launch.js` 가 새 콘솔 창으로 띄운다 |
-| `.env` | 이 폴더 전용 설정 (커밋 금지). `scripts/debug/oauth/.env` 와 같은 패턴 — API 테스트 폴더 밖에 있어도 동작하도록 자체 `.env` 를 둔다 |
+| `../.env` | `scripts/debug/.env` 공용 설정 (커밋 금지). CORS 검사 및 카카오 토큰 도구와 공유한다 |
 
 ## 사전 조건
 
-1. 이 폴더의 `.env` 에 `MATEON_BASE_URL`(원격 서버 주소), `MATEON_TEST_EMAIL`/`MATEON_TEST_PASSWORD`
+1. `scripts/debug/.env` 에 `MATEON_BASE_URL`(원격 서버 주소), `MATEON_TEST_EMAIL`/`MATEON_TEST_PASSWORD`
    (유저 A), `MATEON_USERB_EMAIL`/`MATEON_USERB_PASSWORD`(유저 B) 가 설정되어 있어야 합니다.
-   `scripts/test/for-api/.env` 를 거슬러 올라가 읽지 않으므로, 그쪽 값이 바뀌면 이 폴더의 `.env` 도
-   직접 갱신하세요.
+   `scripts/debug/.env.example`을 복사해서 설정하세요. API 테스트의 `scripts/test/.env`와는 별도입니다.
 2. 두 계정이 이미 가입되어 있어야 합니다. 아직 없다면 `scripts/test/for-api/auth/02_auth.sh` 로
    먼저 만들어 두세요 (`launch.js` 는 로그인만 시도하고, 계정을 새로 만들어주지는 않습니다).
 3. 인증은 HTTP 헤더가 아니라 **STOMP CONNECT 프레임의 `Authorization: Bearer ...` 헤더**로 이루어집니다

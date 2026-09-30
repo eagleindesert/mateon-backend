@@ -57,8 +57,9 @@
 
 ## 설정(CONFIG)
 
-모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 관리하며, 같은 폴더의 `.env` 로
-덮어쓸 수 있습니다(`.env` > 셸 환경변수 > 기본값 순).
+현재 Bash 스크립트는 `00_common.sh`에서 `scripts/test/.env`를 자동 로드합니다.
+`scripts/test/.env.example`을 복사해 설정하세요(CLI 옵션 > `.env` > 셸 환경변수 > 기본값 순).
+아래 표의 계정 예시와 달리 Bash 스크립트에는 이메일/비밀번호 기본값이 없어 직접 지정해야 합니다.
 
 | 설정             | 셸 환경변수                 | 기본값                   | 용도                                                                              |
 | ---------------- | --------------------------- | ------------------------ | --------------------------------------------------------------------------------- |
@@ -75,10 +76,10 @@
 | SchoolEmail      | `MATEON_SCHOOL_EMAIL`       | (빈 값)                  | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
 | KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값)                  | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증                  |
 
-`.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
+`.env` 예시 (`scripts/test`에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
 
 ```ini
-# scripts/test/for-api-server/.env  (커밋 금지)
+# scripts/test/.env  (커밋 금지)
 MATEON_BASE_URL=https://your-remote-server.example.com
 MATEON_TEST_EMAIL=test22@example.ac.kr
 MATEON_USERB_EMAIL=chatmate@example.ac.kr
