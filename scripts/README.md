@@ -13,7 +13,7 @@ bash scripts/test/for-api/99_run_all.sh \
 
 개별 테스트는 `bash scripts/test/for-api/15_review.sh`처럼 실행합니다. `00_common.sh`는 API 테스트에서 사용하는 공통 함수 파일입니다. `16_recommendation_reason.sh`와 `17_proposal_assembly.sh`는 `--cleanup` 옵션으로 만든 팀을 삭제할 수 있습니다. `19_ai_gateway.sh`는 `--strict-routing` 옵션을 지원합니다.
 
-환경 설정은 아래 네 디렉토리에서 각각 하나의 `.env`로 관리합니다. 각 `.env.example`을 같은 디렉토리의 `.env`로 복사하고 필요한 값을 채우세요.
+스크립트 전용 환경 설정은 아래 네 디렉토리에서 각각 하나의 `.env`로 관리합니다. 사용할 도구가 해당 파일을 읽는 경우에만 `.env.example`을 같은 디렉토리의 `.env`로 복사하고 필요한 값을 채우세요. 모든 실행 파일이 이 네 파일을 읽는 것은 아닙니다.
 
 | 템플릿 | 설정 및 로드 방식 |
 | --- | --- |
@@ -21,6 +21,19 @@ bash scripts/test/for-api/99_run_all.sh \
 | `debug/.env.example` | CORS 주소, Node.js 채팅 A/B 계정, 카카오 키/토큰. 해당 도구가 `debug/.env` 자동 로드 |
 | `docker/.env.example` | DockerHub 사용자명/토큰 및 태그 계산 설정. `deploy-dockerhub.sh`가 `docker/.env` 자동 로드 |
 | `test/.env.example` | API 테스트 A/B/C 계정, 학교 이메일, 카카오 토큰, 선택적 LiveTest 설정. API 스크립트가 `test/.env` 자동 로드 |
+
+### 디렉토리별 `.env`를 설정할 필요가 없는 실행 파일
+
+파일이 `scripts/debug`나 `scripts/ci`에 있다고 해서 해당 디렉토리의 `.env`를 읽는 것은 아닙니다. 백엔드 전체를 실행하는 도구는 프로젝트 루트 설정을 사용하고, CI에서 실행되는 도구는 워크플로가 제공하는 환경변수를 사용합니다.
+
+| 실행 파일 | 실제 설정 출처 및 주의사항 |
+| --- | --- |
+| `debug/ai-stub/start-all.sh` | `scripts/debug/.env`를 읽지 않습니다. 프로젝트 루트 `.env.secret`의 존재와 `AI_INTERNAL_SECRET` 설정 여부를 직접 검사하고, `bootRun`으로 백엔드 전체를 실행합니다. 백엔드는 프로젝트 루트 `.env`와 `.env.secret`을 로드하므로 백엔드 설정은 루트에서 준비하세요. 스텁 옵션은 CLI로 전달합니다. |
+| `ci/ab-regression.sh` | `scripts/ci/.env`를 읽지 않습니다. Gradle 컴파일과 테스트를 실행하며 테스트 프로필 설정은 `src/test/resources/application-test.yml`에 있습니다. 기본 실행에는 별도 `.env`가 필요 없습니다. |
+| `docker/next-dockerhub-tag.sh` | `scripts/docker/.env`를 직접 읽지 않습니다. CI에서는 `.github/workflows/ci.yml`이 DockerHub 사용자명과 태그 옵션을 환경변수로 제공합니다. 배포 스크립트에서 호출하면 그 스크립트가 로드한 값을 전달받습니다. 로컬 단독 실행 시에는 아래 예시처럼 환경변수를 준비하세요. |
+| `debug/ai-stub/stub-ai-server.sh`, `debug/ai-stub/_stub_ai_server.py`, `debug/ai-stub/stub-spring-ai-server.sh` | `.env`를 읽지 않습니다. 포트, 시크릿 검증, 실패 모드는 CLI 옵션으로 지정하며 기본 옵션으로 실행할 때는 별도 설정 파일이 필요 없습니다. |
+| `debug/websocket-javascript/chat-client.js` | `.env`를 직접 읽지 않습니다. `launch.js`가 `scripts/debug/.env`에서 읽은 설정을 임시 JSON으로 전달합니다. 직접 실행할 때는 CLI 인자를 사용합니다. |
+| `test/for-api/parallel-chat/_stomp_client.py`, `test/for-api/parallel-chat/_stomp_probe.py` | `.env`를 직접 읽지 않습니다. 호출하는 Bash 스크립트가 `scripts/test/.env`에서 읽은 값을 인자로 전달하므로 Python 파일용 `.env`를 따로 만들 필요가 없습니다. |
 
 기존 `test/for-api/.env`, `debug/check-cors/.env`, `debug/oauth/.env`, `debug/websocket-javascript/.env`의 필요한 값은 각 상위 디렉토리의 `.env`로 옮겨야 합니다. 기존 파일은 자동으로 읽지 않습니다. API 테스트는 `MATEON_ENV_FILE` 환경변수로 다른 설정 파일을 지정할 수 있습니다. CLI 옵션, `.env`, 셸 환경변수, 기본값 순으로 우선합니다.
 
