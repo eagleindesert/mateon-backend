@@ -26,12 +26,12 @@
    pwsh --version
    ```
    `launch.ps1` 은 채팅 창을 띄울 때 `pwsh.exe` 를 **자동으로 우선 사용**합니다(없으면 경고 후 5.1 fallback).
-1. 원격 서버 주소를 `scripts/test/.env` 의 `MATEON_BASE_URL` 로 지정합니다(미지정 시 `00_common.sh`
+1. 원격 서버 주소를 상위 폴더 `.env` 의 `MATEON_BASE_URL` 로 지정합니다(미지정 시 `00_common.ps1`
    기본값인 `http://localhost:8080` 으로 폴백하므로 반드시 지정하세요).
 2. 유저 자동 생성 시 이메일 인증코드는 **사람이 직접 입력**합니다 — 원격 DB 는 `docker exec` 로 조회할
    수 없으므로, 서버가 보낸 메일에서 확인하거나 원격 DB(pgAdmin/psql)로 `email_verifications.code` 를
    조회해 넣으세요(이미 두 계정이 가입돼 있으면 login 만으로 진행되어 코드 입력이 필요 없습니다).
-3. 설정(BaseUrl·계정 등)은 상위 폴더 `00_common.sh`가 읽는 `scripts/test/.env`를 그대로 따릅니다.
+3. 설정(BaseUrl·계정 등)은 상위 폴더 `00_common.ps1` / `.env` 를 그대로 따릅니다.
    - 유저 A = `TestEmail` (`.env` 의 `MATEON_TEST_EMAIL`, 기본값 없음 — 반드시 지정)
    - 유저 B = `UserBEmail` (`.env` 의 `MATEON_USERB_EMAIL`, 기본값 없음 — 반드시 지정)
 

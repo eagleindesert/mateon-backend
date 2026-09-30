@@ -14,18 +14,6 @@
 **사람이 직접 입력**(메일 확인 또는 원격 DB 조회)하는 방식이라, API 서버가 어디 있든
 (원격 VM 포함) 그대로 작동합니다.
 
-## Bash 전체 실행 요약
-
-`bash scripts/test/for-api/99_run_all.sh`는 마지막에 모든 스크립트의 결과를 합산합니다. 전체 = 성공 + 주의 + 실패이며, 정상적으로 차단된 요청은 성공으로 셉니다. 주의 항목에는 검증 제목과 사유를, 실패 항목에는 스크립트 파일·검증 제목·HTTP 상태·메서드·경로를 표시합니다. 개별 스크립트의 요약도 해당 실행 결과만 표시합니다.
-
-주의는 종료 코드에 영향을 주지 않습니다. 실패가 있으면 실패 건수를 종료 코드로 반환합니다(최대 255). 결과를 기록하기 전에 중도 종료되거나 파일이 누락된 스크립트는 별도 실패 항목으로 표시합니다. 실행 간 결과는 누적되지 않습니다.
-
-요약 집계의 회귀 검사는 서버나 소켓 없이 실행할 수 있습니다:
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/test/for-api/tests -v
-```
-
 ## 인증코드 확인 방법
 
 각 스크립트는 `email/request` 후 콘솔에서 6자리 코드를 물어봅니다. 코드는 둘 중 하나로 확인합니다.
@@ -69,9 +57,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/test/for-api/t
 
 ## 설정(CONFIG)
 
-현재 Bash 스크립트는 `00_common.sh`에서 `scripts/test/.env`를 자동 로드합니다.
-`scripts/test/.env.example`을 복사해 설정하세요(CLI 옵션 > `.env` > 셸 환경변수 > 기본값 순).
-아래 표의 계정 예시와 달리 Bash 스크립트에는 이메일/비밀번호 기본값이 없어 직접 지정해야 합니다.
+모든 설정은 `00_common.ps1` 최상단의 `$MateonConfig` 블록에서 관리하며, 같은 폴더의 `.env` 로
+덮어쓸 수 있습니다(`.env` > 셸 환경변수 > 기본값 순).
 
 | 설정             | 셸 환경변수                 | 기본값                   | 용도                                                                              |
 | ---------------- | --------------------------- | ------------------------ | --------------------------------------------------------------------------------- |
@@ -88,10 +75,10 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/test/for-api/t
 | SchoolEmail      | `MATEON_SCHOOL_EMAIL`       | (빈 값)                  | 학교(재학생) 인증 대상 이메일 (`auth/00_before_auth.ps1` 에서 정리 대상으로 사용) |
 | KakaoAccessToken | `MATEON_KAKAO_ACCESS_TOKEN` | (빈 값)                  | 있으면 `auth/08_social_kakao.ps1` 이 실제 카카오 로그인까지 검증                  |
 
-`.env` 예시 (`scripts/test`에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
+`.env` 예시 (이 폴더에 두면 자동 로드, `.gitignore` 로 커밋 제외됨):
 
 ```ini
-# scripts/test/.env  (커밋 금지)
+# scripts/test/for-api-server/.env  (커밋 금지)
 MATEON_BASE_URL=https://your-remote-server.example.com
 MATEON_TEST_EMAIL=test22@example.ac.kr
 MATEON_USERB_EMAIL=chatmate@example.ac.kr
