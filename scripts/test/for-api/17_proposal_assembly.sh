@@ -2,7 +2,6 @@
 # 추천 기반 제안 초안 조립, 발송 및 권한 검증.
 set -u
 source "$(dirname "$0")/00_common.sh"
-source "$(dirname "$0")/_recommendation_fixture.sh"
 cleanup=false; user_b_email="${MATEON_USERB_EMAIL:-}"; user_b_password="${MATEON_USERB_PASSWORD:-}"
 while (($#)); do
   case "$1" in
