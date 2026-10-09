@@ -2,10 +2,15 @@ package com.example.mateon.chat.config;
 
 import com.example.mateon.common.config.CorsProperties;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.convert.DurationStyle;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.web.socket.config.WebSocketMessageBrokerStats;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.StompWebSocketEndpointRegistration;
@@ -18,6 +23,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
     private final CorsProperties corsProperties;
+
+    @Bean
+    public SmartInitializingSingleton webSocketStatsLoggingPeriod(
+      WebSocketMessageBrokerStats stats,
+      @Value("${websocket.stats.logging-period:30m}") String loggingPeriod) {
+        long periodMillis = DurationStyle.detectAndParse(loggingPeriod).toMillis();
+        // 모든 싱글턴 빈이 생성된 뒤 출력 주기를 적용한다. 0 이하면 출력 중지.
+        return () -> stats.setLoggingPeriod(periodMillis);
+    }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
