@@ -213,6 +213,12 @@ storage:
   # 크론식의 * 가 YAML 앵커로 읽히지 않도록 따옴표로 감싼다.
   usage-sync-cron: "${OCI_BUCKET_USAGE_SYNC_CRON:0 30 4 * * *}"
 
+# --- WebSocket 통계 로그 ---
+websocket:
+  stats:
+    # 출력 간격. 0s 로 지정하면 정기 통계 로그를 끈다.
+    logging-period: "${WEBSOCKET_STATS_LOGGING_PERIOD:30m}"
+
 # --- 알림 (SSE) ---
 notification:
   # 알림 구독(/api/notifications/subscribe) 연결의 수명. 이 시간이 지나면 서버가 연결을 닫고

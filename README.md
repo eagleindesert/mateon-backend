@@ -164,6 +164,23 @@ Copy-Item .env.example .env
 Copy-Item .env.secret.example .env.secret
 ```
 
+웹 카카오 로그인을 사용하면 `.env`의 `KAKAO_REDIRECT_URIS`를 실제 프론트 콜백 URL로
+설정하세요. 템플릿의 `http://localhost:5173/auth/kakao/callback`과 다른 콜백을 사용하면
+`dev` 프로필에서도 설정이 필요합니다. 아래는 예시이며, 카카오 콘솔에 등록한 Redirect URI와
+프론트에서 보내는 `redirectUri`가 설정값과 정확히 같아야 합니다.
+
+```dotenv
+KAKAO_REDIRECT_URIS=https://web.example.com/auth/kakao/callback
+```
+
+여러 콜백을 허용하려면 콤마로 구분합니다. 빈 값으로 지정하면 부팅에 실패합니다.
+변경 후 로컬 앱은 재시작하고, 배포 Compose의 앱 컨테이너는 환경 변수가 다시 주입되도록
+재생성하세요.
+
+```bash
+docker compose -f docker-compose-deployment.yml up -d --force-recreate app
+```
+
 `./.env` 와 `./.env.secret` 은 **내 PC 와 배포 서버가 각자 다른 내용**을 갖습니다
 (같은 이름의 다른 파일입니다). 배포 서버에 올릴 때는 `.env.secret` 을 먼저 올리세요 —
 없으면 `docker compose up` 이 통째로 실패합니다.

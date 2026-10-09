@@ -1,9 +1,11 @@
 package com.example.mateon.common.config;
 
 import com.example.mateon.auth.config.AuthRateLimitFilter;
+import com.example.mateon.auth.config.AuthRequestLoggingFilter;
 import com.example.mateon.auth.jwt.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,11 +31,21 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthRateLimitFilter authRateLimitFilter;
+    private final AuthRequestLoggingFilter authRequestLoggingFilter;
     private final CorsProperties corsProperties;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public FilterRegistrationBean<AuthRequestLoggingFilter> authRequestLoggingFilterRegistration() {
+        // SecurityFilterChain 에서만 실행해 인증/요청 제한 거절도 감싸고, 중복 등록을 막는다.
+        FilterRegistrationBean<AuthRequestLoggingFilter> registration =
+          new FilterRegistrationBean<>(authRequestLoggingFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
@@ -86,7 +98,8 @@ public class SecurityConfig {
           .anyRequest().authenticated()
           )
           .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-          .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+          .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+          .addFilterBefore(authRequestLoggingFilter, AuthRateLimitFilter.class);
 
         return http.build();
     }
