@@ -129,14 +129,14 @@ class AuthRequestLoggingFilterTest {
     }
 
     @Test
-    @DisplayName("헬스체크, OPTIONS, 미등록 인증 경로는 기록하지 않는다")
+    @DisplayName("헬스체크, OPTIONS, 로깅 대상이 아닌 인증 경로는 기록하지 않는다")
     void unrelatedRequestsAreNotLogged() throws Exception {
         mockMvc.perform(get("/health")).andExpect(status().isOk());
         mockMvc.perform(options("/api/auth/login")
           .header("Origin", "http://localhost:3000")
           .header("Access-Control-Request-Method", "POST"))
           .andExpect(status().isOk());
-        mockMvc.perform(post("/api/auth/unknown")).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/auth/test-only")).andExpect(status().isOk());
 
         assertThat(logs.list).isEmpty();
     }
@@ -186,6 +186,12 @@ class AuthRequestLoggingFilterTest {
             if ("bad-credentials".equals(body)) {
                 throw new BadCredentialsException("invalid credentials");
             }
+            return "ok";
+        }
+
+        // 404 예외 처리와 무관하게, 로깅 목록 밖의 인증 경로가 제외되는지 검증한다.
+        @PostMapping("/api/auth/test-only")
+        String otherAuthApi() {
             return "ok";
         }
 
