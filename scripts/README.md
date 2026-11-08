@@ -1,5 +1,13 @@
 # 스크립트
 
+`./start.sh [VERSION]` 은 배포 이미지를 실행합니다. 버전 지정 시 먼저 pull 합니다.
+`scripts/build-start.sh [--tag TAG] [--platform PLATFORM]` 은 소스를 빌드한 뒤 같은 Docker 데몬의
+앱 컨테이너를 교체합니다. 두 명령 모두 배포 Compose 와 시크릿을 포함한 루트 `.env` 를 사용합니다.
+자세한 절차는 [루트 README](../README.md#배포와-컨테이너-재실행)를 참고하세요.
+
+배포 스크립트 검증은 `uv run --no-project scripts/test/test_deployment.py` 로 실행합니다.
+임시 디렉터리에서 Compose 설정과 Docker 호출 순서·실패 처리를 검사하며 실제 컨테이너를 실행하지 않습니다.
+
 `scripts` 아래의 PowerShell 스크립트 37개를 같은 상대 경로와 파일 이름의 `.sh`로 옮겼습니다. 실행할 때 PowerShell이 필요하지 않습니다. API 테스트에는 Bash, curl, Python 3가 필요합니다. Docker 배포에는 Docker CLI와 buildx가 필요합니다.
 
 ### `.env` / `.env.secret` 양식 갱신

@@ -1,19 +1,18 @@
 # ARM 기반 클라우드 배포용 Compose
 # ------------------------------------------------------------------------------
 # 로컬에서 소스를 빌드하지 않고, DockerHub 에 이미 push 된 이미지를 pull 하여 실행합니다.
-# (이미지는 scripts/docker/deploy-dockerhub.ps1 로 arm64 플랫폼으로 빌드/푸시하세요.
-#   예: ./scripts/docker/deploy-dockerhub.ps1 -Tag v1.0.0 -Platform linux/arm64)
+# 이미지 빌드/푸시: ./scripts/docker/deploy-dockerhub.sh --tag v1.0.0 --platform linux/arm64
 #
 # 사용법 (배포 서버에서):
-#   1) 이 파일과 .env, .env.secret 을 서버로 복사한다.
-#      (.env = 포트·오리진·이미지 태그·DB 계정 / .env.secret = MAIL·JWT·AI·OCI 시크릿)
-#      .env.secret 이 없으면 아래 up 이 통째로 실패하므로 먼저 올린다.
+#   1) 이 파일과 .env, start.sh 세 파일을 같은 디렉터리로 복사한다.
+#      배포 .env 에는 MAIL·JWT·AI·OCI 시크릿도 함께 넣는다.
 #   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
-#   3) docker compose -f docker-compose-deployment.yml up -d
+#   3) ./start.sh (특정 버전을 pull 후 실행: ./start.sh v1.0.0)
+#      같은 CLI: docker compose -f docker-compose-deployment.yaml up -d
 #
-# 종료:  docker compose -f docker-compose-deployment.yml down
-# 갱신:  docker compose -f docker-compose-deployment.yml pull && \
-#        docker compose -f docker-compose-deployment.yml up -d
+# 종료:  docker compose -f docker-compose-deployment.yaml down
+# 갱신:  docker compose -f docker-compose-deployment.yaml pull && \
+#        docker compose -f docker-compose-deployment.yaml up -d
 #
 # pgAdmin 은 이 파일에 없다. DB GUI 는 docker-compose-pgadmin.yml 을 따로 띄운다
 # (특정 앱에 묶이지 않은 범용 파일). 호스트 localhost:5433 로 postgres 에 붙는다.
@@ -21,10 +20,12 @@
 services:
   app:
     # DockerHub 이미지를 pull (빌드하지 않음). 태그 미지정 시 latest.
-    image: ${DOCKERHUB_USERNAME:-eagleindesert}/mateon-backend:${TAG:-latest}
+    image: ${DOCKERHUB_USERNAME:-eagleindesert}/${DOCKERHUB_IMAGE:-mateon-backend}:${TAG:-latest}
+    # build-start.sh 는 방금 빌드한 로컬 이미지를 실행하도록 never 를 지정한다.
+    pull_policy: ${APP_PULL_POLICY:-missing}
     # ARM 클라우드에서 멀티아치가 아닌 이미지를 강제 지정하고 싶을 때 사용.
     # 이미지가 arm64 로 push 되어 있어야 정상 동작합니다.
-    platform: linux/arm64
+    platform: ${APP_PLATFORM:-linux/arm64}
     container_name: mateon-app
     restart: unless-stopped
     # dev 프로필로 도는 서버라 로그가 DEBUG 다. json-file 드라이버 기본값은 무제한이라
@@ -44,17 +45,9 @@ services:
       options:
         max-size: "100m"
         max-file: "10"
-    # 설정은 .env, 시크릿은 .env.secret 에서 주입한다. 뒤에 온 파일이 이긴다.
-    #
-    # .env.secret 을 app 에만 물리는 게 이 분리의 요점이다 — 아래 postgres 에는
-    # 붙이지 않는다. 한 파일로 두면 DB 컨테이너 안에서도 OPENAI_API_KEY 와
-    # JWT_SECRET 이 env 로 보인다.
-    #
-    # 파일이 없으면 up 이 통째로 실패한다(required 기본값). 앱은 어차피 시크릿 없이
-    # 못 뜨므로, 부팅 중간에 죽는 것보다 여기서 먼저 걸리는 편이 낫다.
+    # 배포 설정과 시크릿은 .env 하나로 받는다. postgres 에는 아래 DB 변수만 전달한다.
     env_file:
       - .env
-      - .env.secret
     environment:
       # 운영 환경이 아직 없다. 이 서버는 "배포된 개발 서버"이고, prod 프로필은 만들어만 뒀지
       # 켜는 곳이 없다. 그러니 여기서 prod 를 주면 실제와 다른 소리를 하는 셈이라 dev 로 둔다.

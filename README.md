@@ -90,7 +90,7 @@ CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. overlay 리�
 
 머지 전에 GitHub → Settings → Secrets and variables → Actions 에 이 두 키를 넣지 않으면
 `docker` job 만 실패합니다. 로컬에서 특정 태그를 올릴 때는
-[scripts/docker/deploy-dockerhub.ps1](scripts/docker/deploy-dockerhub.ps1) 의 `-Tag` 를 씁니다.
+[scripts/docker/deploy-dockerhub.sh](scripts/docker/deploy-dockerhub.sh) 의 `--tag` 를 씁니다.
 
 ## 프로필 (dev / prod)
 
@@ -104,7 +104,7 @@ CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. overlay 리�
 | `test` | [application-test.yml](src/test/resources/application-test.yml) | `IntegrationTestBase` 의 `@ActiveProfiles("test")` |
 
 > **`prod` 는 미리 만들어만 둔 프로필입니다.** 운영 환경이 아직 없고,
-> [docker-compose-deployment.yml](docker-compose-deployment.yml) 이 띄우는 서버는 "배포된 개발
+> [docker-compose-deployment.yaml](docker-compose-deployment.yaml) 이 띄우는 서버는 "배포된 개발
 > 서버" 라서 `SPRING_PROFILES_ACTIVE: dev` 로 돕니다. 그래서 `dev` 는 "로컬" 이 아니라
 > "아직 운영이 아닌 전부" 로 읽어야 합니다.
 >
@@ -153,9 +153,9 @@ CI 는 같은 파일을 `test-report` 아티팩트에 올립니다. overlay 리�
 | --- | --- | --- |
 | [.env.example](.env.example) | 아래 `.env` 의 템플릿 | ✅ |
 | [.env.secret.example](.env.secret.example) | 아래 `.env.secret` 의 템플릿 | ✅ |
-| `./.env` | 포트·오리진·이미지 태그 등 일반 설정 | ❌ |
-| `./.env.secret` | 시크릿과 계정 식별자 | ❌ |
-| `./scripts/docker/.env` | DockerHub 자격증명 ([deploy-dockerhub.ps1](scripts/docker/deploy-dockerhub.ps1) 전용) | ❌ |
+| `./.env` | 일반 설정. 배포 시에는 시크릿도 함께 포함 | ❌ |
+| `./.env.secret` | 로컬 개발에서 분리해 사용하는 시크릿 | ❌ |
+| `./scripts/docker/.env` | DockerHub 자격증명 ([deploy-dockerhub.sh](scripts/docker/deploy-dockerhub.sh) 전용) | ❌ |
 
 처음 받았다면 템플릿을 복사해서 값을 채우세요.
 
@@ -178,9 +178,66 @@ KAKAO_REDIRECT_URIS=https://web.example.com/auth/kakao/callback
 재생성하세요.
 
 ```bash
-docker compose -f docker-compose-deployment.yml up -d --force-recreate app
+docker compose -f docker-compose-deployment.yaml up -d --force-recreate app
 ```
 
-`./.env` 와 `./.env.secret` 은 **내 PC 와 배포 서버가 각자 다른 내용**을 갖습니다
-(같은 이름의 다른 파일입니다). 배포 서버에 올릴 때는 `.env.secret` 을 먼저 올리세요 —
-없으면 `docker compose up` 이 통째로 실패합니다.
+로컬의 `.env` / `.env.secret` 과 배포 서버의 `.env` 는 환경별로 값을 관리합니다.
+배포용 `.env` 에는 `.env.secret.example` 에 있는 MAIL·JWT·AI·OCI 등의 값도 함께 넣으세요.
+배포 Compose 는 `.env.secret` 을 읽지 않습니다.
+
+## 배포와 컨테이너 재실행
+
+배포 VM 은 ARM CPU, Ubuntu 24.04 LTS, Docker Compose 환경을 기준으로 합니다.
+호스트 Nginx 는 앱의 공개 포트(기본 `8081`)로 프록시합니다.
+배포 디렉터리에는 다음 세 파일만 필요합니다.
+
+```text
+docker-compose-deployment.yaml
+.env
+start.sh
+```
+
+`.env` 는 [.env.example](.env.example)의 배포 시크릿 항목까지 채워 준비합니다.
+기존 `.env.secret` 으로 관리하던 값도 배포 `.env` 에 포함해야 합니다.
+
+```bash
+./start.sh          # docker compose -f docker-compose-deployment.yaml up -d 와 동일
+./start.sh v1.2.3   # TAG=v1.2.3 으로 pull 성공 후 up -d
+```
+
+버전 인자는 이번 실행에만 적용됩니다. 이후에도 같은 버전을 기본으로 쓰려면 `.env` 의
+`TAG` 를 지정하세요. CLI 로도 동일하게 실행할 수 있습니다.
+
+```bash
+TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml pull
+TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml up -d
+```
+
+소스가 있는 머신에서 빌드하고 같은 Docker 데몬의 앱을 교체하려면 아래 명령을 사용합니다.
+이 명령도 시크릿을 포함한 루트 `.env` 를 사용합니다.
+
+```bash
+./scripts/build-start.sh --tag local
+./scripts/build-start.sh --tag local --platform linux/amd64
+```
+
+플랫폼 기본값은 Docker 데몬의 아키텍처입니다. 빌드 결과를 로컬에 로드하고 그 이미지를
+사용해 앱을 재생성합니다. 배포 VM 용 ARM 이미지 빌드·푸시는 아래 명령으로 수행합니다.
+Gradle 컴파일은 빌드 머신의 네이티브 아키텍처에서 실행됩니다.
+
+```bash
+./scripts/docker/deploy-dockerhub.sh --username eagleindesert --tag v1.2.3 --platform linux/arm64
+```
+
+buildx 빌더는 `restart-policy=no` 로 생성하며, 기존 빌더 컨테이너에도 같은 정책을 적용합니다.
+
+모든 HTTP 요청은 `method`, `uri`, `status`, `ip`, `userId`, `elapsedMs` 를 한 줄로 기록합니다.
+미인증 요청의 `userId` 는 `-` 이고, SSE 등 비동기 요청은 응답 완료 시 기록합니다.
+IP 는 `X-Forwarded-For` 의 첫 주소, `X-Real-IP`, 직접 연결 주소 순으로 선택합니다.
+호스트 Nginx 는 외부에서 들어온 전달 헤더를 신뢰하지 않도록 클라이언트 주소로 덮어써야 합니다.
+
+```nginx
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+```

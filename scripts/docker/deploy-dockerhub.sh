@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# DockerHub 배포. 기본값은 원본 PowerShell 스크립트와 같다.
+# DockerHub 이미지 빌드/푸시. --no-push 는 같은 Docker 데몬에 이미지를 로드한다.
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-source "$script_dir/../lib/colors.sh"
 project_root="$(cd -- "$script_dir/../.." && pwd)"
 username=""
 image_name="mateon-backend"
@@ -23,7 +22,7 @@ EOF
 while (($#)); do
   case "$1" in
     --username|--image-name|--tag|--platform)
-      (($# >= 2)) || { mateon_color_printf Red '%s\n' "인자 값이 필요합니다: $1" >&2; exit 2; }
+      (($# >= 2)) || { printf '%s\n' "인자 값이 필요합니다: $1" >&2; exit 2; }
       case "$1" in
         --username) username=$2 ;;
         --image-name) image_name=$2 ;;
@@ -34,14 +33,14 @@ while (($#)); do
     --no-latest) latest_too=false; shift ;;
     --no-push) push=false; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) mateon_color_printf Red '%s\n' "알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+    *) printf '%s\n' "알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
-step() { mateon_color_printf Cyan '\n==> %s\n' "$*"; }
-ok() { mateon_color_printf Green '  [OK] %s\n' "$*"; }
-warn() { mateon_color_printf Yellow '  [!] %s\n' "$*" >&2; }
-fail() { mateon_color_printf Red '  [X] %s\n' "$*" >&2; exit 1; }
+step() { printf '\n==> %s\n' "$*"; }
+ok() { printf '  [OK] %s\n' "$*"; }
+warn() { printf '  [!] %s\n' "$*" >&2; }
+fail() { printf '  [X] %s\n' "$*" >&2; exit 1; }
 
 step "프로젝트 루트: $project_root"
 step '사전 점검'
@@ -110,14 +109,18 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-if docker buildx inspect "$builder_name" >/dev/null 2>&1; then
-  docker buildx use "$builder_name" >/dev/null || fail 'buildx 빌더 선택 실패'
-  ok "buildx 빌더 사용: $builder_name"
-else
-  docker buildx create --name "$builder_name" --use >/dev/null || fail 'buildx 빌더 생성 실패'
-  ok "buildx 빌더 생성: $builder_name"
+builder_node="${builder_name}0"
+builder_container="buildx_buildkit_${builder_node}"
+# 이전 버전으로 생성한 컨테이너에도 즉시 적용한다. 캐시/볼륨은 유지한다.
+if docker container inspect "$builder_container" >/dev/null 2>&1; then
+  docker update --restart=no "$builder_container" >/dev/null || fail '기존 빌더 재시작 정책 변경 실패'
 fi
+# 같은 노드의 설정도 갱신해야 컨테이너가 재생성되어도 정책이 유지된다.
+docker buildx create --name "$builder_name" --node "$builder_node" \
+  --driver docker-container --driver-opt restart-policy=no --use >/dev/null \
+  || fail 'buildx 빌더 생성/설정 실패'
 builder_ready=true
+ok "buildx 빌더 준비 (자동 재시작 안 함): $builder_name"
 
 if [[ "$push" == true ]]; then
   step 'DockerHub 로그인'
@@ -130,7 +133,7 @@ if [[ "$push" == true ]]; then
 fi
 
 step "이미지 빌드 ($platform)"
-build_args=(buildx build --platform "$platform" -f "$project_root/Dockerfile" -t "$full_tag")
+build_args=(buildx build --builder "$builder_name" --platform "$platform" -f "$project_root/Dockerfile" -t "$full_tag")
 if [[ "$latest_too" == true && "$tag" != latest ]]; then build_args+=(-t "$latest_tag"); fi
 if [[ "$push" == true ]]; then build_args+=(--push); else build_args+=(--load); fi
 build_args+=("$project_root")
@@ -139,7 +142,7 @@ if [[ "$push" == true ]]; then
   ok "빌드 및 push 완료: $full_tag ($platform)"
   [[ "$latest_too" == true && "$tag" != latest ]] && ok "push 완료: $latest_tag"
   step '배포 완료'
-  mateon_color_printf Green '  docker pull %s\n' "$full_tag"
+  printf '  docker pull %s\n' "$full_tag"
 else
   ok "빌드/로드 완료: $full_tag"
 fi

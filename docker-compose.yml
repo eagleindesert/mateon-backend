@@ -17,7 +17,7 @@
 # 스킵된다 — 나중에 서비스를 추가해도 영영 안 뜬다. (배포 파일은 서버 재부팅 복구가
 # 필요하므로 unless-stopped 를 유지한다)
 #
-# 배포는 이 파일을 쓰지 않는다 — docker-compose-deployment.yml 을 사용한다.
+# 배포는 이 파일을 쓰지 않는다 — docker-compose-deployment.yaml 을 사용한다.
 # ------------------------------------------------------------------------------
 services:
   postgres:
@@ -51,7 +51,7 @@ services:
       - .env
       - .env.secret
     environment:
-      # 기본값이 dev 라 없어도 결과는 같지만, 배포 파일(docker-compose-deployment.yml)과
+      # 기본값이 dev 라 없어도 결과는 같지만, 배포 파일(docker-compose-deployment.yaml)과
       # 나란히 놓고 볼 때 차이가 드러나도록 명시해 둔다.
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
@@ -64,7 +64,7 @@ services:
       postgres:
         condition: service_healthy
 
-# 이름의 -dev- 는 그대로 둔다. 배포(docker-compose-deployment.yml)가 쓰는
+# 이름의 -dev- 는 그대로 둔다. 배포(docker-compose-deployment.yaml)가 쓰는
 # mateon-postgres-data 와 반드시 구분되어야 한다 — 두 볼륨은 스키마 계보가 다르다.
 volumes:
   mateon-postgres-dev-data:

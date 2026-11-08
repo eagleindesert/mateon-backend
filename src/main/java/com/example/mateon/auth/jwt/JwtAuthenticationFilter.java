@@ -1,5 +1,6 @@
 package com.example.mateon.auth.jwt;
 
+import com.example.mateon.common.logging.RequestLoggingFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
               );
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            request.setAttribute(RequestLoggingFilter.USER_ID_ATTRIBUTE, userId);
         }
 
         filterChain.doFilter(request, response);

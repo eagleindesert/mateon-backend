@@ -293,7 +293,7 @@ graph TB
         DF --> HUB
     end
 
-    subgraph Prod["ARM 클라우드 (docker-compose-deployment.yml)"]
+    subgraph Prod["ARM 클라우드 (docker-compose-deployment.yaml)"]
         APP["mateon-app<br/>:8081→8080"]
         PGP[("mateon-postgres<br/>127.0.0.1:5432")]
         APP -->|"postgres:5432"| PGP
@@ -310,7 +310,7 @@ graph TB
 | 환경 | Compose 파일 | 앱 포트 | DB 포트 | 비고 |
 | --- | --- | --- | --- | --- |
 | 로컬 개발 | `docker-compose.yml` | 8080 (bootRun) | 5432 | postgres 만 자동 기동 |
-| 배포(ARM) | `docker-compose-deployment.yml` | 8081→8080 | 127.0.0.1:5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
+| 배포(ARM) | `docker-compose-deployment.yaml` | 8081→8080 | 127.0.0.1:5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
 | pgAdmin | `docker-compose-pgadmin.yml` | — | — | 범용. `localhost:5050` → UI 에서 Host `localhost` + DB 호스트 포트 등록 |
 
 - **시크릿 주입**: `MAIL_*`, `JWT_*`, `AI_*` 는 `.env`(로컬) 또는 compose `env_file`/`environment`(배포)로 주입.
