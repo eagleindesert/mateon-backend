@@ -1,6 +1,35 @@
-# Bash 스크립트
+# 스크립트
 
 `scripts` 아래의 PowerShell 스크립트 37개를 같은 상대 경로와 파일 이름의 `.sh`로 옮겼습니다. 실행할 때 PowerShell이 필요하지 않습니다. API 테스트에는 Bash, curl, Python 3가 필요합니다. Docker 배포에는 Docker CLI와 buildx가 필요합니다.
+
+### `.env` / `.env.secret` 양식 갱신
+
+기본 실행은 프로젝트 루트의 두 파일을 각각의 예제에 맞춰 갱신합니다. Python 3.10 이상과 `uv`를 사용하며 추가 패키지는 필요 없습니다.
+
+| 갱신할 파일 | 양식으로 사용할 파일 |
+| --- | --- |
+| `.env` | `.env.example` |
+| `.env.secret` | `.env.secret.example` |
+
+```bash
+uv run scripts/sync_env.py --dry-run
+uv run scripts/sync_env.py
+```
+
+두 파일 모두 템플릿의 항목 순서, 설명 주석, 빈 줄을 적용합니다. 기존 값은 빈 값, 따옴표, 인라인 주석, 따옴표로 감싼 여러 줄 값까지 그대로 유지합니다. 기존 항목의 활성/주석 상태와 `export`도 유지하므로, 템플릿에서 주석 처리된 항목이라도 기존 파일에서 사용 중이면 활성 상태로 배치합니다. 기존 설명 주석은 템플릿의 설명으로 교체합니다.
+
+새 항목은 템플릿의 값과 주석 상태를 사용하고, 템플릿에 없는 기존 키는 각 파일 끝에 보존합니다. 대상 파일이 없으면 해당 템플릿으로 생성합니다. 두 파일을 모두 검증한 뒤 갱신하므로, 형식 오류, 활성 키 중복, 값을 보존할 수 없는 모호한 주석 예시가 있으면 두 파일 모두 변경하지 않고 중단합니다.
+
+변경할 때마다 기존 파일을 같은 디렉토리의 `.env.bak.*` / `.env.secret.bak.*`에 각각 백업하고 기존 파일 권한을 유지합니다. 변경 사항이 없으면 파일과 백업을 만들지 않습니다. `--dry-run`은 변경 필요 여부만 표시하며, 실행 결과에 설정값은 출력하지 않습니다.
+
+`--example` 또는 `--env`를 지정하면 해당 파일 쌍만 처리합니다. 생략한 인수는 프로젝트 루트의 `.env.example` / `.env`를 사용합니다. `.env.secret`만 갱신하거나 다른 파일 쌍에 적용할 때는 두 경로를 함께 지정하세요.
+
+```bash
+uv run scripts/sync_env.py --example .env.secret.example --env .env.secret
+uv run scripts/sync_env.py --example scripts/test/.env.example --env scripts/test/.env
+```
+
+### API 테스트
 
 전체 API 테스트:
 
