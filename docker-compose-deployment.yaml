@@ -1,0 +1,184 @@
+# VM에는 이 파일, start.sh, .env, .env.secret만 배치한다.
+# 빌드·게시: ./build-push.sh --mode server|loadtest --tag v1.2.3
+# 실행:     ./start.sh --mode server|loadtest --tag v1.2.3
+# Nginx는 VM 호스트에서 관리한다. 이 Compose에는 프록시나 소스 빌드가 없다.
+
+x-app: &app
+  image: ${DOCKERHUB_USERNAME:-eagleindesert}/${DOCKERHUB_IMAGE:-mateon-backend}:${TAG:-latest}
+  platform: ${APP_PLATFORM:-linux/arm64}
+  pull_policy: ${APP_PULL_POLICY:-missing}
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "100m"
+      max-file: "10"
+  healthcheck:
+    # JRE에 포함된 Bash로 HTTP 200을 확인한다. 별도 도구 설치가 필요 없다.
+    test:
+      - CMD
+      - bash
+      - -ec
+      - |
+        exec 3<>/dev/tcp/127.0.0.1/8080
+        printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+        read -r protocol status remaining <&3
+        [[ "$$status" == 200 ]]
+    interval: 5s
+    timeout: 3s
+    retries: 30
+    start_period: 10s
+
+x-db-logging: &db-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    <<: *app
+    profiles: [server]
+    container_name: mateon-app
+    env_file:
+      - .env
+      - .env.secret
+    environment:
+      # 현재 배포 서버도 dev 프로필을 사용한다.
+      SPRING_PROFILES_ACTIVE: dev
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      TZ: Asia/Seoul
+    ports:
+      - "${APP_PORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    profiles: [server]
+    image: pgvector/pgvector:pg16
+    container_name: mateon-postgres
+    restart: unless-stopped
+    logging: *db-logging
+    environment:
+      POSTGRES_DB: mateon_db
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - mateon-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U ${POSTGRES_USER:-admin} -d mateon_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loadtest-app:
+    <<: *app
+    profiles: [loadtest]
+    # 일반 앱의 env_file을 상속하지 않는다. 테스트 자격증명만 전달한다.
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_CONFIG_IMPORT: ""
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://loadtest-postgres:5432/mateon_loadtest
+      SPRING_DATASOURCE_USERNAME: loadtest
+      SPRING_DATASOURCE_PASSWORD: loadtest-only
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      LOG_LEVEL_APP: ${LOADTEST_LOG_LEVEL:-INFO}
+      JPA_SHOW_SQL: "false"
+      LOG_LEVEL_SQL: INFO
+      DEBUG_OAUTH_ENABLED: "false"
+      AI_BASE_URL: http://ai-stub:8000
+      AI_INTERNAL_SECRET: loadtest-only
+      AI_ROUTER_ENABLED: "false"
+      AI_EVENT_EMBEDDING_BACKFILL_ENABLED: "false"
+      OPENAI_API_KEY: ""
+      SPRING_AI_OPENAI_API_KEY: ""
+      SPRING_AI_OPENAI_BASE_URL: http://ai-stub:8000
+      SPRING_AI_OPENAI_MAX_RETRIES: "0"
+      JWT_SECRET: mateon-loadtest-key-only-0123456789abcdef
+      SPRING_MAIL_HOST: 127.0.0.1
+      MAIL_USERNAME: loadtest@example.invalid
+      MAIL_PASSWORD: loadtest-only
+      OCI_NAMESPACE: loadtest
+      OCI_REGION: ap-chuncheon-1
+      OCI_BUCKET: loadtest
+      OCI_S3_ACCESS_KEY: loadtest-only
+      OCI_S3_SECRET_KEY: loadtest-only
+      OCI_BUCKET_MAX_BYTES: 0B
+      KAKAO_REST_API_KEY: ""
+      KAKAO_CLIENT_SECRET: ""
+      KAKAO_REDIRECT_URIS: http://localhost:${LOADTEST_PORT:-18081}/auth/kakao/callback
+      WEB_BASE_URL: http://localhost:${LOADTEST_PORT:-18081}
+      TZ: Asia/Seoul
+    ports:
+      # VM 호스트의 Nginx 또는 같은 머신의 JMeter가 앱에 직접 접속한다.
+      - "${LOADTEST_BIND_ADDRESS:-127.0.0.1}:${LOADTEST_PORT:-18081}:8080"
+    # 공개 포트는 일반 브리지에서 연결한다. DB·스텁은 내부 네트워크에만 둔다.
+    networks: [entrance, isolated]
+    depends_on:
+      loadtest-postgres:
+        condition: service_healthy
+      ai-stub:
+        condition: service_healthy
+    labels:
+      com.mateon.loadtest: "true"
+
+  loadtest-postgres:
+    profiles: [loadtest]
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    logging: *db-logging
+    environment:
+      POSTGRES_DB: mateon_loadtest
+      POSTGRES_USER: loadtest
+      POSTGRES_PASSWORD: loadtest-only
+    volumes:
+      - loadtest-data:/var/lib/postgresql/data
+    networks: [isolated]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U loadtest -d mateon_loadtest"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ai-stub:
+    profiles: [loadtest]
+    # 앱과 같은 TAG를 사용해 다른 버전의 스텁이 섞이지 않도록 한다.
+    image: ${DOCKERHUB_USERNAME:-eagleindesert}/${AI_STUB_DOCKERHUB_IMAGE:-mateon-ai-stub}:${TAG:-latest}
+    platform: ${APP_PLATFORM:-linux/arm64}
+    pull_policy: ${APP_PULL_POLICY:-missing}
+    restart: unless-stopped
+    logging: *db-logging
+    command:
+      - --host
+      - 0.0.0.0
+      - --expected-secret
+      - loadtest-only
+      - --mode
+      - ${MATEON_TEST_MODE:-loadtest}
+      - --delay-ms
+      - ${AI_STUB_DELAY_MS:-0}
+      - --quiet
+    networks: [isolated]
+    healthcheck:
+      test: [CMD, uv, run, --offline, --no-project, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/__stub', timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  entrance: {}
+  isolated:
+    internal: true
+
+volumes:
+  # 기존 배포·테스트 데이터의 볼륨 키를 유지한다.
+  mateon-postgres-data:
+  loadtest-data:

@@ -45,7 +45,7 @@
 
 ## 사용법
 
-**Bash와 Python 3**으로 실행한다.
+**Bash, Python 3, uv**로 실행한다.
 
 AI 스텁과 라우터 스텁은 `Content-Length` 및 `Transfer-Encoding: chunked` 본문을
 모두 지원한다. 백엔드의 스트리밍 JSON·multipart 요청도 읽을 수 있다.
@@ -54,7 +54,7 @@ AI 스텁과 라우터 스텁은 `Content-Length` 및 `Transfer-Encoding: chunke
 본문 읽기 회귀 테스트:
 
 ```bash
-python3 -m unittest discover -s scripts/debug/ai-stub/tests -v
+uv run --no-project -m unittest discover -s scripts/debug/ai-stub/tests -v
 ```
 
 ```bash
@@ -157,5 +157,16 @@ export AI_STUB_SECRET="stub-secret"
 | `--port` | `8000` | 리스닝 포트 |
 | `--embedding-dimension` | `1536` | 임베딩 차원. `user_embeddings.embedding` 이 `vector(1536)` 이므로 기본값을 바꾸면 백엔드가 502 로 거른다 (차원 검증 테스트용) |
 | `--expected-secret` | (없음) | 주면 `X-Internal-Secret` 을 검증해 불일치/누락 시 **401**. 안 주면 받은 값을 마스킹해 출력만 한다 |
+| `--host` | `127.0.0.1` | 바인딩 주소. 컨테이너에서는 `0.0.0.0` |
+| `--mode` | `debug` | `loadtest`는 업무 요청을 기록하고 503으로 거절. `ai-stub`은 가짜 응답 제공 |
+| `--delay-ms` | `0` | 업무 요청별 지연. 0~120000ms |
+| `--quiet` | 끔 | 요청 전문과 상세 진단 로그 생략 |
+
+서버는 동시 요청을 처리한다. `GET /__stub/stats`로 업무 호출 수·경로·진행 중 요청 수를 조회하고,
+`POST /__stub/reset`으로 카운터를 초기화한다(업무 요청 처리 중이면 409).
+`/__stub`, `/__stub/stats`, `/__stub/reset` 자체는 업무 호출 수에 들어가지 않는다.
+스텁 재시작은 `instance_id`, 초기화는 `generation` 변경으로 구분한다.
+관리 API는 테스트망 내부에서만 사용한다. 컨테이너 부하테스트 구성은
+[JMeter 실행 안내](../../test/jmeter/README.md)에 있다.
 
 중지는 `Ctrl+C`.

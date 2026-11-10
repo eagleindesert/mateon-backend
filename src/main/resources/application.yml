@@ -9,7 +9,7 @@ spring:
   # 아무것도 주지 않으면 dev 다 — bootRun/IDE 실행이 무설정으로 돌아야 한다.
   #
   # prod 는 아직 쓰는 환경이 없다. 운영 서버가 없어서 미리 만들어만 둔 프로필이고,
-  # 지금 배포돼 있는 서버(docker-compose-deployment.yml)도 dev 로 돈다.
+  # 지금 배포돼 있는 서버(docker-compose-deployment.yaml)도 dev 로 돈다.
   # 그래서 "dev = 로컬" 이 아니라 "dev = 아직 운영이 아닌 전부" 로 읽어야 한다.
   profiles:
     default: dev
