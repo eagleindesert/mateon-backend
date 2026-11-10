@@ -2,12 +2,15 @@
 
 `./start.sh [VERSION]`은 모든 모드에서 DockerHub 이미지를 pull한 뒤 빌드 없이 실행합니다.
 AI 스텁도 게시된 이미지를 사용하며, pull에 실패하면 실행을 중단합니다.
-`./scripts/build-start.sh [VERSION]`은 앱을 빌드한 뒤 같은 Docker 데몬에서 실행합니다.
+`./scripts/build-start.sh [VERSION]`은 앱을 빌드한 뒤 개발 Compose로 실행하며 기본 포트는 8080입니다.
+`bootRun`과 같은 개발 DB 볼륨과 `.env` / `.env.secret`을 사용하고, 앱의 `/health` 응답을 확인합니다.
 테스트 모드에서는 AI 스텁도 같은 태그로 빌드하고, DockerHub에 push하지 않습니다.
 
 두 스크립트 모두 `--mode server|loadtest|ai-stub`, `--tag`, `--db-pool-size`, `--port`를 지원합니다.
 `build-start.sh`는 추가로 `--platform`, `--username`, `--image-name`을 지원하며 태그 기본값은 `local`입니다.
-서버 모드는 배포 Compose와 루트 `.env`, 테스트 모드는 독립 Compose와 `config/loadtest.properties`를
+기본 `server` 모드에서 `start.sh`는 배포 Compose·`.env`·8081, `build-start.sh`는 개발 Compose·
+`.env` / `.env.secret`·8080을 사용합니다. 개발 포트 변수는 `DEV_APP_PORT`, 배포 포트 변수는
+`APP_PORT`이며 `--port`가 우선합니다. 테스트 모드는 독립 Compose와 `config/loadtest.properties`를
 사용합니다. 테스트는 [JMeter 실행 안내](test/jmeter/README.md)를 참고하세요.
 자세한 절차는 [루트 README](../README.md#배포와-컨테이너-재실행)를 참고하세요.
 

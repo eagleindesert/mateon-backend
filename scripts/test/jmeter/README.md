@@ -53,7 +53,7 @@ pull에 실패하면 기존 이미지로 실행하지 않는다. AI 스텁 이�
 
 | 옵션 | 동작 |
 | --- | --- |
-| `--mode server` | 기존 배포 Compose와 루트 `.env` 사용. 기본 모드 |
+| `--mode server` | 기본 모드. `start.sh`: 배포 Compose·`.env`·8081. `build-start.sh`: 개발 Compose·`.env` / `.env.secret`·8080 |
 | `--mode loadtest` | 일반 REST 환경. 스텁은 업무 호출을 기록하고 503으로 거절 |
 | `--mode ai-stub` | 가짜 AI 응답 제공. 요청 지연을 설정해 대기를 재현 가능 |
 | `--tag VERSION` | `start.sh`: 게시된 앱 태그. `build-start.sh`: 빌드할 앱·스텁 태그(기본 `local`). 위치 인자 `VERSION`도 동일 |
@@ -61,6 +61,7 @@ pull에 실패하면 기존 이미지로 실행하지 않는다. AI 스텁 이�
 | `--port NUMBER` | 서버 모드는 앱, 테스트 모드는 진입 프록시의 공개 포트. 1~65535 |
 
 DB 풀·포트의 우선순위는 명시한 옵션, 셸 환경변수, 선택한 환경의 설정 파일, Compose 기본값 순서다.
+일반 개발 환경의 포트 변수는 `DEV_APP_PORT`이며, 배포·테스트 환경은 `APP_PORT`를 사용한다.
 `start.sh`의 이미지 설정도 같은 순서다. `build-start.sh`는 빌드 대상 이미지·태그·플랫폼을
 Compose에 전달하므로, 설정 파일의 원격 이미지 설정으로 빌드 결과를 덮어쓰지 않는다.
 AI 주소·라우터·백필·자격증명은 테스트 Compose에 고정되어 이 우선순위로 변경되지 않는다.
@@ -105,7 +106,8 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 게시 후 `config/loadtest.properties`의 `DOCKERHUB_USERNAME`, `AI_STUB_DOCKERHUB_IMAGE`,
 `AI_STUB_TAG`를 맞춘다. 앱과 스텁은 같은 DockerHub 사용자명을 사용한다.
-Dockerfile은 `build-start.sh`의 로컬 빌드와 위 게시 명령에만 사용하며, 실행용 Compose에는 `build`가 없다.
+스텁 Dockerfile은 `build-start.sh`의 로컬 빌드와 위 게시 명령에만 사용한다.
+배포·테스트 Compose에는 `build`가 없으며, 일반 개발용 `docker-compose.yml`은 직접 빌드도 지원한다.
 
 ## 일반 REST 실행
 

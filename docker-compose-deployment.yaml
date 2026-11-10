@@ -9,7 +9,7 @@
 #   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
 #   3) ./start.sh (특정 버전 지정: ./start.sh v1.0.0)
 #      태그 생략 시에도 모든 이미지를 pull하고 --no-build로 실행한다.
-#      소스 빌드 후 실행은 ./scripts/build-start.sh를 사용한다.
+#      개발용 소스 빌드·실행은 ./scripts/build-start.sh (별도 개발 Compose, 기본 8080).
 #
 # 종료:  docker compose -f docker-compose-deployment.yaml down
 # 갱신:  docker compose -f docker-compose-deployment.yaml pull --policy always && \
@@ -22,7 +22,7 @@ services:
   app:
     # DockerHub 이미지를 pull (빌드하지 않음). 태그 미지정 시 latest.
     image: ${DOCKERHUB_USERNAME:-eagleindesert}/${DOCKERHUB_IMAGE:-mateon-backend}:${TAG:-latest}
-    # build-start.sh 는 방금 빌드한 로컬 이미지를 실행하도록 never 를 지정한다.
+    # start.sh는 이 설정과 무관하게 먼저 pull하고, 내려받은 이미지로 실행한다.
     pull_policy: ${APP_PULL_POLICY:-missing}
     # ARM 클라우드에서 멀티아치가 아닌 이미지를 강제 지정하고 싶을 때 사용.
     # 이미지가 arm64 로 push 되어 있어야 정상 동작합니다.
@@ -65,7 +65,7 @@ services:
       #     .env 에 JPA_SHOW_SQL=true 와 LOG_LEVEL_SQL=DEBUG 를 세트로 주고 끝나면 되돌린다.
       #   - 커넥션 풀이 10 이다(prod 는 20). 늘리려면 .env 의 DB_POOL_SIZE.
       SPRING_PROFILES_ACTIVE: dev
-      # start.sh / build-start.sh의 --db-pool-size가 셸 환경변수로 전달한다.
+      # start.sh의 --db-pool-size가 셸 환경변수로 전달한다.
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db

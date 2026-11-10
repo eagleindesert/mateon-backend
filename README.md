@@ -38,6 +38,18 @@ PostgreSQL 을 자동으로 기동합니다. (Docker 가 실행 중이어야 합
 - 애플리케이션: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 
+앱도 컨테이너로 실행하려면 `./scripts/build-start.sh`를 사용합니다. Docker 안에서 Gradle로
+JAR을 만들고 이미지를 빌드한 뒤, 앱과 PostgreSQL을 시작합니다. `bootRun`과 같은 개발 Compose,
+`.env` / `.env.secret`, 개발 DB 볼륨을 사용하며 기본 접속 주소는 `http://localhost:8080`입니다.
+`/health`가 성공해야 실행 완료로 처리하므로 Flyway 오류로 앱이 종료되면 스크립트도 실패합니다.
+
+```bash
+./scripts/build-start.sh
+./scripts/build-start.sh --port 8082 --db-pool-size 20
+```
+
+개발 포트는 `DEV_APP_PORT`로 설정합니다. 배포용 `APP_PORT=8081`은 개발 포트에 영향을 주지 않습니다.
+
 DB GUI 는 [docker-compose-pgadmin.yml](docker-compose-pgadmin.yml) 을 앱/DB compose 와 따로 띄운다
 (특정 앱에 묶이지 않은 범용 파일). 호스트에서 `http://localhost:5050` 으로 연 뒤, pgAdmin UI 에서
 `localhost` 와 그 DB 의 호스트 포트로 서버를 등록한다.
@@ -235,8 +247,19 @@ JMeter와 uv가 필요합니다. 기본 ARM 이미지, 테스트 데이터 준�
 컨테이너를 재생성해야 하며, 단순 `docker compose restart`에는 새 설정이 반영되지 않습니다.
 
 소스가 있는 머신에서 빌드 후 실행하려면 `build-start.sh`를 사용합니다. `start.sh`와 동일한
-`--mode`, `--tag`, `--db-pool-size`, `--port` 옵션을 지원합니다. 서버 모드는 루트 `.env`,
-테스트 모드는 `config/loadtest.properties`를 사용합니다.
+`--mode`, `--tag`, `--db-pool-size`, `--port` 옵션을 지원합니다. 기본 모드인 `server`의 환경은
+스크립트에 따라 다릅니다.
+
+| 실행 명령 | Compose | 설정 파일 | 기본 HTTP 포트 | DB 볼륨 키 |
+| --- | --- | --- | --- | --- |
+| `./scripts/build-start.sh` | `docker-compose.yml` (`app` 프로파일) | `.env` + `.env.secret` | 8080 (`DEV_APP_PORT`) | `mateon-postgres-dev-data` |
+| `./start.sh` | `docker-compose-deployment.yaml` | `.env` | 8081 (`APP_PORT`) | `mateon-postgres-data` |
+| 두 스크립트의 `--mode loadtest` / `ai-stub` | `docker-compose-loadtest.yaml` | `config/loadtest.properties` | 18081 (`APP_PORT`) | `loadtest-data` |
+
+`build-start.sh`는 `bootRun`과 같은 개발 DB를 사용합니다. 배포 DB 볼륨은 별도로 보존합니다.
+기존 배포 볼륨에서 `V2 ... provider_id ... does not exist`가 발생했다면, 현재 V1에 정의된 컬럼과
+기존 DB의 스키마가 일치하지 않는 상태입니다. 개발 실행은 개발 DB로 연결하고, 해당 배포 DB의
+스키마 이관은 별도로 확인해야 합니다.
 
 ```bash
 ./scripts/build-start.sh --tag local
@@ -256,6 +279,31 @@ Gradle 컴파일은 빌드 머신의 네이티브 아키텍처에서 실행됩�
 ```
 
 buildx 빌더는 `restart-policy=no` 로 생성하며, 기존 빌더 컨테이너에도 같은 정책을 적용합니다.
+
+`bootRun`과 Docker 빌드는 작업량과 캐시 범위가 다릅니다. `bootRun`은 로컬 컴파일 결과를 활용해
+클래스패스로 실행하고, Docker 빌드는 JAR 생성·이미지 생성·Docker 데몬으로 로드까지 수행합니다.
+빌드는 Docker 내부의 JDK 21과 Gradle wrapper로 수행하므로 호스트에 Java·Gradle 설치가 필요 없습니다.
+
+Dockerfile은 BuildKit 캐시 마운트로 Gradle 의존성(`/root/.gradle`), 작업 이력(`/app/.gradle`),
+컴파일 결과(`/app/build`)를 보존합니다. Java 소스가 바뀌면 Gradle을 다시 실행하되,
+이전 결과를 바탕으로 증분 컴파일이 가능한 범위만 다시 처리하고 `--build-cache`도 사용합니다.
+`clean`은 실행하지 않으며, 이전 버전 JAR이 섞이지 않도록 `build/libs`의 JAR만 제거합니다.
+완성된 JAR은 캐시 밖으로 복사해 런타임 이미지에 넣습니다.
+
+앱 이미지는 `src/main`만 복사하므로 테스트 소스 변경은 앱 빌드 레이어를 무효화하지 않습니다.
+입력이 같으면 Docker 레이어 캐시를 재사용합니다. 캐시는 빌드 머신의 아키텍처별로 분리하고,
+같은 캐시를 동시에 수정하지 않도록 잠급니다. 기본 `mateon-builder`를 중지해도 캐시는 남지만,
+빌더나 캐시를 삭제하면 다시 준비해야 합니다. 첫 빌드·큰 변경·전체 재컴파일의 비용은 발생합니다.
+
+GitHub Actions의 `type=gha`는 캐시 마운트 내용을 자동 보존하지 않습니다. 새 러너에서도 wrapper·
+플러그인·의존성 메타데이터를 재사용할 수 있도록 별도의 준비 레이어를 유지합니다.
+컴파일 결과의 증분 재사용 효과는 같은 빌더를 계속 사용하는 로컬 반복 빌드에서 확인할 수 있습니다.
+
+빌드 로그의 단계별 소요 시간을 확인하려면 아래 명령을 사용합니다. 빌드 후 개발 컨테이너도 실행됩니다.
+
+```bash
+BUILDKIT_PROGRESS=plain ./scripts/build-start.sh
+```
 
 모든 HTTP 요청은 `method`, `uri`, `status`, `ip`, `userId`, `elapsedMs` 를 한 줄로 기록합니다.
 미인증 요청의 `userId` 는 `-` 이고, SSE 등 비동기 요청은 응답 완료 시 기록합니다.

@@ -6,6 +6,7 @@
 #
 #   ./gradlew bootRun                    # Boot 의 Compose 지원이 이 파일을 자동 탐지해
 #                                        # postgres 만 기동 (앱은 Gradle 이 실행)
+#   ./scripts/build-start.sh             # 소스 빌드 후 앱(8080)과 같은 개발 DB를 실행
 #   docker compose --profile app up -d   # 앱까지 컨테이너로 띄우는 전체 스택
 #   docker compose down                  # 종료 (--profile 없이도 전체가 내려간다)
 #
@@ -41,11 +42,15 @@ services:
   app:
     # 프로파일이 지정된 서비스는 --profile app 을 줄 때만 기동된다.
     profiles: ["app"]
+    image: ${DOCKERHUB_USERNAME:-eagleindesert}/${DOCKERHUB_IMAGE:-mateon-backend}:${TAG:-local}
+    # 직접 Compose를 실행하면 소스를 빌드한다. build-start.sh는 빌드 후 never를 지정한다.
+    pull_policy: ${APP_PULL_POLICY:-build}
+    platform: ${APP_PLATFORM:-}
     build:
       context: .
       dockerfile: Dockerfile
     container_name: mateon-app
-    # 설정은 .env, 시크릿은 .env.secret. 배포 파일과 같은 구성이다(그쪽 주석 참고).
+    # bootRun과 같이 .env / .env.secret을 읽는다. 배포 Compose는 .env 하나를 읽는다.
     # postgres 에는 일부러 붙이지 않는다.
     env_file:
       - .env
@@ -54,15 +59,33 @@ services:
       # 기본값이 dev 라 없어도 결과는 같지만, 배포 파일(docker-compose-deployment.yaml)과
       # 나란히 놓고 볼 때 차이가 드러나도록 명시해 둔다.
       SPRING_PROFILES_ACTIVE: dev
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
       TZ: Asia/Seoul
     ports:
-      - "8080:8080"
+      # 배포용 APP_PORT=8081이 개발 기본 포트에 영향을 주지 않도록 분리한다.
+      - "${DEV_APP_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      # JRE 이미지의 Bash로 HTTP 상태를 검사한다. curl 등의 추가 설치가 필요 없다.
+      # Tomcat 초기화 로그만 나온 뒤 Flyway 오류로 종료되는 경우도 실패로 처리한다.
+      test:
+        - CMD
+        - bash
+        - -ec
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/8080
+          printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          read -r protocol status remaining <&3
+          [[ "$$status" == 200 ]]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
 # 이름의 -dev- 는 그대로 둔다. 배포(docker-compose-deployment.yaml)가 쓰는
 # mateon-postgres-data 와 반드시 구분되어야 한다 — 두 볼륨은 스키마 계보가 다르다.

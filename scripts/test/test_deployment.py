@@ -16,13 +16,16 @@ import unittest
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCKER_CLI = shutil.which("docker")
 COMPOSE_FILE = "docker-compose-deployment.yaml"
+DEV_COMPOSE_FILE = "docker-compose.yml"
 
 DOCKER_STUB = """#!/usr/bin/env bash
 set -eu
-printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "${DB_POOL_SIZE-}" "${APP_PORT-}" "${MATEON_TEST_MODE-}" "${AI_STUB_DOCKERHUB_IMAGE-}" "${AI_STUB_TAG-}" "$PWD" "$@" >> "$DOCKER_CALLS"
+printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "${DB_POOL_SIZE-}" "${APP_PORT-}" "${DEV_APP_PORT-}" "${MATEON_TEST_MODE-}" "${AI_STUB_DOCKERHUB_IMAGE-}" "${AI_STUB_TAG-}" "$PWD" "$@" >> "$DOCKER_CALLS"
 printf '\\n' >> "$DOCKER_CALLS"
 case "$1 ${2-}" in
-  'version --format') printf 'linux/amd64\\n' ;;
+  'version --format')
+    [[ "${VERSION_EXIT:-0}" == 0 ]] || exit "$VERSION_EXIT"
+    printf 'linux/amd64\\n' ;;
   'container inspect') exit "${CONTAINER_INSPECT_EXIT:-1}" ;;
   'update --restart=no') exit "${UPDATE_EXIT:-0}" ;;
   'buildx create') printf 'mateon-builder\\n' ;;
@@ -78,7 +81,7 @@ class DeploymentScriptsTest(unittest.TestCase):
             "TAG", "APP_PLATFORM", "APP_PULL_POLICY", "DOCKERHUB_USERNAME", "DOCKERHUB_IMAGE",
             "DOCKERHUB_TOKEN", "COMPOSE_FILE", "COMPOSE_PROFILES", "COMPOSE_ENV_FILES",
             "DB_POOL_SIZE", "APP_PORT", "MATEON_TEST_MODE", "AI_BASE_URL", "OPENAI_API_KEY",
-            "AI_STUB_DOCKERHUB_IMAGE", "AI_STUB_TAG",
+            "AI_STUB_DOCKERHUB_IMAGE", "AI_STUB_TAG", "DEV_APP_PORT", "COMPOSE_PROJECT_NAME",
         ):
             self.environment.pop(key, None)
         self.environment.update(
@@ -94,10 +97,11 @@ class DeploymentScriptsTest(unittest.TestCase):
     def prepare_build(self):
         for relative_path in (
             "scripts/build-start.sh", "scripts/docker/deploy-dockerhub.sh", "Dockerfile", ".dockerignore",
-            "docker-compose-loadtest.yaml", "config/loadtest.properties",
+            DEV_COMPOSE_FILE, "docker-compose-loadtest.yaml", "config/loadtest.properties",
             "scripts/test/jmeter/Dockerfile.ai-stub",
         ):
             self.copy(relative_path)
+        (self.app / ".env.secret").write_text("JWT_SECRET=development-test-only\n", encoding="utf-8")
 
     def run_script(self, script="start.sh", arguments=(), **environment):
         return subprocess.run(
@@ -114,15 +118,23 @@ class DeploymentScriptsTest(unittest.TestCase):
             return []
         result = []
         for line in self.calls_file.read_text(encoding="utf-8").splitlines():
-            (tag, platform, pull_policy, pool, port, mode,
+            (tag, platform, pull_policy, pool, port, dev_port, mode,
              stub_image, stub_tag, cwd, *arguments) = line.rstrip("\t").split("\t")
             result.append(dict(tag=tag, platform=platform, pull_policy=pull_policy,
-                               pool=pool, port=port, mode=mode, stub_image=stub_image,
+                               pool=pool, port=port, dev_port=dev_port, mode=mode, stub_image=stub_image,
                                stub_tag=stub_tag, cwd=cwd, arguments=arguments))
         return result
 
     def launch_calls(self):
         return [call for call in self.calls() if "config" not in call["arguments"]]
+
+    def development_config(self, **environment):
+        result = subprocess.run(
+            [DOCKER_CLI, "compose", "-f", DEV_COMPOSE_FILE, "--profile", "app", "config", "--format", "json"],
+            cwd=self.app, env=self.environment | environment, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
 
     def test_start_needs_only_three_files_and_pulls_before_starting_without_build(self):
         self.assertEqual({p.name for p in self.app.iterdir()}, {"start.sh", COMPOSE_FILE, ".env"})
@@ -276,13 +288,110 @@ class DeploymentScriptsTest(unittest.TestCase):
         self.assertIn("example/custom-be:v2.3.4", build["arguments"])
         self.assertIn("--load", build["arguments"])
         self.assertNotIn("--push", build["arguments"])
-        self.assertEqual(self.calls()[-1]["arguments"],
-                         ["compose", "-f", COMPOSE_FILE, "up", "-d", "--no-build", "--force-recreate", "app"])
+        self.assertEqual(self.calls()[-1]["arguments"], [
+            "compose", "-f", DEV_COMPOSE_FILE, "--profile", "app", "up", "-d", "--no-build",
+            "--force-recreate", "--wait", "--wait-timeout", "180", "app",
+        ])
         self.assertEqual(self.calls()[-1]["tag"], "v2.3.4")
         self.assertEqual(self.calls()[-1]["platform"], "linux/amd64")
         self.assertEqual(self.calls()[-1]["pull_policy"], "never")
-        self.assertEqual((self.calls()[-1]["pool"], self.calls()[-1]["port"]), ("20", "8082"))
+        self.assertEqual((self.calls()[-1]["pool"], self.calls()[-1]["dev_port"]), ("20", "8082"))
         self.assertFalse(any(call["arguments"][0] == "build" for call in self.calls()))
+
+    @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
+    def test_development_compose_uses_port_8080_and_bootrun_database(self):
+        self.prepare_build()
+        config = self.development_config(APP_PORT="8081")
+        services = config["services"]
+        app = services["app"]
+        postgres = services["postgres"]
+        self.assertEqual(str(app["ports"][0]["published"]), "8080")
+        self.assertEqual(str(postgres["ports"][0]["published"]), "5432")
+        self.assertEqual(postgres["volumes"][0]["source"], "mateon-postgres-dev-data")
+        self.assertNotIn("mateon-postgres-data", config["volumes"])
+        self.assertEqual(app["environment"]["JWT_SECRET"], "development-test-only")
+        self.assertNotIn("JWT_SECRET", postgres["environment"])
+        self.assertEqual(app["pull_policy"], "build")
+        self.assertEqual(app["depends_on"]["postgres"]["condition"], "service_healthy")
+        self.assertEqual(app["healthcheck"]["test"][:3], ["CMD", "bash", "-ec"])
+        self.assertIn("GET /health HTTP/1.1", app["healthcheck"]["test"][3])
+        self.assertNotIn("restart", app)
+
+        # bootRun은 프로파일 없는 PostgreSQL만 기동하며, 같은 개발 볼륨을 사용한다.
+        result = subprocess.run(
+            [DOCKER_CLI, "compose", "-f", DEV_COMPOSE_FILE, "config", "--services"],
+            cwd=self.app, env=self.environment, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), ["postgres"])
+
+    @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
+    def test_development_compose_accepts_built_image_and_explicit_port(self):
+        self.prepare_build()
+        app = self.development_config(
+            DOCKERHUB_USERNAME="example", DOCKERHUB_IMAGE="custom-be", TAG="local-test",
+            APP_PLATFORM="linux/amd64", APP_PULL_POLICY="never",
+            DEV_APP_PORT="8082", APP_PORT="8081", DB_POOL_SIZE="20",
+        )["services"]["app"]
+        self.assertEqual(app["image"], "example/custom-be:local-test")
+        self.assertEqual(app["pull_policy"], "never")
+        self.assertEqual(app["platform"], "linux/amd64")
+        self.assertEqual(str(app["ports"][0]["published"]), "8082")
+        self.assertEqual(str(app["environment"]["DB_POOL_SIZE"]), "20")
+
+    @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
+    def test_development_healthcheck_requires_http_200(self):
+        self.prepare_build()
+        command = self.development_config()["services"]["app"]["healthcheck"]["test"][3]
+        # Compose는 컨테이너에 전달할 리터럴 $를 config 출력에서 $$로 보존할 수 있다.
+        command = command.replace("$$", "$")
+        for response, success in ((b"HTTP/1.1 200 OK\r\n", True),
+                                  (b"HTTP/1.1 503 Service Unavailable\r\n", False),
+                                  (b"", False)):
+            with self.subTest(response=response):
+                # 네트워크 없이 요청은 FD 3에 기록하고 응답은 FD 4로 공급한다.
+                # 임시 파일은 테스트 종료 시 TemporaryDirectory가 모두 삭제한다.
+                with tempfile.TemporaryFile() as request, tempfile.TemporaryFile() as reply:
+                    reply.write(response)
+                    reply.seek(0)
+                    probe = command.replace("exec 3<>/dev/tcp/127.0.0.1/8080",
+                                            f"exec 3>&{request.fileno()} 4<&{reply.fileno()}")
+                    probe = probe.replace("<&3", "<&4")
+                    result = subprocess.run(
+                        ["bash", "-ec", probe], pass_fds=(request.fileno(), reply.fileno()),
+                        capture_output=True, text=True, timeout=5, check=False,
+                    )
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    request.seek(0)
+                    self.assertIn(b"GET /health HTTP/1.1\r\n", request.read())
+
+    def test_default_build_selects_development_stack(self):
+        self.prepare_build()
+        for arguments in ([], ["--mode", "server"]):
+            with self.subTest(arguments=arguments):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script("scripts/build-start.sh", arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for call in self.calls():
+                    if call["arguments"][0] == "compose":
+                        self.assertEqual(call["arguments"][:5],
+                                         ["compose", "-f", DEV_COMPOSE_FILE, "--profile", "app"])
+                    self.assertNotIn(COMPOSE_FILE, call["arguments"])
+                self.assertEqual(self.calls()[-1]["tag"], "local")
+
+    def test_development_start_failure_is_reported(self):
+        self.prepare_build()
+        result = self.run_script("scripts/build-start.sh", UP_EXIT="17")
+        self.assertEqual(result.returncode, 17)
+        self.assertIn("--wait", self.calls()[-1]["arguments"])
+
+    def test_unavailable_docker_has_actionable_message_before_build(self):
+        self.prepare_build()
+        result = self.run_script("scripts/build-start.sh", VERSION_EXIT="1")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("빌드 및 실행 모드", result.stdout)
+        self.assertIn("Docker Desktop 또는 Docker Engine을 시작", result.stderr)
+        self.assertEqual(len(self.calls()), 1)
 
     def test_build_test_modes_build_both_images_and_start_isolated_stack(self):
         self.prepare_build()
