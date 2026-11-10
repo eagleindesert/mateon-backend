@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'lib'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'etc'))
 from http_body import read_http_body
 
 

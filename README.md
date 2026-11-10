@@ -203,6 +203,8 @@ start.sh
 ```bash
 ./start.sh          # docker compose -f docker-compose-deployment.yaml up -d 와 동일
 ./start.sh v1.2.3   # TAG=v1.2.3 으로 pull 성공 후 up -d
+./start.sh --tag v1.2.3 --db-pool-size 20 --port 8081
+./start.sh --help
 ```
 
 버전 인자는 이번 실행에만 적용됩니다. 이후에도 같은 버전을 기본으로 쓰려면 `.env` 의
@@ -212,6 +214,22 @@ start.sh
 TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml pull
 TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml up -d
 ```
+
+부하테스트는 별도 Compose 프로젝트와 DB를 사용합니다. 두 테스트 모드 모두 실제 AI 접근을
+차단하고, 루트 `.env` 대신 `config/loadtest.properties`의 공개 테스트 설정을 사용합니다.
+테스트 모드에는 저장소의 테스트 Compose·`config`·`scripts` 파일도 필요합니다.
+
+```bash
+./start.sh --mode loadtest --db-pool-size 20 --port 18081
+./scripts/test/jmeter/run.sh --suite core-rest --users 30 --ramp-up 60 --duration 600
+
+./start.sh --mode ai-stub
+./scripts/test/jmeter/run.sh --suite ai-stub --users 10 --ramp-up 60 --duration 300
+```
+
+JMeter와 uv가 필요합니다. 기본 ARM 이미지, 테스트 데이터 준비, 격리 방식, 결과와 종료 방법은
+[JMeter 실행 안내](scripts/test/jmeter/README.md)를 참고하세요. 환경변수를 바꾸면 `start.sh`로
+컨테이너를 재생성해야 하며, 단순 `docker compose restart`에는 새 설정이 반영되지 않습니다.
 
 소스가 있는 머신에서 빌드하고 같은 Docker 데몬의 앱을 교체하려면 아래 명령을 사용합니다.
 이 명령도 시크릿을 포함한 루트 `.env` 를 사용합니다.

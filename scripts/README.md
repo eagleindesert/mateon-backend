@@ -1,8 +1,11 @@
 # 스크립트
 
-`./start.sh [VERSION]` 은 배포 이미지를 실행합니다. 버전 지정 시 먼저 pull 합니다.
+`./start.sh [VERSION]` 은 배포 이미지를 실행합니다. `--tag VERSION`도 같으며, 버전 지정 시 먼저 pull 합니다.
+`--db-pool-size`, `--port`로 실행 설정을 지정하고, `--mode loadtest|ai-stub`으로 실제 AI 접근이
+차단된 테스트 스택을 시작합니다. 테스트는 [JMeter 실행 안내](test/jmeter/README.md)를 참고하세요.
 `scripts/build-start.sh [--tag TAG] [--platform PLATFORM]` 은 소스를 빌드한 뒤 같은 Docker 데몬의
-앱 컨테이너를 교체합니다. 두 명령 모두 배포 Compose 와 시크릿을 포함한 루트 `.env` 를 사용합니다.
+앱 컨테이너를 교체합니다. 서버 실행과 빌드는 배포 Compose와 루트 `.env`를 사용하고,
+테스트 모드는 독립 Compose와 `config/loadtest.properties`를 사용합니다.
 자세한 절차는 [루트 README](../README.md#배포와-컨테이너-재실행)를 참고하세요.
 
 배포 스크립트 검증은 `uv run --no-project scripts/test/test_deployment.py` 로 실행합니다.

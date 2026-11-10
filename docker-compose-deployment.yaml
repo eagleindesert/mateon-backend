@@ -64,6 +64,8 @@ services:
       #     .env 에 JPA_SHOW_SQL=true 와 LOG_LEVEL_SQL=DEBUG 를 세트로 주고 끝나면 되돌린다.
       #   - 커넥션 풀이 10 이다(prod 는 20). 늘리려면 .env 의 DB_POOL_SIZE.
       SPRING_PROFILES_ACTIVE: dev
+      # start.sh --db-pool-size가 셸 환경변수로 전달한다.
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}

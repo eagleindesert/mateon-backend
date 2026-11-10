@@ -19,7 +19,7 @@ COMPOSE_FILE = "docker-compose-deployment.yaml"
 
 DOCKER_STUB = """#!/usr/bin/env bash
 set -eu
-printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "$PWD" "$@" >> "$DOCKER_CALLS"
+printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "${DB_POOL_SIZE-}" "${APP_PORT-}" "${MATEON_TEST_MODE-}" "$PWD" "$@" >> "$DOCKER_CALLS"
 printf '\\n' >> "$DOCKER_CALLS"
 case "$1 ${2-}" in
   'version --format') printf 'linux/amd64\\n' ;;
@@ -29,10 +29,26 @@ case "$1 ${2-}" in
   'buildx build') exit "${BUILD_EXIT:-0}" ;;
 esac
 if [[ "$1" == compose ]]; then
-  case "${4-}" in
-    pull) exit "${PULL_EXIT:-0}" ;;
-    up) exit "${UP_EXIT:-0}" ;;
-  esac
+  for argument in "$@"; do
+    case "$argument" in
+      config)
+        [[ "${CONFIG_EXIT:-0}" == 0 ]] || exit "$CONFIG_EXIT"
+        cat <<EOF
+services:
+  app:
+    environment:
+      DB_POOL_SIZE: "${DB_POOL_SIZE:-10}"
+      JWT_SECRET: must-not-print
+    image: eagleindesert/mateon-backend:${TAG:-v9.8.7}
+    ports:
+      - target: 8080
+        published: "${APP_PORT:-8081}"
+EOF
+        exit 0 ;;
+      pull) exit "${PULL_EXIT:-0}" ;;
+      up) exit "${UP_EXIT:-0}" ;;
+    esac
+  done
 fi
 """
 
@@ -60,6 +76,7 @@ class DeploymentScriptsTest(unittest.TestCase):
         for key in (
             "TAG", "APP_PLATFORM", "APP_PULL_POLICY", "DOCKERHUB_USERNAME", "DOCKERHUB_IMAGE",
             "DOCKERHUB_TOKEN", "COMPOSE_FILE", "COMPOSE_PROFILES", "COMPOSE_ENV_FILES",
+            "DB_POOL_SIZE", "APP_PORT", "MATEON_TEST_MODE", "AI_BASE_URL", "OPENAI_API_KEY",
         ):
             self.environment.pop(key, None)
         self.environment.update(
@@ -93,25 +110,31 @@ class DeploymentScriptsTest(unittest.TestCase):
             return []
         result = []
         for line in self.calls_file.read_text(encoding="utf-8").splitlines():
-            tag, platform, pull_policy, cwd, *arguments = line.rstrip("\t").split("\t")
-            result.append(dict(tag=tag, platform=platform, pull_policy=pull_policy, cwd=cwd, arguments=arguments))
+            tag, platform, pull_policy, pool, port, mode, cwd, *arguments = line.rstrip("\t").split("\t")
+            result.append(dict(tag=tag, platform=platform, pull_policy=pull_policy,
+                               pool=pool, port=port, mode=mode, cwd=cwd, arguments=arguments))
         return result
+
+    def launch_calls(self):
+        return [call for call in self.calls() if "config" not in call["arguments"]]
 
     def test_start_needs_only_three_files_and_matches_compose_up(self):
         self.assertEqual({p.name for p in self.app.iterdir()}, {"start.sh", COMPOSE_FILE, ".env"})
         result = self.run_script()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(self.calls()), 1)
-        self.assertEqual(self.calls()[0]["arguments"], ["compose", "-f", COMPOSE_FILE, "up", "-d"])
+        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(self.launch_calls()[0]["arguments"], ["compose", "-f", COMPOSE_FILE, "up", "-d"])
         self.assertEqual(self.calls()[0]["cwd"], str(self.app))
         self.assertEqual(self.calls()[0]["tag"], "")
+        self.assertIn("DB 풀: 10", result.stdout)
+        self.assertNotIn("must-not-print", result.stdout)
 
     def test_version_overrides_environment_for_pull_and_up_without_editing_env(self):
         previous = (self.app / ".env").read_bytes()
         result = self.run_script(arguments=["v1.2.3"], TAG="old")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([call["arguments"][3:] for call in self.calls()], [["pull"], ["up", "-d"]])
-        self.assertEqual([call["tag"] for call in self.calls()], ["v1.2.3", "v1.2.3"])
+        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()], [["pull"], ["up", "-d"]])
+        self.assertTrue(all(call["tag"] == "v1.2.3" for call in self.calls()))
         self.assertEqual((self.app / ".env").read_bytes(), previous)
 
     def test_plain_start_preserves_shell_tag(self):
@@ -122,16 +145,81 @@ class DeploymentScriptsTest(unittest.TestCase):
     def test_pull_failure_does_not_start_an_old_image(self):
         result = self.run_script(arguments=["v1.2.3"], PULL_EXIT="9")
         self.assertEqual(result.returncode, 9)
-        self.assertEqual([call["arguments"][3:] for call in self.calls()], [["pull"]])
+        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()], [["pull"]])
 
     def test_start_propagates_compose_exit_code(self):
         self.assertEqual(self.run_script(UP_EXIT="17").returncode, 17)
 
     def test_invalid_arguments_do_not_call_docker(self):
-        for arguments in ([""], ["bad/tag"], ["one", "two"]):
+        for arguments in ([""], ["bad/tag"], ["one", "two"], ["--mode", "production"],
+                          ["--tag"], ["--port", "65536"], ["--port", "0"], ["--port", "oops"],
+                          ["--db-pool-size", "-1"], ["--db-pool-size", "10001"],
+                          ["v1", "--tag", "v2"], ["--mode", "loadtest", "--mode", "server"]):
             with self.subTest(arguments=arguments):
                 self.assertEqual(self.run_script(arguments=arguments).returncode, 2)
         self.assertEqual(self.calls(), [])
+
+    def test_flags_override_inherited_values_and_summary_shows_only_public_settings(self):
+        result = self.run_script(arguments=["--tag", "v1.2.3", "--db-pool-size", "20", "--port", "18082"],
+                                 TAG="old", DB_POOL_SIZE="5", APP_PORT="8888")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.calls():
+            self.assertEqual((call["tag"], call["pool"], call["port"]), ("v1.2.3", "20", "18082"))
+        self.assertIn("이미지: eagleindesert/mateon-backend:v1.2.3", result.stdout)
+        self.assertIn("HTTP 포트: 18082", result.stdout)
+        self.assertNotIn("JWT_SECRET", result.stdout)
+
+    def test_config_failure_prevents_pull_and_up(self):
+        result = self.run_script(arguments=["--tag", "v1.2.3"], CONFIG_EXIT="7")
+        self.assertEqual(result.returncode, 7)
+        self.assertEqual(self.launch_calls(), [])
+
+    def test_test_modes_select_isolated_compose_for_both_pull_and_up(self):
+        for mode in ("loadtest", "ai-stub"):
+            with self.subTest(mode=mode):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script(arguments=["--mode", mode, "--tag", "v1.2.3"])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                prefix = ["compose", "--env-file", "config/loadtest.properties", "-p", "mateon-loadtest",
+                          "-f", "docker-compose-loadtest.yaml"]
+                for call in self.calls():
+                    self.assertEqual(call["arguments"][:len(prefix)], prefix)
+                    self.assertEqual(call["mode"], mode)
+                self.assertEqual(self.launch_calls()[0]["arguments"][len(prefix):], ["pull", "app", "postgres", "proxy"])
+                self.assertEqual(self.launch_calls()[1]["arguments"][len(prefix):],
+                                 ["up", "-d", "--build", "--wait", "--wait-timeout", "180"])
+
+    @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
+    def test_test_compose_ignores_real_ai_credentials_and_keeps_backend_network_internal(self):
+        self.copy("docker-compose-loadtest.yaml")
+        self.copy("config/loadtest.properties")
+        result = subprocess.run(
+            [DOCKER_CLI, "compose", "--env-file", "config/loadtest.properties", "-p", "mateon-loadtest",
+             "-f", "docker-compose-loadtest.yaml", "config", "--format", "json"],
+            cwd=self.app, env=self.environment | {
+                "AI_BASE_URL": "https://paid.invalid", "AI_ROUTER_ENABLED": "true",
+                "AI_EVENT_EMBEDDING_BACKFILL_ENABLED": "true", "OPENAI_API_KEY": "must-not-forward",
+                "SPRING_AI_OPENAI_API_KEY": "must-not-forward", "DB_POOL_SIZE": "23", "APP_PORT": "18083",
+            }, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        config = json.loads(result.stdout)
+        services = config["services"]
+        env = services["app"]["environment"]
+        self.assertEqual(env["AI_BASE_URL"], "http://ai-stub:8000")
+        self.assertEqual(env["AI_ROUTER_ENABLED"], "false")
+        self.assertEqual(env["AI_EVENT_EMBEDDING_BACKFILL_ENABLED"], "false")
+        self.assertEqual(env["OPENAI_API_KEY"], "")
+        self.assertEqual(env["SPRING_AI_OPENAI_API_KEY"], "")
+        self.assertNotIn("must-not-forward", result.stdout)
+        self.assertEqual(str(env["DB_POOL_SIZE"]), "23")
+        self.assertEqual(str(services["proxy"]["ports"][0]["published"]), "18083")
+        for name in ("app", "postgres", "ai-stub"):
+            self.assertEqual(set(services[name]["networks"]), {"isolated"})
+            self.assertNotIn("ports", services[name])
+            self.assertNotIn("container_name", services[name])
+        self.assertTrue(config["networks"]["isolated"]["internal"])
+        self.assertEqual(set(services["proxy"]["networks"]), {"entrance", "isolated"})
 
     @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
     def test_compose_loads_three_file_directory_with_secrets_from_one_env(self):
