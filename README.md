@@ -201,23 +201,26 @@ start.sh
 기존 `.env.secret` 으로 관리하던 값도 배포 `.env` 에 포함해야 합니다.
 
 ```bash
-./start.sh          # docker compose -f docker-compose-deployment.yaml up -d 와 동일
-./start.sh v1.2.3   # TAG=v1.2.3 으로 pull 성공 후 up -d
+./start.sh          # 설정된 이미지를 모두 pull한 뒤 빌드 없이 실행
+./start.sh v1.2.3   # 앱 태그를 v1.2.3으로 지정하고 pull 성공 후 실행
 ./start.sh --tag v1.2.3 --db-pool-size 20 --port 8081
 ./start.sh --help
 ```
 
-버전 인자는 이번 실행에만 적용됩니다. 이후에도 같은 버전을 기본으로 쓰려면 `.env` 의
-`TAG` 를 지정하세요. CLI 로도 동일하게 실행할 수 있습니다.
+`start.sh`는 모든 모드에서 DockerHub에 게시된 이미지만 pull해 실행합니다. AI 스텁을 포함해
+로컬 빌드는 하지 않으며, pull에 실패하면 실행을 중단합니다. 버전 인자는 이번 실행에만
+적용됩니다. 이후에도 같은 버전을 기본으로 쓰려면 `.env`의 `TAG`를 지정하세요.
+CLI로도 동일하게 실행할 수 있습니다.
 
 ```bash
-TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml pull
-TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml up -d
+TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml pull --policy always
+TAG=v1.2.3 docker compose -f docker-compose-deployment.yaml up -d --no-build --pull never
 ```
 
 부하테스트는 별도 Compose 프로젝트와 DB를 사용합니다. 두 테스트 모드 모두 실제 AI 접근을
 차단하고, 루트 `.env` 대신 `config/loadtest.properties`의 공개 테스트 설정을 사용합니다.
 테스트 모드에는 저장소의 테스트 Compose·`config`·`scripts` 파일도 필요합니다.
+`start.sh`로 실행하려면 앱과 AI 스텁 이미지가 모두 DockerHub에 게시되어 있어야 합니다.
 
 ```bash
 ./start.sh --mode loadtest --db-pool-size 20 --port 18081
@@ -231,16 +234,21 @@ JMeter와 uv가 필요합니다. 기본 ARM 이미지, 테스트 데이터 준�
 [JMeter 실행 안내](scripts/test/jmeter/README.md)를 참고하세요. 환경변수를 바꾸면 `start.sh`로
 컨테이너를 재생성해야 하며, 단순 `docker compose restart`에는 새 설정이 반영되지 않습니다.
 
-소스가 있는 머신에서 빌드하고 같은 Docker 데몬의 앱을 교체하려면 아래 명령을 사용합니다.
-이 명령도 시크릿을 포함한 루트 `.env` 를 사용합니다.
+소스가 있는 머신에서 빌드 후 실행하려면 `build-start.sh`를 사용합니다. `start.sh`와 동일한
+`--mode`, `--tag`, `--db-pool-size`, `--port` 옵션을 지원합니다. 서버 모드는 루트 `.env`,
+테스트 모드는 `config/loadtest.properties`를 사용합니다.
 
 ```bash
 ./scripts/build-start.sh --tag local
 ./scripts/build-start.sh --tag local --platform linux/amd64
+./scripts/build-start.sh --mode loadtest --db-pool-size 20 --port 18081
+./scripts/build-start.sh --mode ai-stub --tag local
 ```
 
-플랫폼 기본값은 Docker 데몬의 아키텍처입니다. 빌드 결과를 로컬에 로드하고 그 이미지를
-사용해 앱을 재생성합니다. 배포 VM 용 ARM 이미지 빌드·푸시는 아래 명령으로 수행합니다.
+플랫폼 기본값은 Docker 데몬의 아키텍처이며, 태그 기본값은 `local`입니다. 테스트 모드는
+앱과 AI 스텁을 모두 같은 태그로 빌드합니다. 빌드 결과를 같은 Docker 데몬에 로드하고
+그 이미지로 컨테이너를 재생성하며, DockerHub에 push하지 않습니다.
+DB·프록시 이미지는 로컬에 없으면 pull합니다. 배포 VM용 ARM 앱 이미지 빌드·푸시는 아래 명령으로 수행합니다.
 Gradle 컴파일은 빌드 머신의 네이티브 아키텍처에서 실행됩니다.
 
 ```bash

@@ -1,3 +1,5 @@
+# build-start.sh의 로컬 빌드 또는 DockerHub 게시에 사용한다.
+# start.sh는 게시된 스텁 이미지만 pull하며 이 Dockerfile을 빌드하지 않는다.
 FROM ghcr.io/astral-sh/uv:0.12.17-python3.12-bookworm-slim
 WORKDIR /opt/mateon
 COPY scripts/etc/colors.py scripts/etc/http_body.py ./scripts/etc/

@@ -19,7 +19,7 @@ COMPOSE_FILE = "docker-compose-deployment.yaml"
 
 DOCKER_STUB = """#!/usr/bin/env bash
 set -eu
-printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "${DB_POOL_SIZE-}" "${APP_PORT-}" "${MATEON_TEST_MODE-}" "$PWD" "$@" >> "$DOCKER_CALLS"
+printf '%s\\t' "${TAG-}" "${APP_PLATFORM-}" "${APP_PULL_POLICY-}" "${DB_POOL_SIZE-}" "${APP_PORT-}" "${MATEON_TEST_MODE-}" "${AI_STUB_DOCKERHUB_IMAGE-}" "${AI_STUB_TAG-}" "$PWD" "$@" >> "$DOCKER_CALLS"
 printf '\\n' >> "$DOCKER_CALLS"
 case "$1 ${2-}" in
   'version --format') printf 'linux/amd64\\n' ;;
@@ -27,6 +27,7 @@ case "$1 ${2-}" in
   'update --restart=no') exit "${UPDATE_EXIT:-0}" ;;
   'buildx create') printf 'mateon-builder\\n' ;;
   'buildx build') exit "${BUILD_EXIT:-0}" ;;
+  'build --platform') exit "${STUB_BUILD_EXIT:-0}" ;;
 esac
 if [[ "$1" == compose ]]; then
   for argument in "$@"; do
@@ -77,6 +78,7 @@ class DeploymentScriptsTest(unittest.TestCase):
             "TAG", "APP_PLATFORM", "APP_PULL_POLICY", "DOCKERHUB_USERNAME", "DOCKERHUB_IMAGE",
             "DOCKERHUB_TOKEN", "COMPOSE_FILE", "COMPOSE_PROFILES", "COMPOSE_ENV_FILES",
             "DB_POOL_SIZE", "APP_PORT", "MATEON_TEST_MODE", "AI_BASE_URL", "OPENAI_API_KEY",
+            "AI_STUB_DOCKERHUB_IMAGE", "AI_STUB_TAG",
         ):
             self.environment.pop(key, None)
         self.environment.update(
@@ -92,6 +94,8 @@ class DeploymentScriptsTest(unittest.TestCase):
     def prepare_build(self):
         for relative_path in (
             "scripts/build-start.sh", "scripts/docker/deploy-dockerhub.sh", "Dockerfile", ".dockerignore",
+            "docker-compose-loadtest.yaml", "config/loadtest.properties",
+            "scripts/test/jmeter/Dockerfile.ai-stub",
         ):
             self.copy(relative_path)
 
@@ -110,20 +114,23 @@ class DeploymentScriptsTest(unittest.TestCase):
             return []
         result = []
         for line in self.calls_file.read_text(encoding="utf-8").splitlines():
-            tag, platform, pull_policy, pool, port, mode, cwd, *arguments = line.rstrip("\t").split("\t")
+            (tag, platform, pull_policy, pool, port, mode,
+             stub_image, stub_tag, cwd, *arguments) = line.rstrip("\t").split("\t")
             result.append(dict(tag=tag, platform=platform, pull_policy=pull_policy,
-                               pool=pool, port=port, mode=mode, cwd=cwd, arguments=arguments))
+                               pool=pool, port=port, mode=mode, stub_image=stub_image,
+                               stub_tag=stub_tag, cwd=cwd, arguments=arguments))
         return result
 
     def launch_calls(self):
         return [call for call in self.calls() if "config" not in call["arguments"]]
 
-    def test_start_needs_only_three_files_and_matches_compose_up(self):
+    def test_start_needs_only_three_files_and_pulls_before_starting_without_build(self):
         self.assertEqual({p.name for p in self.app.iterdir()}, {"start.sh", COMPOSE_FILE, ".env"})
         result = self.run_script()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(self.calls()), 2)
-        self.assertEqual(self.launch_calls()[0]["arguments"], ["compose", "-f", COMPOSE_FILE, "up", "-d"])
+        self.assertEqual(len(self.calls()), 3)
+        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()],
+                         [["pull", "--policy", "always"], ["up", "-d", "--no-build", "--pull", "never"]])
         self.assertEqual(self.calls()[0]["cwd"], str(self.app))
         self.assertEqual(self.calls()[0]["tag"], "")
         self.assertIn("DB 풀: 10", result.stdout)
@@ -133,7 +140,8 @@ class DeploymentScriptsTest(unittest.TestCase):
         previous = (self.app / ".env").read_bytes()
         result = self.run_script(arguments=["v1.2.3"], TAG="old")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()], [["pull"], ["up", "-d"]])
+        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()],
+                         [["pull", "--policy", "always"], ["up", "-d", "--no-build", "--pull", "never"]])
         self.assertTrue(all(call["tag"] == "v1.2.3" for call in self.calls()))
         self.assertEqual((self.app / ".env").read_bytes(), previous)
 
@@ -143,20 +151,30 @@ class DeploymentScriptsTest(unittest.TestCase):
         self.assertEqual(self.calls()[0]["tag"], "v2.0.0")
 
     def test_pull_failure_does_not_start_an_old_image(self):
-        result = self.run_script(arguments=["v1.2.3"], PULL_EXIT="9")
-        self.assertEqual(result.returncode, 9)
-        self.assertEqual([call["arguments"][3:] for call in self.launch_calls()], [["pull"]])
+        for mode in ("server", "loadtest", "ai-stub"):
+            for tag_args in ([], ["--tag", "v1.2.3"]):
+                with self.subTest(mode=mode, tag_args=tag_args):
+                    self.calls_file.unlink(missing_ok=True)
+                    result = self.run_script(arguments=["--mode", mode, *tag_args],
+                                             PULL_EXIT="9", APP_PULL_POLICY="never")
+                    self.assertEqual(result.returncode, 9)
+                    calls = self.launch_calls()
+                    self.assertEqual(len(calls), 1)
+                    self.assertEqual(calls[0]["arguments"][-3:], ["pull", "--policy", "always"])
 
     def test_start_propagates_compose_exit_code(self):
         self.assertEqual(self.run_script(UP_EXIT="17").returncode, 17)
 
     def test_invalid_arguments_do_not_call_docker(self):
-        for arguments in ([""], ["bad/tag"], ["one", "two"], ["--mode", "production"],
-                          ["--tag"], ["--port", "65536"], ["--port", "0"], ["--port", "oops"],
-                          ["--db-pool-size", "-1"], ["--db-pool-size", "10001"],
-                          ["v1", "--tag", "v2"], ["--mode", "loadtest", "--mode", "server"]):
-            with self.subTest(arguments=arguments):
-                self.assertEqual(self.run_script(arguments=arguments).returncode, 2)
+        self.prepare_build()
+        for script in ("start.sh", "scripts/build-start.sh"):
+            for arguments in ([""], ["bad/tag"], ["one", "two"], ["--mode", "production"],
+                              ["--tag"], ["--tag", "--mode", "ai-stub"],
+                              ["--port", "65536"], ["--port", "0"], ["--port", "oops"],
+                              ["--db-pool-size", "-1"], ["--db-pool-size", "10001"],
+                              ["v1", "--tag", "v2"], ["--mode", "loadtest", "--mode", "server"]):
+                with self.subTest(script=script, arguments=arguments):
+                    self.assertEqual(self.run_script(script, arguments).returncode, 2)
         self.assertEqual(self.calls(), [])
 
     def test_flags_override_inherited_values_and_summary_shows_only_public_settings(self):
@@ -176,18 +194,20 @@ class DeploymentScriptsTest(unittest.TestCase):
 
     def test_test_modes_select_isolated_compose_for_both_pull_and_up(self):
         for mode in ("loadtest", "ai-stub"):
-            with self.subTest(mode=mode):
-                self.calls_file.unlink(missing_ok=True)
-                result = self.run_script(arguments=["--mode", mode, "--tag", "v1.2.3"])
-                self.assertEqual(result.returncode, 0, result.stderr)
-                prefix = ["compose", "--env-file", "config/loadtest.properties", "-p", "mateon-loadtest",
-                          "-f", "docker-compose-loadtest.yaml"]
-                for call in self.calls():
-                    self.assertEqual(call["arguments"][:len(prefix)], prefix)
-                    self.assertEqual(call["mode"], mode)
-                self.assertEqual(self.launch_calls()[0]["arguments"][len(prefix):], ["pull", "app", "postgres", "proxy"])
-                self.assertEqual(self.launch_calls()[1]["arguments"][len(prefix):],
-                                 ["up", "-d", "--build", "--wait", "--wait-timeout", "180"])
+            for tag_args in ([], ["--tag", "v1.2.3"]):
+                with self.subTest(mode=mode, tag_args=tag_args):
+                    self.calls_file.unlink(missing_ok=True)
+                    result = self.run_script(arguments=["--mode", mode, *tag_args])
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    prefix = ["compose", "--env-file", "config/loadtest.properties", "-p", "mateon-loadtest",
+                              "-f", "docker-compose-loadtest.yaml"]
+                    for call in self.calls():
+                        self.assertEqual(call["arguments"][:len(prefix)], prefix)
+                        self.assertEqual(call["mode"], mode)
+                    self.assertEqual(len(self.calls()), 3)
+                    self.assertEqual(self.launch_calls()[0]["arguments"][len(prefix):], ["pull", "--policy", "always"])
+                    self.assertEqual(self.launch_calls()[1]["arguments"][len(prefix):],
+                                     ["up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180"])
 
     @unittest.skipUnless(DOCKER_CLI, "Docker Compose CLI 가 필요하다 (데몬은 사용하지 않음)")
     def test_test_compose_ignores_real_ai_credentials_and_keeps_backend_network_internal(self):
@@ -200,11 +220,21 @@ class DeploymentScriptsTest(unittest.TestCase):
                 "AI_BASE_URL": "https://paid.invalid", "AI_ROUTER_ENABLED": "true",
                 "AI_EVENT_EMBEDDING_BACKFILL_ENABLED": "true", "OPENAI_API_KEY": "must-not-forward",
                 "SPRING_AI_OPENAI_API_KEY": "must-not-forward", "DB_POOL_SIZE": "23", "APP_PORT": "18083",
+                "DOCKERHUB_USERNAME": "example", "DOCKERHUB_IMAGE": "custom-be", "TAG": "app-v1",
+                "AI_STUB_DOCKERHUB_IMAGE": "custom-stub", "AI_STUB_TAG": "stub-v2",
+                "APP_PLATFORM": "linux/amd64", "APP_PULL_POLICY": "never",
             }, capture_output=True, text=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         config = json.loads(result.stdout)
         services = config["services"]
+        self.assertEqual(services["app"]["image"], "example/custom-be:app-v1")
+        self.assertEqual(services["ai-stub"]["image"], "example/custom-stub:stub-v2")
+        for name in ("app", "ai-stub"):
+            self.assertEqual(services[name]["platform"], "linux/amd64")
+            self.assertEqual(services[name]["pull_policy"], "never")
+        for service in services.values():
+            self.assertNotIn("build", service)
         env = services["app"]["environment"]
         self.assertEqual(env["AI_BASE_URL"], "http://ai-stub:8000")
         self.assertEqual(env["AI_ROUTER_ENABLED"], "false")
@@ -239,16 +269,86 @@ class DeploymentScriptsTest(unittest.TestCase):
         self.prepare_build()
         result = self.run_script("scripts/build-start.sh", [
             "--tag", "v2.3.4", "--platform", "linux/amd64", "--username", "example", "--image-name", "custom-be",
-        ])
+            "--db-pool-size", "20", "--port", "8082",
+        ], DB_POOL_SIZE="5", APP_PORT="8888", APP_PULL_POLICY="always")
         self.assertEqual(result.returncode, 0, result.stderr)
         build = next(call for call in self.calls() if call["arguments"][:2] == ["buildx", "build"])
         self.assertIn("example/custom-be:v2.3.4", build["arguments"])
         self.assertIn("--load", build["arguments"])
         self.assertNotIn("--push", build["arguments"])
-        self.assertEqual(self.calls()[-1]["arguments"], ["compose", "-f", COMPOSE_FILE, "up", "-d", "--force-recreate", "app"])
+        self.assertEqual(self.calls()[-1]["arguments"],
+                         ["compose", "-f", COMPOSE_FILE, "up", "-d", "--no-build", "--force-recreate", "app"])
         self.assertEqual(self.calls()[-1]["tag"], "v2.3.4")
         self.assertEqual(self.calls()[-1]["platform"], "linux/amd64")
         self.assertEqual(self.calls()[-1]["pull_policy"], "never")
+        self.assertEqual((self.calls()[-1]["pool"], self.calls()[-1]["port"]), ("20", "8082"))
+        self.assertFalse(any(call["arguments"][0] == "build" for call in self.calls()))
+
+    def test_build_test_modes_build_both_images_and_start_isolated_stack(self):
+        self.prepare_build()
+        for mode in ("loadtest", "ai-stub"):
+            with self.subTest(mode=mode):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script("scripts/build-start.sh", [
+                    "--mode", mode, "--tag", "local-test", "--db-pool-size", "31", "--port", "18084",
+                    "--platform", "linux/amd64", "--username", "example", "--image-name", "custom-be",
+                ], AI_STUB_DOCKERHUB_IMAGE="custom-stub", AI_STUB_TAG="remote", APP_PULL_POLICY="always")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = self.calls()
+                builds = [call for call in calls if call["arguments"][:2] == ["buildx", "build"]
+                          or call["arguments"][0] == "build"]
+                self.assertEqual(len(builds), 2)
+                self.assertIn("example/custom-be:local-test", builds[0]["arguments"])
+                self.assertIn("--load", builds[0]["arguments"])
+                self.assertEqual(builds[1]["arguments"], [
+                    "build", "--platform", "linux/amd64", "--load", "-f", "scripts/test/jmeter/Dockerfile.ai-stub",
+                    "-t", "example/custom-stub:local-test", ".",
+                ])
+                prefix = ["compose", "--env-file", "config/loadtest.properties", "-p", "mateon-loadtest",
+                          "-f", "docker-compose-loadtest.yaml"]
+                for call in calls:
+                    self.assertNotIn("--push", call["arguments"])
+                    self.assertNotIn("pull", call["arguments"])
+                    if call["arguments"][0] == "compose":
+                        self.assertEqual(call["arguments"][:len(prefix)], prefix)
+                        self.assertEqual(call["mode"], mode)
+                        self.assertEqual((call["pool"], call["port"]), ("31", "18084"))
+                        self.assertEqual((call["tag"], call["stub_tag"]), ("local-test", "local-test"))
+                        self.assertEqual(call["stub_image"], "custom-stub")
+                        self.assertEqual(call["pull_policy"], "never")
+                self.assertEqual(calls[-1]["arguments"][len(prefix):], [
+                    "up", "-d", "--no-build", "--force-recreate", "--wait", "--wait-timeout", "180",
+                    "app", "ai-stub", "proxy",
+                ])
+
+    def test_default_test_build_uses_local_tag_for_both_images(self):
+        self.prepare_build()
+        result = self.run_script("scripts/build-start.sh", ["--mode", "loadtest"],
+                                 TAG="remote-app", AI_STUB_TAG="remote-stub")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.calls()[-1]["tag"], self.calls()[-1]["stub_tag"]), ("local", "local"))
+        self.assertEqual(self.calls()[-1]["platform"], "linux/amd64")
+
+    def test_build_config_failure_prevents_build_and_start(self):
+        self.prepare_build()
+        for mode in ("server", "loadtest", "ai-stub"):
+            with self.subTest(mode=mode):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script("scripts/build-start.sh", ["--mode", mode, "--platform", "linux/amd64"],
+                                         CONFIG_EXIT="7")
+                self.assertEqual(result.returncode, 7)
+                self.assertEqual(self.launch_calls(), [])
+
+    def test_stub_build_failure_does_not_start_old_images(self):
+        self.prepare_build()
+        for mode in ("loadtest", "ai-stub"):
+            with self.subTest(mode=mode):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script("scripts/build-start.sh", ["--mode", mode], STUB_BUILD_EXIT="9")
+                self.assertEqual(result.returncode, 9)
+                calls = [call["arguments"] for call in self.calls()]
+                self.assertEqual(calls[-1][0], "build")
+                self.assertFalse(any(call[0] == "compose" and "up" in call for call in calls))
 
     def test_default_build_platform_matches_docker_daemon(self):
         self.prepare_build()
@@ -276,11 +376,15 @@ class DeploymentScriptsTest(unittest.TestCase):
 
     def test_build_failure_stops_builder_and_does_not_recreate_app(self):
         self.prepare_build()
-        result = self.run_script("scripts/build-start.sh", BUILD_EXIT="8")
-        self.assertNotEqual(result.returncode, 0)
-        calls = [call["arguments"] for call in self.calls()]
-        self.assertEqual(calls[-1], ["buildx", "stop", "mateon-builder"])
-        self.assertFalse(any(call[:1] == ["compose"] and "up" in call for call in calls))
+        for mode in ("server", "loadtest", "ai-stub"):
+            with self.subTest(mode=mode):
+                self.calls_file.unlink(missing_ok=True)
+                result = self.run_script("scripts/build-start.sh", ["--mode", mode], BUILD_EXIT="8")
+                self.assertNotEqual(result.returncode, 0)
+                calls = [call["arguments"] for call in self.calls()]
+                self.assertEqual(calls[-1], ["buildx", "stop", "mateon-builder"])
+                self.assertFalse(any(call[0] == "compose" and "up" in call for call in calls))
+                self.assertFalse(any(call[0] == "build" for call in calls))
 
     def test_restart_policy_failure_prevents_build(self):
         self.prepare_build()

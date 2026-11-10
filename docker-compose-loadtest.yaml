@@ -1,5 +1,7 @@
 # 독립 테스트 스택. 루트 .env와 운영 볼륨을 읽거나 공유하지 않는다.
-# ./start.sh --mode loadtest 또는 --mode ai-stub으로 실행한다.
+# start.sh는 DockerHub 이미지를 pull하고, scripts/build-start.sh는 소스를 빌드해 실행한다.
+# 두 스크립트 모두 --mode loadtest 또는 --mode ai-stub으로 실행 환경을 선택한다.
+# 실행용 Compose에는 build를 두지 않는다. AI 스텁도 완성된 이미지를 사용한다.
 services:
   app:
     image: ${DOCKERHUB_USERNAME:-eagleindesert}/${DOCKERHUB_IMAGE:-mateon-backend}:${TAG:-latest}
@@ -68,9 +70,10 @@ services:
       retries: 20
 
   ai-stub:
-    build:
-      context: .
-      dockerfile: scripts/test/jmeter/Dockerfile.ai-stub
+    image: ${DOCKERHUB_USERNAME:-eagleindesert}/${AI_STUB_DOCKERHUB_IMAGE:-mateon-ai-stub}:${AI_STUB_TAG:-latest}
+    platform: ${APP_PLATFORM:-linux/arm64}
+    # build-start.sh는 앱과 스텁 모두 방금 빌드한 로컬 이미지를 실행하도록 never를 지정한다.
+    pull_policy: ${APP_PULL_POLICY:-missing}
     command:
       - --host
       - 0.0.0.0

@@ -7,12 +7,13 @@
 #   1) 이 파일과 .env, start.sh 세 파일을 같은 디렉터리로 복사한다.
 #      배포 .env 에는 MAIL·JWT·AI·OCI 시크릿도 함께 넣는다.
 #   2) DOCKERHUB_USERNAME / TAG 를 .env 또는 셸 환경변수로 지정한다.
-#   3) ./start.sh (특정 버전을 pull 후 실행: ./start.sh v1.0.0)
-#      같은 CLI: docker compose -f docker-compose-deployment.yaml up -d
+#   3) ./start.sh (특정 버전 지정: ./start.sh v1.0.0)
+#      태그 생략 시에도 모든 이미지를 pull하고 --no-build로 실행한다.
+#      소스 빌드 후 실행은 ./scripts/build-start.sh를 사용한다.
 #
 # 종료:  docker compose -f docker-compose-deployment.yaml down
-# 갱신:  docker compose -f docker-compose-deployment.yaml pull && \
-#        docker compose -f docker-compose-deployment.yaml up -d
+# 갱신:  docker compose -f docker-compose-deployment.yaml pull --policy always && \
+#        docker compose -f docker-compose-deployment.yaml up -d --no-build --pull never
 #
 # pgAdmin 은 이 파일에 없다. DB GUI 는 docker-compose-pgadmin.yml 을 따로 띄운다
 # (특정 앱에 묶이지 않은 범용 파일). 호스트 localhost:5433 로 postgres 에 붙는다.
@@ -64,7 +65,7 @@ services:
       #     .env 에 JPA_SHOW_SQL=true 와 LOG_LEVEL_SQL=DEBUG 를 세트로 주고 끝나면 되돌린다.
       #   - 커넥션 풀이 10 이다(prod 는 20). 늘리려면 .env 의 DB_POOL_SIZE.
       SPRING_PROFILES_ACTIVE: dev
-      # start.sh --db-pool-size가 셸 환경변수로 전달한다.
+      # start.sh / build-start.sh의 --db-pool-size가 셸 환경변수로 전달한다.
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       # DB 는 아래 postgres 서비스로 연결 (compose 네트워크 내 서비스명)
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mateon_db

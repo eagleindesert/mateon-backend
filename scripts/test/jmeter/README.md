@@ -1,7 +1,8 @@
 # JMeter 테스트 환경
 
 일반 REST와 AI 스텁 테스트를 별도 모드로 실행한다. 두 모드 모두 실제 AI 서비스로 나가지 않으며,
-배포 환경과 같은 백엔드 이미지를 전용 PostgreSQL·스텁과 연결한다.
+백엔드를 전용 PostgreSQL·스텁과 연결한다. 게시된 이미지는 `start.sh`,
+현재 소스를 빌드해서 실행하려면 `scripts/build-start.sh`를 사용한다.
 
 ## 준비
 
@@ -9,6 +10,7 @@
 - JMeter 5.6.3과 Java 21. JMeter의 `bin`을 PATH에 추가하거나 실행할 때 `--jmeter`로 경로를 지정한다.
 - Python 3.10 이상과 `uv`. 실행기는 표준 라이브러리만 사용하며 패키지 설치가 필요 없다.
 - 테스트 모드에는 저장소의 `config/`, `scripts/`, 테스트 Compose가 필요하다. 서버 모드의 세 파일 배포와 다르다.
+- `start.sh`는 DockerHub에 게시된 앱·AI 스텁 이미지가 필요하다. `build-start.sh`는 소스와 Docker buildx가 필요하다.
 
 [config/loadtest.properties](../../../config/loadtest.properties)는 공개 가능한 테스트 설정만 담는다.
 루트 `.env`나 `.env.secret`을 복사하지 않는다. 앱의 JWT·AI·메일·OCI 값은 테스트 Compose에
@@ -26,49 +28,84 @@
 ./start.sh --help
 ```
 
-`--tag`는 예시다. 실제로 게시된 태그를 지정하면 앱·DB·프록시 이미지를 pull한 뒤 시작한다.
-스텁은 저장소 소스로 빌드한다. 태그를 생략하면 설정 파일의 이미지를 사용한다.
+`--tag`는 예시이며 실제로 게시된 앱 태그를 지정한다. 태그를 생략하면 설정 파일의 이미지를 사용한다.
+`start.sh`는 항상 앱·AI 스텁·DB·프록시 이미지를 모두 pull한 뒤 `--no-build`로 실행한다.
+pull에 실패하면 기존 이미지로 실행하지 않는다. AI 스텁 이미지 이름과 태그는 설정 파일의
+`AI_STUB_DOCKERHUB_IMAGE`, `AI_STUB_TAG`로 지정하며, 스텁을 DockerHub에 먼저 게시해야 한다.
 기동 시 공개 설정만 출력하고, 테스트 스택은 프록시의 `/health`가 성공할 때까지 최대 180초 기다린다.
+
+로컬 소스를 빌드해 실행하려면 같은 옵션을 `build-start.sh`에 전달한다.
+
+```bash
+./scripts/build-start.sh --mode loadtest --db-pool-size 20 --port 18081
+./scripts/build-start.sh --mode ai-stub --tag local --platform linux/amd64
+./scripts/build-start.sh --help
+```
+
+테스트 모드에서는 앱과 AI 스텁을 모두 빌드하고 같은 Docker 데몬에 로드한 뒤 실행한다.
+태그 기본값은 `local`이며, `--tag`를 지정하면 두 이미지에 같은 태그를 붙인다.
+이미지 이름은 `--username`·`--image-name` 또는 `DOCKERHUB_USERNAME`·`DOCKERHUB_IMAGE`로 지정한다.
+스텁 이름은 셸의 `AI_STUB_DOCKERHUB_IMAGE`를 사용하며 기본값은 `mateon-ai-stub`이다.
+앱·스텁 이미지는 pull하지 않고, DB·프록시는 로컬에 없으면 pull한다. DockerHub에 push하지 않는다.
+어느 빌드든 실패하면 컨테이너를 재생성하지 않는다.
+
+두 스크립트의 공통 실행 옵션:
 
 | 옵션 | 동작 |
 | --- | --- |
 | `--mode server` | 기존 배포 Compose와 루트 `.env` 사용. 기본 모드 |
 | `--mode loadtest` | 일반 REST 환경. 스텁은 업무 호출을 기록하고 503으로 거절 |
 | `--mode ai-stub` | 가짜 AI 응답 제공. 요청 지연을 설정해 대기를 재현 가능 |
-| `--tag VERSION` | 기존 위치 인자 `./start.sh VERSION`과 동일 |
+| `--tag VERSION` | `start.sh`: 게시된 앱 태그. `build-start.sh`: 빌드할 앱·스텁 태그(기본 `local`). 위치 인자 `VERSION`도 동일 |
 | `--db-pool-size NUMBER` | 앱의 DB 풀 크기. 1~10000 |
 | `--port NUMBER` | 서버 모드는 앱, 테스트 모드는 진입 프록시의 공개 포트. 1~65535 |
 
-우선순위는 명시한 옵션, 셸 환경변수, 선택한 환경의 설정 파일, Compose 기본값 순서다.
+DB 풀·포트의 우선순위는 명시한 옵션, 셸 환경변수, 선택한 환경의 설정 파일, Compose 기본값 순서다.
+`start.sh`의 이미지 설정도 같은 순서다. `build-start.sh`는 빌드 대상 이미지·태그·플랫폼을
+Compose에 전달하므로, 설정 파일의 원격 이미지 설정으로 빌드 결과를 덮어쓰지 않는다.
 AI 주소·라우터·백필·자격증명은 테스트 Compose에 고정되어 이 우선순위로 변경되지 않는다.
 옵션은 해당 실행에만 적용된다. 다음 실행에도 유지하려면 테스트 설정 파일을 수정한다.
-변경 후 `start.sh`를 다시 실행하면 Compose가 필요한 컨테이너를 재생성한다. `restart`만으로는
+변경 후 선택한 시작 스크립트를 다시 실행하면 Compose가 컨테이너를 재생성한다. `restart`만으로는
 환경변수가 바뀌지 않는다.
 
-테스트 Compose를 직접 실행하는 동등한 명령:
+게시된 이미지로 테스트 Compose를 직접 실행하는 동등한 명령:
 
 ```bash
 docker compose --env-file config/loadtest.properties \
   -p mateon-loadtest -f docker-compose-loadtest.yaml \
-  up -d --build --wait --wait-timeout 180
+  pull --policy always
+docker compose --env-file config/loadtest.properties \
+  -p mateon-loadtest -f docker-compose-loadtest.yaml \
+  up -d --no-build --pull never --wait --wait-timeout 180
 ```
 
-`ai-stub` 모드를 직접 실행할 때는 앞에 `MATEON_TEST_MODE=ai-stub`을 지정한다.
+첫 명령이 성공했을 때만 두 번째 명령을 실행한다.
+`ai-stub` 모드를 직접 실행할 때는 각 명령 앞에 `MATEON_TEST_MODE=ai-stub`을 지정한다.
 CLI의 `--env-file`은 Compose 치환용이다. 테스트 컨테이너에는 `environment`에 명시한 값만 전달한다.
 
-### CPU 아키텍처와 로컬 이미지
+### CPU 아키텍처
 
-기본 `APP_PLATFORM=linux/arm64`는 현재 배포 서버와 같다. AMD64에서 네이티브로 측정하려면
-해당 아키텍처로 이미지를 먼저 빌드하고, 테스트 설정의 `APP_PLATFORM`과 `TAG`를 맞춘다.
+`start.sh`의 기본 `APP_PLATFORM=linux/arm64`는 현재 배포 서버와 같다. AMD64에서 측정하려면
+앱과 스텁의 AMD64 이미지를 게시하고, 테스트 설정의 `APP_PLATFORM`과 각 이미지 태그를 맞춘다.
+로컬 소스는 `build-start.sh --mode loadtest`로 실행하면 Docker 데몬의 아키텍처로 빌드한다.
+`--platform linux/amd64`처럼 직접 지정할 수도 있다.
 에뮬레이션 성능을 배포 서버의 성능으로 해석하지 않는다.
 
+### AI 스텁 이미지 게시
+
+`start.sh`로 사용할 스텁은 빌드 머신이나 CI에서 별도로 게시한다. 아래 사용자명과 태그는
+게시할 DockerHub 저장소에 맞게 바꾸고, 해당 계정으로 `docker login`한 뒤 실행한다.
+
 ```bash
-docker build --platform linux/amd64 -t eagleindesert/mateon-backend:loadtest-local .
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f scripts/test/jmeter/Dockerfile.ai-stub \
+  -t eagleindesert/mateon-ai-stub:v1.0.0 \
+  -t eagleindesert/mateon-ai-stub:latest --push .
 ```
 
-이 경우 설정 파일을 `APP_PLATFORM=linux/amd64`, `TAG=loadtest-local`, `APP_PULL_POLICY=never`로
-바꾼 뒤 태그 옵션 없이 `./start.sh --mode loadtest`를 실행한다. `--tag`는 원격 pull을 요청하므로
-로컬에만 있는 태그에는 사용하지 않는다.
+게시 후 `config/loadtest.properties`의 `DOCKERHUB_USERNAME`, `AI_STUB_DOCKERHUB_IMAGE`,
+`AI_STUB_TAG`를 맞춘다. 앱과 스텁은 같은 DockerHub 사용자명을 사용한다.
+Dockerfile은 `build-start.sh`의 로컬 빌드와 위 게시 명령에만 사용하며, 실행용 Compose에는 `build`가 없다.
 
 ## 일반 REST 실행
 
@@ -104,7 +141,7 @@ docker build --platform linux/amd64 -t eagleindesert/mateon-backend:loadtest-loc
 
 매칭 세션 초기화 → 첫 발화 → 추가 답변 → 세션 조회를 반복한다. 완료 시 1536차원 가짜 벡터가
 DB에 저장되는 경로까지 통과한다. LLM 분류·실제 모델 품질·메일·파일 업로드는 측정하지 않는다.
-`AI_STUB_DELAY_MS`를 테스트 설정에서 변경하고 `start.sh --mode ai-stub`를 다시 실행하면
+`AI_STUB_DELAY_MS`를 테스트 설정에서 변경하고 선택한 시작 스크립트를 `--mode ai-stub`로 다시 실행하면
 요청별 지연을 재현할 수 있다. 지연의 허용 범위는 0~120000ms다.
 
 ## 결과와 실패 판정

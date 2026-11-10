@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # server 모드는 이 파일, docker-compose-deployment.yaml, .env 만으로 실행된다.
+# 모든 모드에서 DockerHub에 게시된 이미지만 pull해 실행한다. AI 스텁도 빌드하지 않는다.
+# 소스 빌드와 실행은 scripts/build-start.sh에서 담당한다.
 set -euo pipefail
 
 usage() {
@@ -7,7 +9,7 @@ usage() {
 사용법: ./start.sh [VERSION] [옵션]
 
   --mode server|loadtest|ai-stub  실행 환경 (기본: server)
-  --tag VERSION                 이미지 태그. 지정하면 pull 성공 후 실행
+  --tag VERSION                 앱 이미지 태그
   --db-pool-size NUMBER          DB 연결 풀 크기 (1~10000)
   --port NUMBER                 HTTP 접속 포트 (1~65535)
   -h, --help                    사용법
@@ -22,6 +24,8 @@ usage() {
   ./start.sh --mode ai-stub
 
 테스트 모드는 별도 DB와 외부 통신이 차단된 AI 스텁을 사용합니다.
+모든 이미지를 DockerHub에서 pull한 뒤 실행하며, 로컬 빌드는 하지 않습니다.
+소스 빌드 후 실행: ./scripts/build-start.sh --help
 실제 부하 실행: ./scripts/test/jmeter/run.sh --help
 EOF
 }
@@ -92,22 +96,18 @@ printf '실행 모드: %s\n' "$mode"
   }
   /^  [a-zA-Z0-9_-]+:/ { service = $1; sub(/:$/, "", service) }
   service == "app" && /^    image:/ { print "이미지: " value($0) }
+  service == "ai-stub" && /^    image:/ { print "AI 스텁 이미지: " value($0) }
   service == "app" && /^      DB_POOL_SIZE:/ { print "DB 풀: " value($0) }
   (service == "app" || service == "proxy") && /^[[:space:]]+published:/ {
     print "HTTP 포트: " value($0)
   }
 '
 
-if [[ -n "$tag" ]]; then
-  if [[ "$mode" == server ]]; then
-    "${compose[@]}" pull
-  else
-    # ai-stub은 로컬 소스로 빌드한다.
-    "${compose[@]}" pull app postgres proxy
-  fi
-fi
+# 태그 생략 시에도 모든 이미지를 pull한다. 실패하면 기존 로컬 이미지로 실행하지 않는다.
+# up에서는 추가 pull과 빌드를 막고, 방금 내려받은 이미지로만 컨테이너를 시작한다.
+"${compose[@]}" pull --policy always
 
 if [[ "$mode" == server ]]; then
-  exec "${compose[@]}" up -d
+  exec "${compose[@]}" up -d --no-build --pull never
 fi
-exec "${compose[@]}" up -d --build --wait --wait-timeout 180
+exec "${compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180
