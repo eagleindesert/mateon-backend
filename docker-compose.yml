@@ -50,7 +50,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: mateon-app
-    # bootRun과 같이 .env / .env.secret을 읽는다. 배포 Compose는 .env 하나를 읽는다.
+    # bootRun·배포 Compose와 같이 .env / .env.secret을 읽는다.
     # postgres 에는 일부러 붙이지 않는다.
     env_file:
       - .env

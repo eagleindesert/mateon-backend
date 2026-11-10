@@ -29,10 +29,10 @@ usage() {
 
 앱을 빌드/로드한 뒤 재생성한다. 테스트 모드는 AI 스텁도 같은 태그로 빌드한다.
 DockerHub에 push하지 않으며, 직접 빌드한 앱·스텁 이미지는 pull하지 않는다.
-DB·프록시 이미지는 로컬에 없으면 pull한다.
+DB 이미지는 로컬에 없으면 pull한다.
 플랫폼 기본값은 Docker 데몬의 아키텍처다 (x86: linux/amd64, ARM: linux/arm64).
 server는 개발 Compose와 루트 .env / .env.secret을 사용한다 (기본 포트 8080).
-테스트 모드는 config/loadtest.properties를 사용한다 (기본 포트 18081).
+테스트 모드는 배포 Compose의 loadtest 프로필을 사용한다 (LOADTEST_PORT 기본 18081).
 개발 포트 설정은 DEV_APP_PORT이며 --port로 덮어쓸 수 있다.
 앱의 /health가 성공할 때까지 최대 180초 기다린다.
 
@@ -41,7 +41,7 @@ server는 개발 Compose와 루트 .env / .env.secret을 사용한다 (기본 �
   ./scripts/build-start.sh --mode loadtest --db-pool-size 20 --port 18081
   ./scripts/build-start.sh --mode ai-stub --platform linux/amd64
 
-배포용 ARM 이미지 빌드/푸시는 scripts/docker/deploy-dockerhub.sh 를 사용한다.
+배포용 이미지 빌드·푸시는 ./build-push.sh 를 사용한다.
 EOF
 }
 
@@ -85,7 +85,7 @@ if [[ -n "$http_port" ]]; then
   if [[ "$mode" == server ]]; then
     export DEV_APP_PORT="$http_port"
   else
-    export APP_PORT="$http_port"
+    export LOADTEST_PORT="$http_port"
   fi
 fi
 [[ "$platform" != *,* ]] || fail '컨테이너 실행에는 플랫폼 하나만 지정하세요.'
@@ -105,16 +105,17 @@ export DOCKERHUB_USERNAME="$username" DOCKERHUB_IMAGE="$image_name" TAG="$tag"
 export APP_PLATFORM="$platform" APP_PULL_POLICY=never
 # 개발은 bootRun과 같은 DB 볼륨을 사용한다. 배포 Compose·DB를 기본값으로 쓰지 않는다.
 compose=(docker compose -f docker-compose.yml --profile app)
+export COMPOSE_PROFILES=app
 if [[ "$mode" != server ]]; then
-  export MATEON_TEST_MODE="$mode"
-  export AI_STUB_DOCKERHUB_IMAGE="${AI_STUB_DOCKERHUB_IMAGE:-mateon-ai-stub}" AI_STUB_TAG="$tag"
+  export MATEON_TEST_MODE="$mode" COMPOSE_PROFILES=loadtest
+  export AI_STUB_DOCKERHUB_IMAGE="${AI_STUB_DOCKERHUB_IMAGE:-mateon-ai-stub}"
   [[ "$image_name" != "$AI_STUB_DOCKERHUB_IMAGE" ]] || fail '앱과 AI 스텁 이미지 이름은 달라야 합니다.'
-  compose=(docker compose --env-file config/loadtest.properties
-    -p mateon-loadtest -f docker-compose-loadtest.yaml)
+  compose=(docker compose --env-file .env --env-file .env.secret
+    -f docker-compose-deployment.yaml --profile loadtest -p mateon-loadtest)
 fi
 "${compose[@]}" config --quiet
 
-bash "$project_root/scripts/docker/deploy-dockerhub.sh" \
+bash "$project_root/build-push.sh" --mode "$mode" \
   --username "$username" --image-name "$image_name" --tag "$tag" \
   --platform "$platform" --no-push --no-latest
 
@@ -123,10 +124,5 @@ if [[ "$mode" == server ]]; then
   exec "${compose[@]}" up -d --no-build --force-recreate --wait --wait-timeout 180 app
 fi
 
-# 테스트 Compose에는 build를 두지 않는다. 스텁도 여기서 명시적으로 빌드해 로드한다.
-# 스텁 빌드 결과도 --load로 같은 Docker 데몬에 명시적으로 로드한다.
-docker build --platform "$platform" --load -f scripts/test/jmeter/Dockerfile.ai-stub \
-  -t "$username/$AI_STUB_DOCKERHUB_IMAGE:$AI_STUB_TAG" .
-
-# 방금 빌드한 앱·스텁은 pull_policy=never로 실행한다. DB·프록시는 없을 때만 pull한다.
-exec "${compose[@]}" up -d --no-build --force-recreate --wait --wait-timeout 180 app ai-stub proxy
+# 방금 빌드한 앱·스텁은 pull_policy=never로 실행한다. DB는 없을 때만 pull한다.
+exec "${compose[@]}" up -d --no-build --force-recreate --wait --wait-timeout 180 loadtest-app

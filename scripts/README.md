@@ -1,5 +1,7 @@
 # 스크립트
 
+`./build-push.sh [VERSION]`은 이미지를 빌드하고 DockerHub에 게시합니다. `--mode loadtest` 또는
+`--mode ai-stub`이면 백엔드와 AI 스텁을 같은 태그로 게시합니다.
 `./start.sh [VERSION]`은 모든 모드에서 DockerHub 이미지를 pull한 뒤 빌드 없이 실행합니다.
 AI 스텁도 게시된 이미지를 사용하며, pull에 실패하면 실행을 중단합니다.
 `./scripts/build-start.sh [VERSION]`은 앱을 빌드한 뒤 개발 Compose로 실행하며 기본 포트는 8080입니다.
@@ -8,10 +10,11 @@ AI 스텁도 게시된 이미지를 사용하며, pull에 실패하면 실행을
 
 두 스크립트 모두 `--mode server|loadtest|ai-stub`, `--tag`, `--db-pool-size`, `--port`를 지원합니다.
 `build-start.sh`는 추가로 `--platform`, `--username`, `--image-name`을 지원하며 태그 기본값은 `local`입니다.
-기본 `server` 모드에서 `start.sh`는 배포 Compose·`.env`·8081, `build-start.sh`는 개발 Compose·
+기본 `server` 모드에서 `start.sh`는 배포 Compose·`.env` / `.env.secret`·8081, `build-start.sh`는 개발 Compose·
 `.env` / `.env.secret`·8080을 사용합니다. 개발 포트 변수는 `DEV_APP_PORT`, 배포 포트 변수는
-`APP_PORT`이며 `--port`가 우선합니다. 테스트 모드는 독립 Compose와 `config/loadtest.properties`를
-사용합니다. 테스트는 [JMeter 실행 안내](test/jmeter/README.md)를 참고하세요.
+`APP_PORT`이며 `--port`가 우선합니다. 테스트 모드는 같은 배포 Compose의 `loadtest` 프로필과
+별도 DB를 사용하고, 포트 변수는 `LOADTEST_PORT`(기본 18081)입니다.
+테스트는 [JMeter 실행 안내](test/jmeter/README.md)를 참고하세요.
 자세한 절차는 [루트 README](../README.md#배포와-컨테이너-재실행)를 참고하세요.
 
 배포 스크립트 검증은 `uv run --no-project scripts/test/test_deployment.py` 로 실행합니다.
@@ -65,7 +68,7 @@ bash scripts/test/for-api/99_run_all.sh \
 | --- | --- |
 | `ci/.env.example` | 회귀 검사에는 필수 설정 없음. 선택한 JDK/Gradle 설정은 실행 전에 셸에 export |
 | `debug/.env.example` | CORS 주소, Node.js 채팅 A/B 계정, 카카오 키/토큰. 해당 도구가 `debug/.env` 자동 로드 |
-| `docker/.env.example` | DockerHub 사용자명/토큰 및 태그 계산 설정. `deploy-dockerhub.sh`가 `docker/.env` 자동 로드 |
+| `docker/.env.example` | DockerHub 사용자명/토큰 및 태그 계산 설정. 루트 `build-push.sh`가 `docker/.env` 자동 로드 |
 | `test/.env.example` | API 테스트 A/B/C 계정, 학교 이메일, 카카오 토큰, 선택적 LiveTest 설정. API 스크립트가 `test/.env` 자동 로드 |
 
 ### 디렉토리별 `.env`를 설정할 필요가 없는 실행 파일

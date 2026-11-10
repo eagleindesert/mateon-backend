@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -144,47 +145,92 @@ class ResultVerificationTest(unittest.TestCase):
 class RunningStackGuardTest(unittest.TestCase):
     def setUp(self):
         self.internal = True
+        self.endpoint = "unix:///var/run/docker.sock"
+        self.service_override = None
+        self.network_project = runner.PROJECT
+        self.network_driver = "bridge"
+        self.extra_app_network = None
+        self.extra_db_network = None
+        self.ports = [{"HostIp": "127.0.0.1", "HostPort": "18081"}]
+        self.healthy = True
         self.env = {
             "AI_BASE_URL": "http://ai-stub:8000", "AI_INTERNAL_SECRET": "loadtest-only",
             "AI_ROUTER_ENABLED": "false", "AI_EVENT_EMBEDDING_BACKFILL_ENABLED": "false",
             "OPENAI_API_KEY": "", "SPRING_AI_OPENAI_API_KEY": "",
             "SPRING_AI_OPENAI_BASE_URL": "http://ai-stub:8000",
-            "SPRING_DATASOURCE_URL": "jdbc:postgresql://postgres:5432/mateon_loadtest",
+            "SPRING_DATASOURCE_URL": "jdbc:postgresql://loadtest-postgres:5432/mateon_loadtest",
             "JWT_SECRET": runner.TEST_KEY, "DB_POOL_SIZE": "20",
         }
         self.identity = {"stub": "mateon-ai-stub", "mode": "loadtest", "instance_id": "same-stack"}
-        self.http_identity = dict(self.identity)
 
     def docker(self, command, **kwargs):
+        if command[:3] == ["docker", "context", "inspect"]:
+            return self.endpoint
         if "ps" in command:
             return command[-1]
         if command[:2] == ["docker", "inspect"]:
+            networks = {f"{runner.PROJECT}_isolated": {}}
+            if command[-1] == "loadtest-app":
+                networks[f"{runner.PROJECT}_entrance"] = {}
+                if self.extra_app_network:
+                    networks[self.extra_app_network] = {}
+            if command[-1] == "loadtest-postgres" and self.extra_db_network:
+                networks[self.extra_db_network] = {}
             return json.dumps([{
-                "Config": {"Labels": {"com.docker.compose.project": runner.PROJECT},
+                "Config": {"Labels": {"com.docker.compose.project": runner.PROJECT,
+                                      "com.docker.compose.service": self.service_override or command[-1]},
                            "Env": [f"{key}={value}" for key, value in self.env.items()], "Image": "test:v1"},
                 "State": {"Running": True},
-                "NetworkSettings": {"Networks": {"isolated": {}},
-                                    "Ports": {"8080/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18081"}]}},
+                "NetworkSettings": {"Networks": networks,
+                                    "Ports": {"8080/tcp": self.ports}},
             }])
         if command[:3] == ["docker", "network", "inspect"]:
-            return json.dumps([{"Internal": self.internal}])
+            logical_name = command[-1].removeprefix(runner.PROJECT + "_")
+            return json.dumps([{
+                "Internal": self.internal if logical_name == "isolated" else False,
+                "Driver": self.network_driver,
+                "Labels": {"com.docker.compose.project": self.network_project,
+                           "com.docker.compose.network": logical_name},
+            }])
         self.fail(f"예상하지 않은 Docker 호출: {command[:3]}")
 
     def http(self, url):
-        return self.http_identity if url.endswith("/__loadtest") else {"data": {"status": "UP"}}
+        self.assertEqual(url, "http://127.0.0.1:18081/health")
+        return {"data": {"status": "UP" if self.healthy else "DOWN"}}
 
-    def check(self):
-        with patch.object(runner, "execute", side_effect=self.docker), \
+    def check(self, env=None):
+        with patch.dict(os.environ, env or {}, clear=True), \
+             patch.object(runner, "execute", side_effect=self.docker), \
              patch.object(runner, "stub_request", return_value=self.identity), \
              patch.object(runner, "http_json", side_effect=self.http):
             return runner.check_stack("core-rest")
 
-    def test_running_internal_stack_passes_and_returns_actual_port(self):
+    def test_app_entrance_and_internal_backend_networks_pass(self):
         self.assertEqual(self.check()[:2], ("127.0.0.1", 18081))
 
-    def test_network_with_external_connectivity_is_rejected(self):
+    def test_backend_network_with_external_connectivity_is_rejected(self):
         self.internal = False
-        with self.assertRaisesRegex(RuntimeError, "외부 통신"):
+        with self.assertRaisesRegex(RuntimeError, "내부·외부"):
+            self.check()
+
+    def test_arbitrary_external_app_network_is_rejected(self):
+        self.extra_app_network = "unrelated-public-network"
+        with self.assertRaisesRegex(RuntimeError, "허용하지 않은 네트워크"):
+            self.check()
+
+    def test_database_cannot_join_the_entrance_network(self):
+        self.extra_db_network = f"{runner.PROJECT}_entrance"
+        with self.assertRaisesRegex(RuntimeError, "허용하지 않은 네트워크"):
+            self.check()
+
+    def test_network_with_wrong_project_labels_is_rejected(self):
+        self.network_project = "mateon-server"
+        with self.assertRaisesRegex(RuntimeError, "테스트 프로젝트의 bridge"):
+            self.check()
+
+    def test_non_bridge_network_is_rejected(self):
+        self.network_driver = "overlay"
+        with self.assertRaisesRegex(RuntimeError, "테스트 프로젝트의 bridge"):
             self.check()
 
     def test_real_ai_configuration_is_rejected_before_any_load(self):
@@ -192,9 +238,37 @@ class RunningStackGuardTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "실행 설정"):
             self.check()
 
-    def test_same_mode_on_a_different_http_stack_is_rejected(self):
-        self.http_identity["instance_id"] = "other-stack"
-        with self.assertRaisesRegex(RuntimeError, "HTTP 접속 대상"):
+    def test_remote_docker_context_is_rejected_before_local_http_requests(self):
+        self.endpoint = "ssh://vm.example.invalid"
+        with self.assertRaisesRegex(RuntimeError, "로컬 Docker"):
+            self.check()
+
+    def test_remote_docker_host_override_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "로컬 Docker"):
+            self.check({"DOCKER_HOST": "tcp://vm.example.invalid:2376"})
+
+    def test_explicit_local_context_takes_precedence_over_docker_host(self):
+        actual = self.check({"DOCKER_CONTEXT": "default", "DOCKER_HOST": "ssh://unused.invalid"})
+        self.assertEqual(actual[:2], ("127.0.0.1", 18081))
+
+    def test_wrong_compose_service_is_rejected(self):
+        self.service_override = "app"
+        with self.assertRaisesRegex(RuntimeError, "테스트 전용"):
+            self.check()
+
+    def test_missing_published_app_port_is_rejected(self):
+        self.ports = []
+        with self.assertRaisesRegex(RuntimeError, "테스트 앱의 공개 포트"):
+            self.check()
+
+    def test_wrong_stub_mode_is_rejected(self):
+        self.identity["mode"] = "ai-stub"
+        with self.assertRaisesRegex(RuntimeError, "스텁 모드"):
+            self.check()
+
+    def test_unhealthy_app_is_rejected(self):
+        self.healthy = False
+        with self.assertRaisesRegex(RuntimeError, "아직 준비"):
             self.check()
 
 

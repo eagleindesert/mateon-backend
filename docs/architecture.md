@@ -277,6 +277,9 @@ graph TB
 
 로컬 개발은 `bootRun` 이 `docker-compose.yml`(PostgreSQL)을 자동 기동합니다.
 배포는 멀티스테이지 Docker 이미지(빌드 amd64 네이티브 → 실행 arm64)를 DockerHub 로 push 후, ARM 클라우드에서 compose 로 실행합니다.
+`build-push.sh`가 이미지 게시를 담당하고, `start.sh`가 배포 Compose의 `server` / `loadtest` 프로필을
+선택해 실행합니다. VM에는 `.env`, `.env.secret`, `docker-compose-deployment.yaml`, `start.sh`만 필요합니다.
+Nginx는 VM 호스트에서 별도로 관리합니다. 테스트 모드는 같은 앱 이미지와 별도 DB·AI 스텁을 사용합니다.
 pgAdmin 은 앱/DB 스택에 넣지 않고 [docker-compose-pgadmin.yml](../docker-compose-pgadmin.yml) 을 따로 띄웁니다. 특정 앱에 묶이지 않은 범용 파일이라, 호스트 `localhost` 로 열린 DB 포트를 UI 에서 등록합니다.
 
 ```mermaid
@@ -310,8 +313,9 @@ graph TB
 | 환경 | Compose 파일 | 앱 포트 | DB 포트 | 비고 |
 | --- | --- | --- | --- | --- |
 | 로컬 개발 | `docker-compose.yml` | 8080 (bootRun) | 5432 | postgres 만 자동 기동 |
-| 배포(ARM) | `docker-compose-deployment.yaml` | 8081→8080 | 127.0.0.1:5432 | DockerHub 이미지 pull, 시크릿은 `.env` 주입 |
+| 배포(ARM) | `docker-compose-deployment.yaml` (`server`) | 8081→8080 | 127.0.0.1:5433 | DockerHub 이미지 pull, `.env` + `.env.secret` 주입 |
+| 부하테스트 | `docker-compose-deployment.yaml` (`loadtest`) | 127.0.0.1:18081→8080 | 미공개 | 별도 DB·AI 스텁, 앱에 테스트 자격증명만 주입 |
 | pgAdmin | `docker-compose-pgadmin.yml` | — | — | 범용. `localhost:5050` → UI 에서 Host `localhost` + DB 호스트 포트 등록 |
 
-- **시크릿 주입**: `MAIL_*`, `JWT_*`, `AI_*` 는 `.env`(로컬) 또는 compose `env_file`/`environment`(배포)로 주입.
+- **시크릿 주입**: 로컬·배포 모두 `.env` / `.env.secret`을 사용한다. 배포에서는 Compose `env_file`/`environment`로 주입한다.
 - **DataSource**: 배포 시 `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mateon_db` 로 compose 네트워크 내 서비스명 접속.

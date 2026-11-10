@@ -1,4 +1,4 @@
-"""격리된 Compose 스택만 대상으로 JMeter를 실행한다. Python 표준 라이브러리만 사용한다."""
+"""테스트 전용 Compose 스택에서 JMeter를 실행한다. Python 표준 라이브러리만 사용한다."""
 
 import argparse
 import base64
@@ -24,8 +24,9 @@ ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 PROJECT = "mateon-loadtest"
 TEST_KEY = "mateon-loadtest-key-only-0123456789abcdef"
-COMPOSE = ["docker", "compose", "--env-file", str(ROOT / "config/loadtest.properties"),
-           "-p", PROJECT, "-f", str(ROOT / "docker-compose-loadtest.yaml")]
+COMPOSE = ["docker", "compose", "--env-file", str(ROOT / ".env"),
+           "--env-file", str(ROOT / ".env.secret"), "-p", PROJECT,
+           "-f", str(ROOT / "docker-compose-deployment.yaml"), "--profile", "loadtest"]
 
 
 def execute(command, *, stdin=None):
@@ -53,19 +54,29 @@ def stub_request(path, method="GET"):
 
 
 def check_stack(suite):
+    # 공개 포트는 Docker 데몬이 실행되는 호스트에 속한다. 원격 데몬의 포트를
+    # 로컬 주소로 오인해 다른 서버에 부하를 보내지 않도록 먼저 실행 위치를 확인한다.
+    endpoint = None if os.environ.get("DOCKER_CONTEXT") else os.environ.get("DOCKER_HOST")
+    if not endpoint:
+        endpoint = execute(["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"])
+    if not endpoint.startswith(("unix://", "npipe://")):
+        raise RuntimeError("JMeter 실행기는 로컬 Docker 데몬만 지원합니다. 원격 Docker 접속을 해제하세요.")
+
     expected_mode = "loadtest" if suite == "core-rest" else "ai-stub"
     containers = {}
-    for service in ("app", "postgres", "ai-stub", "proxy"):
+    for service in ("loadtest-app", "loadtest-postgres", "ai-stub"):
         container_id = execute(COMPOSE + ["ps", "-q", service])
         if not container_id or "\n" in container_id:
             raise RuntimeError(f"{service} 컨테이너가 준비되지 않았습니다. start.sh --mode {expected_mode}를 실행하세요.")
         info = json.loads(execute(["docker", "inspect", container_id]))[0]
         labels = info["Config"].get("Labels", {})
-        if labels.get("com.docker.compose.project") != PROJECT or not info["State"]["Running"]:
+        if (labels.get("com.docker.compose.project") != PROJECT
+                or labels.get("com.docker.compose.service") != service
+                or not info["State"]["Running"]):
             raise RuntimeError("실행 중인 테스트 전용 Compose 프로젝트가 아닙니다.")
         containers[service] = info
 
-    env = dict(entry.split("=", 1) for entry in containers["app"]["Config"]["Env"])
+    env = dict(entry.split("=", 1) for entry in containers["loadtest-app"]["Config"]["Env"])
     fixed = {
         "AI_BASE_URL": "http://ai-stub:8000",
         "AI_INTERNAL_SECRET": "loadtest-only",
@@ -74,26 +85,40 @@ def check_stack(suite):
         "OPENAI_API_KEY": "",
         "SPRING_AI_OPENAI_API_KEY": "",
         "SPRING_AI_OPENAI_BASE_URL": "http://ai-stub:8000",
-        "SPRING_DATASOURCE_URL": "jdbc:postgresql://postgres:5432/mateon_loadtest",
+        "SPRING_DATASOURCE_URL": "jdbc:postgresql://loadtest-postgres:5432/mateon_loadtest",
         "JWT_SECRET": TEST_KEY,
     }
     if any(env.get(key) != value for key, value in fixed.items()):
         raise RuntimeError("앱의 실제 실행 설정이 테스트 전용 설정과 다릅니다. 테스트를 중단합니다.")
-    for service in ("app", "postgres", "ai-stub"):
+    network_details = {}
+    for service in containers:
         networks = containers[service]["NetworkSettings"]["Networks"]
-        if not networks:
-            raise RuntimeError(f"{service}의 격리 네트워크를 확인할 수 없습니다.")
+        expected_networks = {f"{PROJECT}_isolated"}
+        if service == "loadtest-app":
+            # 호스트 포트를 게시하려면 앱에는 일반 bridge 네트워크도 필요하다.
+            # DB·스텁은 내부망에만 두고, 앱에도 이 프로젝트의 진입망만 허용한다.
+            expected_networks.add(f"{PROJECT}_entrance")
+        if set(networks) != expected_networks:
+            raise RuntimeError(f"{service}가 허용하지 않은 네트워크에 연결되어 있습니다.")
         for network in networks:
-            details = json.loads(execute(["docker", "network", "inspect", network]))[0]
-            if not details.get("Internal"):
-                raise RuntimeError(f"{service}가 외부 통신 가능한 네트워크에 연결되어 있습니다.")
+            if network not in network_details:
+                network_details[network] = json.loads(execute(["docker", "network", "inspect", network]))[0]
+            details = network_details[network]
+            logical_name = "entrance" if network == f"{PROJECT}_entrance" else "isolated"
+            labels = details.get("Labels") or {}
+            if (labels.get("com.docker.compose.project") != PROJECT
+                    or labels.get("com.docker.compose.network") != logical_name
+                    or details.get("Driver") != "bridge"):
+                raise RuntimeError(f"{network}가 테스트 프로젝트의 bridge 네트워크가 아닙니다.")
+            if details.get("Internal") != (logical_name == "isolated"):
+                raise RuntimeError(f"{network}의 내부·외부 네트워크 설정이 다릅니다.")
 
     identity = stub_request("__stub")
     if identity.get("stub") != "mateon-ai-stub" or identity.get("mode") != expected_mode:
         raise RuntimeError(f"스텁 모드가 다릅니다. start.sh --mode {expected_mode}로 다시 실행하세요.")
-    ports = containers["proxy"]["NetworkSettings"]["Ports"].get("8080/tcp") or []
+    ports = containers["loadtest-app"]["NetworkSettings"]["Ports"].get("8080/tcp") or []
     if not ports:
-        raise RuntimeError("테스트 프록시의 공개 포트를 찾을 수 없습니다.")
+        raise RuntimeError("테스트 앱의 공개 포트를 찾을 수 없습니다.")
     binding = next((port for port in ports if ":" not in port["HostIp"]), ports[0])
     host = binding["HostIp"]
     if host in ("0.0.0.0", "::", ""):
@@ -101,12 +126,9 @@ def check_stack(suite):
     url_host = f"[{host}]" if ":" in host else host
     port = int(binding["HostPort"])
     base_url = f"http://{url_host}:{port}"
-    marker = http_json(base_url + "/__loadtest")
-    if marker != identity:
-        raise RuntimeError("HTTP 접속 대상이 선택한 테스트 환경과 다릅니다.")
     if http_json(base_url + "/health").get("data", {}).get("status") != "UP":
         raise RuntimeError("앱이 아직 준비되지 않았습니다.")
-    return host, port, identity, containers["app"]["Config"]["Image"], env.get("DB_POOL_SIZE")
+    return host, port, identity, containers["loadtest-app"]["Config"]["Image"], env.get("DB_POOL_SIZE")
 
 
 def access_token(user_id, lifetime):
@@ -122,7 +144,7 @@ def access_token(user_id, lifetime):
 
 
 def prepare_users(options, directory):
-    command = COMPOSE + ["exec", "-T", "postgres", "psql", "-X", "-qAt", "-U", "loadtest",
+    command = COMPOSE + ["exec", "-T", "loadtest-postgres", "psql", "-X", "-qAt", "-U", "loadtest",
                          "-d", "mateon_loadtest", "-v", "ON_ERROR_STOP=1",
                          "-v", f"users={options.users}", "-v", f"events={options.events}",
                          "-v", f"teams={options.teams}"]
@@ -192,7 +214,7 @@ def verify(suite, baseline, final_stats, samples, jmeter_code):
 
 
 def arguments():
-    parser = argparse.ArgumentParser(description="테스트 전용 Compose 스택에서 JMeter 실행 (실제 AI 호출 불가)")
+    parser = argparse.ArgumentParser(description="테스트 전용 Compose 스택에서 JMeter 실행 (실제 AI 대신 스텁 사용)")
     parser.add_argument("--suite", choices=("core-rest", "ai-stub"), default="core-rest")
     parser.add_argument("--users", type=int, default=10)
     parser.add_argument("--ramp-up", type=int, default=60)
@@ -235,7 +257,7 @@ def run(options, reports):
         verification.update(image=image, db_pool_size=pool_size, stub=identity)
         print(f"대상: {host}:{port} / {options.suite} / {options.users}명 / {options.duration}초", flush=True)
         prepare_users(options, identities)
-        sizes = execute(COMPOSE + ["exec", "-T", "postgres", "psql", "-X", "-qAt", "-U", "loadtest",
+        sizes = execute(COMPOSE + ["exec", "-T", "loadtest-postgres", "psql", "-X", "-qAt", "-U", "loadtest",
                                    "-d", "mateon_loadtest", "-v", "ON_ERROR_STOP=1", "-c",
                                    "SELECT json_build_object('users', (SELECT count(*) FROM users), "
                                    "'events', (SELECT count(*) FROM events), "

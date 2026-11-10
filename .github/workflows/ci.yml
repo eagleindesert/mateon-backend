@@ -241,6 +241,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v9
       - name: Next DockerHub semver
         id: version
         env:
