@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # 계약 변경 라벨을 붙이거나 떼면 현재 라벨 상태로 pr-gate 를 다시 판정한다.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
   workflow_dispatch:

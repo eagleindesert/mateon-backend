@@ -67,7 +67,12 @@ DB GUI 는 [docker-compose-pgadmin.yml](docker-compose-pgadmin.yml) 을 앱/DB c
 
 브랜치 보호의 required check 는 `pr-gate` 입니다. `test` 와 `ab-regression` 은 로그용입니다.
 
-`ab-regression` 은 PR 이 코드와 테스트를 같이 바꿔 침묵하는 회귀를 찾습니다. base 의 `src/test` 를 현재 코드 위에 덮어 `./gradlew test` 를 돌립니다. 실패는 Step Summary 에 `REGRESSION` (예전 단언이 깨짐) 또는 `INCOMPATIBLE` (예전 테스트가 컴파일되지 않음) 으로 분류됩니다. `src/test` 와 `build.gradle` 이 base 와 같으면 기존 `test` 와 같은 일이라 생략합니다. 라벨 `intentional-contract-break` 가 있으면 overlay 를 생략합니다 (`test` 는 그대로 돕니다). 리뷰할 때 삭제·완화된 테스트가 의도인지, 라벨이 있으면 그 의도가 맞는지 보면 됩니다.
+`ab-regression` 은 PR 이 코드와 테스트를 같이 바꿔 침묵하는 회귀를 찾습니다. base 의 `src/test` 를 현재 코드 위에 덮어 `./gradlew test` 를 돌립니다. 실패는 Step Summary 에 `REGRESSION` (예전 단언이 깨짐) 또는 `INCOMPATIBLE` (예전 테스트가 컴파일되지 않음) 으로 분류됩니다. `src/test` 와 `build.gradle` 이 base 와 같으면 기존 `test` 와 같은 일이라 생략합니다.
+
+클래스 삭제·교체나 동작 변경으로 예전 테스트와 의도적으로 호환되지 않는 PR 은 `intentional-contract-break` 라벨을 붙입니다.
+예를 들어 인증 전용 `AuthRequestLoggingFilter` 를 전체 요청용 `RequestLoggingFilter` 로 교체하면, base 의 옛 테스트가 삭제된 클래스를 참조해 `INCOMPATIBLE` 이 됩니다.
+리뷰에서 변경 의도와 대체 테스트를 확인하고 라벨을 적용하세요. 라벨이 있으면 overlay 를 생략하며, 현재 테스트와 JaCoCo 검증은 그대로 실행합니다.
+라벨을 추가하거나 제거하면 CI 가 새로 실행되어 `pr-gate` 를 다시 판정합니다. 이 워크플로 변경을 PR 브랜치에 반영한 뒤 라벨을 적용하세요.
 
 로컬에서 같은 `test` 관문을 보려면 Docker 가 켜져 있어야 합니다. 통합 테스트가 Testcontainers 를 씁니다.
 
