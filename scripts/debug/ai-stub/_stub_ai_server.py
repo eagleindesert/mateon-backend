@@ -3,17 +3,77 @@ import argparse
 import json
 import random
 import sys
+import threading
+import time
+import uuid
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "lib"))
-from colors import color_print
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "etc"))
+from colors import color_print as print_color
 from http_body import read_http_body
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--host', default='127.0.0.1')
 parser.add_argument('--port', type=int, default=8000)
 parser.add_argument('--embedding-dimension', type=int, default=1536)
 parser.add_argument('--expected-secret', default='')
-args = parser.parse_args()
+parser.add_argument('--mode', choices=('debug', 'loadtest', 'ai-stub'), default='debug')
+parser.add_argument('--delay-ms', type=int, default=0)
+parser.add_argument('--quiet', action='store_true')
+# import 시 서버를 띄우거나 테스트 러너의 인자를 소비하지 않는다.
+args = parser.parse_args([])
+
+
+def color_print(*values, **kwargs):
+    if not args.quiet:
+        print_color(*values, **kwargs)
+
+
+class RequestStats:
+    """헬스·관리 요청을 제외한 모든 업무 호출을 원자적으로 센다."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.instance_id = str(uuid.uuid4())
+        self.generation = 0
+        self.total = 0
+        self.active = 0
+        self.denied = 0
+        self.paths = {}
+        self.serials = {}
+
+    def begin(self, path, denied=False):
+        with self.lock:
+            self.total += 1
+            self.active += 1
+            self.denied += int(denied)
+            self.paths[path] = self.paths.get(path, 0) + 1
+
+    def finish(self):
+        with self.lock:
+            self.active -= 1
+
+    def next_serial(self, name):
+        with self.lock:
+            self.serials[name] = self.serials.get(name, 0) + 1
+            return self.serials[name]
+
+    def snapshot(self):
+        with self.lock:
+            return dict(instance_id=self.instance_id, generation=self.generation, total=self.total,
+                        active=self.active, denied=self.denied, paths=dict(self.paths))
+
+    def reset(self):
+        with self.lock:
+            if self.active:
+                return False
+            self.total = self.denied = 0
+            self.paths.clear()
+            self.generation += 1
+            return True
+
+
+stats = RequestStats()
 
 known_paths = {
     '/intents/extract', '/internal/teams/embedding:refresh',
@@ -23,7 +83,6 @@ known_paths = {
     '/proposals/user-to-team', '/proposals/team-to-user',
     '/contests/extract-image', '/portfolios/summarize',
 }
-counters = {'portfolio': 0, 'reason': 0, 'proposal': 0}
 
 
 def vector():
@@ -142,16 +201,52 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            # 부하 발생기가 타임아웃으로 연결을 닫아도 진행 중 요청 수는 반납한다.
+            pass
 
     def do_GET(self):
         if self.path == '/__stub':
             self.send_json({'stub': 'mateon-ai-stub',
-                            'embedding_dimension': args.embedding_dimension})
+                            'embedding_dimension': args.embedding_dimension,
+                            'mode': args.mode, 'delay_ms': args.delay_ms,
+                            'instance_id': stats.instance_id})
+        elif self.path == '/__stub/stats':
+            self.send_json(stats.snapshot())
         else:
-            self.send_json({'detail': 'Not Found'}, 404)
+            self.reject_unknown()
 
     def do_POST(self):
+        if self.path == '/__stub/reset':
+            if not stats.reset():
+                self.send_json({'detail': '업무 요청 처리 중에는 초기화할 수 없습니다.'}, 409)
+            else:
+                self.send_json(stats.snapshot())
+            return
+
+        stats.begin(self.path, denied=args.mode == 'loadtest')
+        try:
+            if args.mode == 'loadtest':
+                self.send_json({'detail': '일반 REST 테스트에서 AI 업무 호출이 발생했습니다.'}, 503)
+                return
+            if args.delay_ms:
+                time.sleep(args.delay_ms / 1000)
+            self.handle_business_request()
+        finally:
+            stats.finish()
+
+    def reject_unknown(self):
+        stats.begin(self.path, denied=args.mode == 'loadtest')
+        try:
+            self.send_json({'detail': 'Not Found'}, 404)
+        finally:
+            stats.finish()
+
+    do_PUT = do_PATCH = do_DELETE = do_HEAD = do_OPTIONS = reject_unknown
+
+    def handle_business_request(self):
         if self.path not in known_paths:
             self.send_json({'detail': 'Not Found'}, 404)
             return
@@ -186,11 +281,11 @@ class Handler(BaseHTTPRequestHandler):
                             'recommended_targets': '대상 제한 없음, 역량 강화 및 포트폴리오 구축 희망자'})
             return
         if self.path == '/portfolios/summarize':
-            counters['portfolio'] += 1
+            serial = stats.next_serial('portfolio')
             head = raw[:512].decode(errors='replace')
             color_print('Green' if 'name="pdf_file"' in head else 'Red', '[OK] pdf_file' if 'name="pdf_file"' in head else '[!!] pdf_file 없음', flush=True)
             self.send_json({'pdf_id': '0' * 64,
-                            'response': f"- [stub#{counters['portfolio']}] OO 서비스 프론트엔드 개발, React/TypeScript 로 대시보드 UI 구현\n"
+                            'response': f"- [stub#{serial}] OO 서비스 프론트엔드 개발, React/TypeScript 로 대시보드 UI 구현\n"
                                         '- OO 해커톤 팀 프로젝트, 백엔드 API 설계 및 배포\n\n'
                                         '요약\n이 사용자는 프론트엔드를 중심으로 실무 프로젝트 경험을 쌓아왔으며, 백엔드 협업 경험도 일부 있습니다.'})
             return
@@ -198,6 +293,9 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw)
         except (ValueError, TypeError):
             self.send_json({'detail': 'Invalid JSON'}, 400)
+            return
+        if not isinstance(body, dict):
+            self.send_json({'detail': 'JSON object required'}, 400)
             return
         color_print('Gray', f'{self.path}: {json.dumps(body, ensure_ascii=False)[:1200]}', flush=True)
         if self.path == '/internal/teams/embedding:refresh':
@@ -223,12 +321,12 @@ class Handler(BaseHTTPRequestHandler):
             color_print("White", f"direction={body.get('direction')} selected={body.get('selected_candidate_id')} shown={len(shown)}", flush=True)
             self.send_json({'accepted': True})
         elif self.path == '/recommendations/reason':
-            counters['reason'] += 1
-            reason = (f"[stub#{counters['reason']}] 후보({body.get('candidate_summary')})와 "
+            serial = stats.next_serial('reason')
+            reason = (f"[stub#{serial}] 후보({body.get('candidate_summary')})와 "
                       f"대상({body.get('target_summary')})은 {body.get('score_context')} 기준으로 잘 맞습니다.")
             self.send_json({'reason': reason})
         elif self.path in ('/proposals/user-to-team', '/proposals/team-to-user'):
-            counters['proposal'] += 1
+            serial = stats.next_serial('proposal')
             direction = 'USER_TO_TEAM' if self.path.endswith('user-to-team') else 'TEAM_TO_USER'
             expected_sender = body.get('user_id') if direction == 'USER_TO_TEAM' else body.get('team_id')
             expected_receiver = body.get('team_id') if direction == 'USER_TO_TEAM' else body.get('user_id')
@@ -237,17 +335,29 @@ class Handler(BaseHTTPRequestHandler):
             result = {key: body.get(key) for key in ('user_id', 'team_id', 'contest_id', 'sender_id',
                                                       'receiver_id', 'intent_id', 'synergy_score')}
             result.update({'direction': direction, 'portfolio_role_fit_score': None,
-                           'summary': f"[stub#{counters['proposal']}] {body.get('candidate_summary')} 를 바탕으로 함께하고 싶습니다.",
-                           'message': f"[stub#{counters['proposal']}] 안녕하세요. {body.get('target_summary')} 에 관심이 있어 연락드립니다."})
+                           'summary': f"[stub#{serial}] {body.get('candidate_summary')} 를 바탕으로 함께하고 싶습니다.",
+                           'message': f"[stub#{serial}] 안녕하세요. {body.get('target_summary')} 에 관심이 있어 연락드립니다."})
             self.send_json(result)
         else:
             self.send_json(intent(body))
 
 
-color_print('Magenta', 'AI 서버 스텁', flush=True)
-color_print('Green', f'AI 스텁: http://localhost:{args.port}/', flush=True)
-color_print('DarkGray', f'  임베딩 차원: {args.embedding_dimension}', flush=True)
-try:
-    HTTPServer(('127.0.0.1', args.port), Handler).serve_forever()
-except KeyboardInterrupt:
-    color_print('DarkGray', '스텁 서버를 중지했습니다.', flush=True)
+class StubServer(ThreadingHTTPServer):
+    request_queue_size = 128
+
+
+def main():
+    global args
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535 or not 0 <= args.delay_ms <= 120000:
+        parser.error('포트는 1~65535, 지연은 0~120000ms 범위여야 합니다.')
+    print_color('Green', f'AI 스텁: http://{args.host}:{args.port}/ (mode={args.mode})', flush=True)
+    try:
+        with StubServer((args.host, args.port), Handler) as server:
+            server.serve_forever()
+    except KeyboardInterrupt:
+        color_print('DarkGray', '스텁 서버를 중지했습니다.', flush=True)
+
+
+if __name__ == '__main__':
+    main()

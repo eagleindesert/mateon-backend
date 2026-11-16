@@ -1,6 +1,55 @@
-# Bash 스크립트
+# 스크립트
+
+`./build-push.sh [VERSION]`은 이미지를 빌드하고 DockerHub에 게시합니다. `--mode loadtest` 또는
+`--mode ai-stub`이면 백엔드와 AI 스텁을 같은 태그로 게시합니다.
+`./start.sh [VERSION]`은 모든 모드에서 DockerHub 이미지를 pull한 뒤 빌드 없이 실행합니다.
+AI 스텁도 게시된 이미지를 사용하며, pull에 실패하면 실행을 중단합니다.
+`./scripts/build-start.sh [VERSION]`은 앱을 빌드한 뒤 개발 Compose로 실행하며 기본 포트는 8080입니다.
+`bootRun`과 같은 개발 DB 볼륨과 `.env` / `.env.secret`을 사용하고, 앱의 `/health` 응답을 확인합니다.
+테스트 모드에서는 AI 스텁도 같은 태그로 빌드하고, DockerHub에 push하지 않습니다.
+
+두 스크립트 모두 `--mode server|loadtest|ai-stub`, `--tag`, `--db-pool-size`, `--port`를 지원합니다.
+`build-start.sh`는 추가로 `--platform`, `--username`, `--image-name`을 지원하며 태그 기본값은 `local`입니다.
+기본 `server` 모드에서 `start.sh`는 배포 Compose·`.env` / `.env.secret`·8081, `build-start.sh`는 개발 Compose·
+`.env` / `.env.secret`·8080을 사용합니다. 개발 포트 변수는 `DEV_APP_PORT`, 배포 포트 변수는
+`APP_PORT`이며 `--port`가 우선합니다. 테스트 모드는 같은 배포 Compose의 `loadtest` 프로필과
+별도 DB를 사용하고, 포트 변수는 `LOADTEST_PORT`(기본 18081)입니다.
+테스트는 [JMeter 실행 안내](test/jmeter/README.md)를 참고하세요.
+자세한 절차는 [루트 README](../README.md#배포와-컨테이너-재실행)를 참고하세요.
+
+배포 스크립트 검증은 `uv run --no-project scripts/test/test_deployment.py` 로 실행합니다.
+임시 디렉터리에서 Compose 설정과 Docker 호출 순서·실패 처리를 검사하며 실제 컨테이너를 실행하지 않습니다.
 
 `scripts` 아래의 PowerShell 스크립트 37개를 같은 상대 경로와 파일 이름의 `.sh`로 옮겼습니다. 실행할 때 PowerShell이 필요하지 않습니다. API 테스트에는 Bash, curl, Python 3가 필요합니다. Docker 배포에는 Docker CLI와 buildx가 필요합니다.
+
+### `.env` / `.env.secret` 양식 갱신
+
+기본 실행은 프로젝트 루트의 두 파일을 각각의 예제에 맞춰 갱신합니다. Python 3.10 이상과 `uv`를 사용하며 추가 패키지는 필요 없습니다.
+
+| 갱신할 파일 | 양식으로 사용할 파일 |
+| --- | --- |
+| `.env` | `.env.example` |
+| `.env.secret` | `.env.secret.example` |
+
+```bash
+uv run scripts/sync_env.py --dry-run
+uv run scripts/sync_env.py
+```
+
+두 파일 모두 템플릿의 항목 순서, 설명 주석, 빈 줄을 적용합니다. 기존 값은 빈 값, 따옴표, 인라인 주석, 따옴표로 감싼 여러 줄 값까지 그대로 유지합니다. 기존 항목의 활성/주석 상태와 `export`도 유지하므로, 템플릿에서 주석 처리된 항목이라도 기존 파일에서 사용 중이면 활성 상태로 배치합니다. 기존 설명 주석은 템플릿의 설명으로 교체합니다.
+
+새 항목은 템플릿의 값과 주석 상태를 사용하고, 템플릿에 없는 기존 키는 각 파일 끝에 보존합니다. 대상 파일이 없으면 해당 템플릿으로 생성합니다. 두 파일을 모두 검증한 뒤 갱신하므로, 형식 오류, 활성 키 중복, 값을 보존할 수 없는 모호한 주석 예시가 있으면 두 파일 모두 변경하지 않고 중단합니다.
+
+변경할 때마다 기존 파일을 같은 디렉토리의 `.env.bak.*` / `.env.secret.bak.*`에 각각 백업하고 기존 파일 권한을 유지합니다. 변경 사항이 없으면 파일과 백업을 만들지 않습니다. `--dry-run`은 변경 필요 여부만 표시하며, 실행 결과에 설정값은 출력하지 않습니다.
+
+`--example` 또는 `--env`를 지정하면 해당 파일 쌍만 처리합니다. 생략한 인수는 프로젝트 루트의 `.env.example` / `.env`를 사용합니다. `.env.secret`만 갱신하거나 다른 파일 쌍에 적용할 때는 두 경로를 함께 지정하세요.
+
+```bash
+uv run scripts/sync_env.py --example .env.secret.example --env .env.secret
+uv run scripts/sync_env.py --example scripts/test/.env.example --env scripts/test/.env
+```
+
+### API 테스트
 
 전체 API 테스트:
 
@@ -19,7 +68,7 @@ bash scripts/test/for-api/99_run_all.sh \
 | --- | --- |
 | `ci/.env.example` | 회귀 검사에는 필수 설정 없음. 선택한 JDK/Gradle 설정은 실행 전에 셸에 export |
 | `debug/.env.example` | CORS 주소, Node.js 채팅 A/B 계정, 카카오 키/토큰. 해당 도구가 `debug/.env` 자동 로드 |
-| `docker/.env.example` | DockerHub 사용자명/토큰 및 태그 계산 설정. `deploy-dockerhub.sh`가 `docker/.env` 자동 로드 |
+| `docker/.env.example` | DockerHub 사용자명/토큰 및 태그 계산 설정. 루트 `build-push.sh`가 `docker/.env` 자동 로드 |
 | `test/.env.example` | API 테스트 A/B/C 계정, 학교 이메일, 카카오 토큰, 선택적 LiveTest 설정. API 스크립트가 `test/.env` 자동 로드 |
 
 ### 디렉토리별 `.env`를 설정할 필요가 없는 실행 파일

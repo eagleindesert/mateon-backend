@@ -1,0 +1,9 @@
+# 전용 빌드에는 스텁과 표준 라이브러리 보조 코드만 전송한다.
+**
+!scripts/
+!scripts/etc/
+!scripts/etc/colors.py
+!scripts/etc/http_body.py
+!scripts/debug/
+!scripts/debug/ai-stub/
+!scripts/debug/ai-stub/_stub_ai_server.py
